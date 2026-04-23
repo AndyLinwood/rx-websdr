@@ -1,0 +1,288 @@
+9.0am Sferics (lightning cloud to ground)
+11.9cwn RSDN20
+12.09cwn RSDN20
+12.65cwn RSDN20
+14.88cwn RSDN20
+15.6cwn RSDN20
+16.0cw GBR
+16.4cw JXN
+17.2cw SAQ Alexanderson<br>Alternator Transmitter
+17.9cw RDL
+18.1cw RDL
+18.3cw HWU
+18.9cw RDL
+19.6cw GQD/GBZ
+20.27cw ICV
+20.5cw RJH
+20.76cw ICV
+20.9cw HWU
+21.1cw RDL
+21.75cw HWU
+22.1cw GBZ/GQD
+22.6cw HWU
+23.0cw RJH
+23.4cw DOH38
+24.0cw NAA
+25.0cw RJH
+25.1cw RJH
+25.5cw RJH
+26.7cw TBB
+29.7cw I ?
+30.0am Sferics (lightning cloud to cloud)
+37.5cw TFK
+38.0cw SHR Ruda
+40.4cw SAS Varberg
+40.75cw NST
+42.5cw SRC
+42.6cw SAS2
+44.2cw SWE SAS2 SRC Tving
+45.9cw NSY
+49.0cw SXA
+50.0cw RTZ
+52.0cw GNY1
+53.4cw TBG
+57.4cw GXH
+60.0cw MSF
+61.8cw RBU?
+62.6cw FUG
+63.9cw FTA63
+65.8cw FUE
+66.6cw RBU
+68.0cw GBY20?
+77.5cw DCF77
+81.0cw GYN2
+82.75cw GYB/MKL?
+100.0am LORAN
+122.5cw DCF42
+123.7cw DCF42
+129.1cw DCF49
+135.6cw HGA22
+135.7lsb Begin 2200m 
+135.8cw SXV
+136.0usb WSPR & OPERA Op32
+137.8lsb End 2200m
+139cw DCF39
+140.22usb DCF60
+153am Antena Satelor
+162cw TDF time signal
+198am BBC4
+216am Monte Carlo
+225am Polskie Radio RP1
+234am RTL-FR
+252am Chaine3 Algeria
+270am ČRo Radiožurnál
+277amv CHT NDB
+472lsb Begin 630m
+479lsb End 630m
+501cw Begin 600m
+504cm End 600m
+490cw Navtex<br> Local languages
+518cw Navtex<br> English
+531am Jill
+540am Kossuth<br>Onda Cero
+541am Onda Cero Catal
+549am Spirit R Eire
+558am RNE R5 <br>Spectrum International<br>Romania Actua
+567am Romania Actua<br>RNE R5 Barcelona
+576am RNE R5 Palau-solità
+585am RNE Madrid
+594am Riyadh S-Arabia (night)
+595am SNRT (night)
+603am Smooth<br>Romania Actua<br>RNE R5 Sevilla
+612am Espania RNE<br>Radonezh/Narodnoye Moscow
+621am RNE Palma 
+630am Tunesia<br>SRR Timisoara (night) 
+639am ČRo Dvojka<br>RNE Galicia
+648am Caroline
+657am RNE Extremadura<br>RAI1
+666am Barcelona
+684am Espania RNE
+693am BBC5Live
+702am SRo3 Devín (night) 
+711am România Actualităţi (night)
+720am România Actualităţi (night)
+729am Espania RNE
+747am R4Brainport
+756am România Actualităţi
+738am Espania RNE
+774am Espania RNE
+783am COPE
+801am Espania RNE
+810am Scotland
+819am ERTU Al-Barnameg al-Aam (night)
+828am R4Brainport<br>Daytime Nederwetten
+837am Cope Sevilla
+873am Zaragoza,MR4
+855am Espania RNE
+864am ERTU Al-Quran al-Karim (night)
+882am BBC Wales
+891am euRegioRadio 75W
+900am RAIint
+909am 5Live
+918am IntSpain
+936am RAI1<br>Ukrainian R1
+999am Радио России
+1035am TransWorld Radio
+1053am Radio Mariya
+1062am Country Czech
+1152am Romania Int
+1179am Romania Actua
+1215am AbsoluteRadio
+1233am Dechovka
+1242am France Info
+1251am Smooth Radio UK
+1260am Absolute Radio UK
+1269am Deutschlandfunk
+1278am France Bleu & Misc RSL UK
+1287am BFBS Radio Aldershot UK
+1296am Radio XL UK
+1305am Premier Radio UK
+1314am RNE Radio 5 Spain
+1323am Smooth Radio UK
+1332am Premier Radio London<br>ČRo Dvojka
+1341am BBC Ulster
+1350am Misc RSL UK
+1359am Smooth Radio UK
+1368am BBC Radio Surrey
+1377am France Info
+1386am Радио Свобода
+1395am Radio Tirana
+1413am Радио Вести
+1422am Deutschlandfunk
+1431am Smooth Radio Reading UK
+1440am RTL/ China Radio International
+1449am Asian Network
+1458am LycaRadio
+1521am Радио  Китая
+1557am Радио Лента 
+1810lsb >160m
+1854cw beacon OKM1 ex OK0EV
+2000lsb <160m
+2130fm РЖД
+2182usb Int Rescue
+2869usb RUS Volmet
+2920usb Вольные операторы
+3500lsb >80m
+3800lsb <80m
+3920am Pirate Radio<br>Europe
+3950lsb Hurricane Watch
+3955am Channel292
+3985am MiAmigo<br>19-20CET
+4625usb Bazzer UVB76
+4996cw Сигнналы<br>точного времени и частоты
+4930usb The Air Horn
+5279usb RAOTA
+5351.5lsb >60m
+5363usb Dutch
+5366.5lsb <60m
+5583usb Air Shanwick
+5450usb Volmet<br>EUR RAF Military1
+5475usb Volmet<br>SAM Agentina
+5499usb Volmet<br>AFI Africa
+5493usb Air Traffic<br>Africa 4 route
+5505usb Volmet<br>Europe
+5520usb Air Traffic<br>Caribbean B route
+5547usb Air Traffic<br>Central E-Pacific 1&2 route
+5550usb Air Traffic<br>Caribbean A route
+5574usb Air Traffic<br>Central E-Pacific 1&2 route
+5598usb Air Traffic<br>N-Atlantic A route
+5601usb Volmet<br>SAM S-America
+5616usb Air Traffic<br>N-Altantic B route
+5628usb Air Traffic<br>N-Pacific 2&4 route
+5649usb Air Traffic<br>N-Atlantic C route
+5652usb Air Traffic<br>Africa 2 route
+5658usb Air Traffic<br>Africa 3 route
+5673usb Volmet<br>SEA 2 S-E Asia
+5677usb Air Traffic<br>N-Pacific 2&4 route
+5680usb Int Rescue
+5780am Harmony<br>Belgium
+5830am WWTW<br>Free Asia
+5840am World Music
+5905am Deutscher<br>Wetterdienst
+5920am Religious
+5935am PBS Xizang
+5960am China
+5970am China<br>Itatiaia
+5980am Romania Int<br>Bible?
+5990am Senado
+5995am Gazeta
+6000am Religious
+6604usb Volmet<br>NAT N-Atlantic
+6040am Romania Int<br>Brazil2
+6305am Alice
+6070am Channel292
+6215am Maritime Rescue 
+6160am VoA
+6685usb Air Traffic<br>Russia
+7000lsb >40m
+7200lsb <40m
+7340am China
+9490am Radio Romania
+10100cw >30m
+10150cw <30m
+10460usb Радиохулиганы!!
+13261usb Air Traffic<br>E-Pacific 1&2 route
+13264usb Volmet<br>Europe
+13270usb Volmet<br>NAT N-Atlantic
+13273usb Air Traffic<br>Africa 2 route
+13279usb Volmet<br>NCA N-C-Asia<br>SAM S-America
+13282usb Volmet<br>PAC Pacific
+13318usb AIR<br>SEA 13
+13321usb AMS<br>2 3
+13324usb AMS<br>W I/III
+13327usb AMS<br>W I/IV
+13330usb AMS<br>W II/V
+13333usb AMS<br>W I/III
+13336usb AMS<br>W I/IV
+13339usb AMS<br>W II/V
+13342usb AMS<br>W I/III
+13345usb AMS<br>W I/IV
+13348usb AMS<br>W II/V
+13351usb AMS<br>W I/III
+13354usb Air Traffic<br>N-Atlantic E route
+13357usb Air Traffic<br>Africa 1 route
+13635am Turkey
+13670am China
+13750am Romania Int.
+13845am WWCR Nashville
+18068usb >17m
+18168usb <17m
+24890cw >12m
+24990usb <12m
+14000usb >20m
+14350usb <20m
+15200am Deutsche Welle
+21000usb >15m
+21435usb NassiBal
+21450usb <15m
+27135am Дальнобойщики
+28000usb >10m
+29700usb <10m
+144000fm >2m
+144430cw Beacon UA3MRS/b
+145300fm RM3MM-L
+145350fm RO3M-L
+145425fm EchoLink
+145800fm ISS Down
+146000fm <2m
+430000fm >70cm
+437750fm МЧС
+437900fm МЧС
+437800fm ISS FM Down
+438150fm DMR RO3M
+433075fm >LPD
+433125fm LPD3
+433875fm LPD33
+433950fm LPD36
+433975fm LPD37
+434750fm <LPD
+440000fm <70cm
+1999.5cwn SM6AAL-beacon500mW
+127500am Москва Контроль СВ
+127200am Москва Подход
+128000am Москва Подход Юг
+127350am Ярославль АТИС
+120300am Ярославль вышка
+433400fm ЧОП ТЦ РИО
+145700fm RR3N
+25900am Радио МТУСИ
