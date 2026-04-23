@@ -179,4 +179,4 @@ nohup ./bin/websdr_server cfg/websdr.cfg > websdr.log 2>&1 &
 
 ## Контакты
 
-Поддержка и обсуждение: [ваш email или форум]
+Поддержка и обсуждение: r3mav
