@@ -183,69 +183,63 @@ public:
         }
     }
     
-    void readerLoop() {
-        std::cout << "Starting reader for band " << config.name 
-                  << " on " << config.device << std::endl;
-        
-        while (running) {
-            // Open FIFO
-            fifoFd = open(config.device.c_str(), O_RDONLY | O_NONBLOCK);
-            if (fifoFd < 0) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-                continue;
-            }
-            
-            std::cout << "Connected to FIFO for band " << config.name << std::endl;
-            
-            // Read IQ data
-            char readBuffer[BUFFER_SIZE * sizeof(IQSample)];
-            
-            while (running && fifoFd >= 0) {
-                ssize_t bytesRead = read(fifoFd, readBuffer, sizeof(readBuffer));
-                
-                if (bytesRead > 0) {
-                    // Convert to IQ samples
-                    int numSamples = bytesRead / sizeof(IQSample);
-                    
-                    std::lock_guard<std::mutex> lock(bufferMutex);
-                    
-                    for (int i = 0; i < numSamples; i++) {
-                        float* ptr = reinterpret_cast<float*>(readBuffer + i * sizeof(IQSample));
-                        IQSample sample(ptr[0], ptr[1]);
-                        
-                        if (config.swapIQ) {
-                            sample = IQSample(ptr[1], ptr[0]);
-                        }
-                        
-                        // Apply gain
-                        float gainFactor = pow(10.0f, config.gain / 20.0f);
-                        sample *= gainFactor;
-                        
-                        buffer[i % BUFFER_SIZE] = sample;
-                    }
-                    
-                    bufferCV.notify_all();
-                } else if (bytesRead < 0 && errno != EAGAIN && errno != EWOULDBLOCK) {
-                    std::cerr << "Error reading from FIFO: " << strerror(errno) << std::endl;
-                    close(fifoFd);
-                    fifoFd = -1;
-                    break;
+void readerLoop() {
+    std::cout << "Starting reader for band " << config.name
+              << " on " << config.device << std::endl;
+
+    int reconnectDelay = 100; // ms
+    const int MAX_RECONNECT_DELAY = 2000;
+
+    while (running) {
+        fifoFd = open(config.device.c_str(), O_RDONLY); // ← Убрать O_NONBLOCK для чтения
+        if (fifoFd < 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(reconnectDelay));
+            reconnectDelay = std::min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+            continue;
+        }
+        reconnectDelay = 100; // Сброс при успешном подключении
+        std::cout << "Connected to FIFO for band " << config.name << std::endl;
+
+        char readBuffer[BUFFER_SIZE * sizeof(IQSample)];
+        bool dataReceived = false;
+
+        while (running && fifoFd >= 0) {
+            ssize_t bytesRead = read(fifoFd, readBuffer, sizeof(readBuffer));
+
+            if (bytesRead > 0) {
+                dataReceived = true;
+                // ... обработка данных ...
+            } else if (bytesRead < 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    continue;
                 }
-                
-                if (bytesRead == 0) {
-                    // EOF - writer closed, reopen
-                    close(fifoFd);
-                    fifoFd = -1;
-                    break;
-                }
+                std::cerr << "Error reading FIFO: " << strerror(errno) << std::endl;
+                break;
             }
-            
-            if (fifoFd >= 0) {
-                close(fifoFd);
-                fifoFd = -1;
+
+            if (bytesRead == 0) {
+                // EOF
+                if (dataReceived) {
+                    std::cout << "FIFO closed by writer, reconnecting..." << std::endl;
+                }
+                break;
             }
         }
+
+        if (fifoFd >= 0) {
+            close(fifoFd);
+            fifoFd = -1;
+        }
+        // Задержка перед повторной попыткой (если не было данных — увеличиваем)
+        if (!dataReceived) {
+            reconnectDelay = std::min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(reconnectDelay));
     }
+}
+
+    
     
     bool getSamples(std::vector<IQSample>& outBuffer, int count) {
         std::unique_lock<std::mutex> lock(bufferMutex);
@@ -392,13 +386,19 @@ public:
             std::lock_guard<std::mutex> lock(g_clientsMutex);
             g_clients[clientSocket] = client;
         }
+
+       struct timeval tv;
+        tv.tv_sec = 5;
+        tv.tv_usec = 0;
+        setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+        setsockopt(clientSocket, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
         
         char buffer[4096];
         bool keepAlive = true;
         
         while (g_running && keepAlive && client.active) {
             int bytesRead = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-            
+            std::cout << "[HTTP] Request received: "  << std::endl;
             if (bytesRead <= 0) {
                 break;
             }
@@ -410,7 +410,7 @@ public:
             std::istringstream iss(request);
             std::string method, path, protocol;
             iss >> method >> path >> protocol;
-            
+            std::cout << "[HTTP] Path parsed: GET /" << std::endl;
             std::cout << "Request: " << method << " " << path << std::endl;
             
             // Route request
@@ -418,8 +418,10 @@ public:
                 keepAlive = handleGetRequest(clientSocket, path, client);
             } else if (method == "POST") {
                 keepAlive = handlePostRequest(clientSocket, request, client);
+std::cout << "[HTTP] Sending response..." << std::endl;
             } else {
                 sendErrorResponse(clientSocket, 405, "Method Not Allowed");
+std::cout << "[HTTP] Response sent." << std::endl;
             }
         }
         
@@ -468,22 +470,39 @@ public:
             else if (path.find(".html") != std::string::npos) contentType = "text/html";
             
             // Send response
-            std::ostringstream header;
-            header << "HTTP/1.1 200 OK\r\n";
-            header << "Content-Type: " << contentType << "\r\n";
-            header << "Content-Length: " << fileSize << "\r\n";
-            header << "Connection: keep-alive\r\n";
-            header << "\r\n";
+            std::string headers = "HTTP/1.1 200 OK\r\n"
+            "Content-Type: " + contentType + "\r\n"
+            "Content-Length: "+ std::to_string(fileSize) + "\r\n"
+            "Connection: close\r\n\r\n";
             
-            send(clientSocket, header.str().c_str(), header.str().length(), 0);
+            send(clientSocket, headers.c_str(), headers.size(), MSG_NOSIGNAL);
             
             // Send file content
             char fileBuffer[4096];
-            while (file.read(fileBuffer, sizeof(fileBuffer))) {
-                send(clientSocket, fileBuffer, file.gcount(), 0);
-            }
-            
-            return true;
+	    size_t sentTotal = 0;
+	    while (sentTotal < fileSize && file.good()) {
+		file.read(fileBuffer, sizeof(fileBuffer));
+		size_t toSend = file.gcount();
+		if (toSend == 0) break;
+
+		size_t sentNow = 0;
+		while (sentNow < toSend) {
+		    ssize_t n = send(clientSocket, fileBuffer + sentNow, toSend - sentNow, MSG_NOSIGNAL);
+		    if(n <= 0){
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+			    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			    continue;
+			}
+			std::cerr << "[HTTP] Send error: " << strerror(errno) << std::endl;
+			file.close();
+			return false;
+		    }
+		    sentNow += n;
+		}
+		sentTotal += toSend;
+	    }
+	    file.close();
+            return (sentTotal == fileSize);
         }
         
         // API endpoints
