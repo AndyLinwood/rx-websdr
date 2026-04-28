@@ -149,7 +149,6 @@ GET /getaudio?band=20m&frequency=14100&mode=lsb
 │   └── websdr.cfg           # Файл конфигурации
 ├── web/
 │   └── pub2/                # Веб-интерфейс
-├── pub/                     # Дополнительные файлы
 ├── Makefile                 # Файл сборки
 └── README.md                # Этот файл
 ```
