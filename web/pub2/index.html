@@ -1,28 +1,1855 @@
-<!DOCTYPE HTML>
+<!DOCTYPE html><html lang="ru">
+<head>
+
 <meta http-equiv="Content-Type" content="text/html;charset=utf-8">
+<meta http-equiv="Cache-control" content="no-cache" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="-1" />
 
 <!-- TODO: put a nice title in the next line -->
-<title>WebSDR in Yaroslavl</title>
 
-<!--#include file="websdr-head.html"-->
+<title>WebSDR in Yaroslav, Russia</title>
+
+<meta name="description" content="WebSDR Ярославль, Радиолюбительские станции online websdr приёмник"/>
+<meta name="keywords" content="WebSDR Ярославль, радиостанции онлайн,слушать радио, КВ диапазоны]"/>
+
+
+
+
+
+<link rel="shortcut icon" type="image/png" href="favicon.png"/>
+<link rel="stylesheet/less" type="text/css" href="styles.less" />
+<link rel="stylesheet" type="text/css" href="classic.css" />
+<script src="//cdnjs.cloudflare.com/ajax/libs/less.js/3.9.0/less.min.js" ></script>
+
+<script src="/jquery-3.3.1.js"></script>
+<style>
+body
+
+{
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.7);
+  transition: opacity 500ms;
+  visibility: hidden;
+  opacity: 0;
+  z-index: 100000;
+}
+.overlay:target {
+  visibility: visible;
+  opacity: 1;
+}
+
+.popup {
+  margin: 70px auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 5px;
+  width: 55%;
+  position: relative;
+  transition: all 5s ease-in-out;
+}
+
+.popup h2 {
+  margin-top: 0;
+  color: #333;
+  font-family: Tahoma, Arial, sans-serif;
+}
+.popup .close {
+  position: absolute;
+  top: 16px;
+  right: 30px;
+  transition: all 200ms;
+  font-size: 30px;
+  font-weight: bold;
+  text-decoration: none;
+  color: #333;
+}
+.popup .close:hover {
+  color: #06D85F;
+}
+.popup .content {
+  max-height: 30%;
+  overflow: auto;
+  font-size: 18px;
+  text-align: justify;
+}
+
+@media screen and (max-width: 700px){
+  .box{
+    width: 70%;
+  }
+  .popup{
+    width: 70%;
+  }
+}
+</style>
+
+
+
+
+<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.0.13/css/all.css" integrity="sha384-DNOHZ68U8hZfKXOrtjWvjxusGo9WQnrNx2sqG0tfsghAvtVlRW3tvkXWZh58N9jp" crossorigin="anonymous">
+<link href='http://fonts.googleapis.com/css?family=Roboto+Condensed' rel='stylesheet' type='text/css' />
+
+
+<script src="tmp/bandinfo.js" type="text/javascript"></script>
+<script src="websdr-base.js" type="text/javascript"></script>
+
+
+<style type="text/css">
+  body {    margin-left: auto;
+    margin-right: auto; min-width: 1200px; color: black;background-color: #bedcd7;font-family: "Roboto Condensed",Helvetica,"Lucida Grande",Verdana,Arial; /*font-family:"News Gothic Condensed","Arial Narrow"*/ ;font-size: 1rem;
+	/*background: url(bg6.jpg) no-repeat center center fixed; */
+    background-color: #bedcd7;
+    -webkit-background-size: cover;
+    -moz-background-size: cover;
+    -o-background-size: cover;}
+  .mb {background: rgb(241, 241, 241);vertical-align: top;display:inline-block;width: auto;margin: 4px;padding: 5px;border: solid #ffffff 1px;border-radius: 10px;box-shadow: 4px 4px 15px 0px rgba(0,0,0);text-align: center;}
+    .spotmb {background: rgb(241, 241, 241);vertical-align: top;display:inline-block;width: auto;margin: 4px;padding: 5px;border: solid #ffffff 1px;border-radius: 10px;box-shadow: 4px 4px 15px 0px rgba(0,0,0);text-align: center;}
+  .mbouter {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .maincontrols {top:0px; clear:both; z-index:200;}
+  .clear {clear: both;margin: 0px 5px 0px 5px;}
+  .others {font-size: 0.75rem;font-family: sans-serif;}
+  .memories {font-size: 0.8rem; vertical-align: top;display: inline-block;float: left;}
+  .scale{position:relative;}
+  .scaleabs{position:absolute;}
+  #edgelower:hover {background:url('edgelowerbb.png');}
+  #edgeupper:hover {background:url('edgeupperbb.png');}
+  #yellowbarr {background-color:yellow; top:1px; height:1px}
+  #yellowbara:hover #yellowbarr {top:2px; height:2px}
+  .hideblind {display:inline;}
+  .showblind {display:none;}
+  .fullcenter {margin: auto; padding: 6.8% 6%; text-align: center;}
+  .waterfall {color: #777 !important;font-size: 2.065rem !important;}
+  .users-bg {
+	margin-left: auto;
+    margin-right: auto;
+    margin-top: 10px;
+	margin-block-end: 10px;
+    font-size: 0.75rem;
+    color: white;
+	padding: 0px;
+	padding-block-start: 5px;
+    width: 1024px;
+    height: 100%;
+    background-color: #000;
+    box-shadow: 4px 4px 15px 0px rgba(0,0,0);
+    border-radius: 7px;
+    overflow: hidden;  
+	}
+  
+  .statinfo0 {padding: 1px 2px 1px 2px;font-weight: normal;font-size: 0.75rem;background-color: rgba(50, 52, 77, 0.85);color: rgba(230, 205, 60, 1);color: rgba(240, 240, 240, 0.70);border: 1px solid #ffc080;border-radius: 3px;white-space: nowrap;position: relative;cursor: pointer;float: left;}
+  .statinfo0:hover {color: rgba(255, 255, 255, 1);background-color: rgb(50, 52, 77);}
+  .statinfo1 {float:left;position:relative;}
+  .statinfo1:hover {z-index:98;}
+  .statinfo2 {border-width: 0px;border-left-width: 2px;border-color: black;position: absolute;}
+  .statinfo2:hover {overflow:visible;}
+  .statinfol {background-color:#ffc080;}
+  .statinfo0l {padding: 1px 2px 1px 2px;font-weight: normal;font-size: 0.75rem;background-color: rgba(64, 204, 128, 0.70);color: #000;color: rgba(240, 240, 240, 0.70);border: 1px solid #80ffc0;border: 1px solid #80ffc0;border-radius: 3px;white-space: nowrap;position: relative;cursor: pointer;float: left;}
+  .statinfo0l:hover {color: rgba(255, 255, 255, 1);background-color: rgba(64, 204, 128, 1)}
+  .statinfo1l {float: left;position: relative;border-left-width: 0px;border-right-width: 2px;border-top-width: 0px;border-bottom-width: 2px;border-color: black;}
+  .statinfo1l:hover {z-index:98;}
+  .statinfo2l {border-width: 0px;border-left-width: 2px;border-color: black;position: absolute;}
+  .statinfo2l:hover {overflow:visible;}
+  .statinfoll {background-color:#80ffc0;}
+
+  .statinfo0QRT {padding: 1px 2px 1px 2px;font-weight: normal;font-size: 0.75rem;background-color: rgba(50, 52, 77, 0.9);color: rgba(230, 205, 60, 1);color: rgba(100, 100, 100, 0.70);border: 1px solid #9c9c9cad;border-radius: 3px;white-space: nowrap;position: relative;cursor: pointer;float: left;}
+  .statinfo0QRT:hover {color: #848484;background-color: rgb(50, 52, 77);}
+  .statinfo1QRT {float:left;position:relative;}
+  .statinfo1QRT:hover {z-index:98;}
+  .statinfo2QRT {border-width: 0px;border-left-width: 2px;border-color: black;position: absolute;}
+  .statinfo2QRT:hover {overflow:visible;}
+  .statinfolQRT {background-color: #9c9c9cad;}
+
+  .statinfo0AB {float: left;white-space: nowrap;position: relative;border-width: 1px;border-style: solid;border-color: #2ebb2e;background-color: #067806;color: #e6e6e9;font-size: 0.75rem;}
+  .statinfo0AB {padding: 1px 2px 1px 2px; font-weight: normal; font-size: 0.75rem; background-color: rgba(46, 125, 46, 0.75); color: rgba(255, 255, 255, 0.9); border: 1px solid #2ebb2e; border-radius: 3px; white-space: nowrap; position: relative; cursor: pointer; float: left;}
+  .statinfo1AB {float:left; position:relative; border-left-width:0px; border-right-width:2px; border-top-width:0px; border-bottom-width:2px; border-color:black;}
+  .statinfo1AB:hover {z-index:98;}
+  .statinfo2AB {border-width:0px; border-left-width:2px; border-color:black;position:absolute;}
+  .statinfo2AB:hover {overflow:visible;}
+  .statinfolAB {background-color:#2ebb2e;}
+  .statinfo0BB {float:left; white-space:nowrap; position:relative; border-width:1px;border-style:solid;border-color:#2ebb2e; background-color:#067806;color:#e6e6e9;font-size: 0.75rem;}
+  .statinfo0BB {padding: 1px 2px 1px 2px; font-weight: normal; font-size: 0.75rem; background-color: rgba(150, 40, 145, 0.75); color: rgba(255, 255, 255, 0.9); border: 1px solid #df01a5; border-radius: 3px; white-space: nowrap; position: relative; cursor: pointer; float: left;}
+  .statinfo1BB {float:left; position:relative; border-left-width:0px; border-right-width:2px; border-top-width:0px; border-bottom-width:2px; border-color:black;}
+  .statinfo1BB:hover {z-index:98;}
+  .statinfo2BB {border-width:0px; border-left-width:2px; border-color:black;position:absolute;}
+  .statinfo2BB:hover {overflow:visible;}
+  .statinfolBB {background-color:#df01a5;}
+  .statinfo0CB {float: left;white-space: nowrap;position: relative;border-width: 1px;border-style: solid;border-color: ##3339ff;background-color: #067806;color: #e6e6e9;font-size: 0.75rem;}
+  .statinfo0CB {padding: 1px 2px 1px 2px; font-weight: normal; font-size: 0.75rem; background-color: rgba(58, 101, 179, 0.75); color: rgba(255, 255, 255, 0.9); border: 1px solid #2486ff; border-radius: 3px; white-space: nowrap; position: relative; cursor: pointer; float: left;}
+  .statinfo1CB {float:left; position:relative; border-left-width:0px; border-right-width:2px; border-top-width:0px; border-bottom-width:2px; border-color:black;}
+  .statinfo1CB:hover {z-index:98;}
+  .statinfo2CB {border-width:0px; border-left-width:2px; border-color:black;position:absolute;}
+  .statinfo2CB:hover {overflow:visible;}
+  .statinfolCB {background-color:#2486ff;}
+  .statinfo0PR {float: left;white-space: nowrap;position: relative;border-width: 1px;border-style: solid;border-color: #9900e6;background-color: #550080;color: #e6e6e9;font-size: 0.75rem;}
+  .statinfo0PR {padding: 1px 2px 1px 2px; font-weight: normal; font-size: 0.75rem; background-color: rgba(119, 0, 179, 0.75); color: rgba(255, 255, 255, 0.9); border: 1px solid #9900e6; border-radius: 3px; white-space: nowrap; position: relative; cursor: pointer; float: left;}
+  .statinfo1PR {float:left; position:relative; border-left-width:0px; border-right-width:2px; border-top-width:0px; border-bottom-width:2px; border-color:black;}
+  .statinfo1PR:hover {z-index:98;}
+  .statinfo2PR {border-width:0px; border-left-width:2px; border-color:black;position:absolute;}
+  .statinfo2PR:hover {overflow:visible;}
+  .statinfolPR {background-color: #9900e6;}
+
+  a.spotinfo {/* position: relative; */font-weight: normal;color: rgba(230, 230, 230, 0.80);text-decoration: none;/*border-bottom: 1px gray dotted;*/}
+  a.spotinfo span {display: none;}
+  a.spotinfo:hover {background: none; z-index: 500; /* cursor: help; */ color: white;}
+  a.spotinfo:hover span {font-size: 0.625rem; font-weight: normal; display: inline; position: absolute; white-space: nowrap; top: 17px; left: 10px; background: white; color: black; padding: 3px; border: 1px solid #00c8c8; border-left: 4px solid #00c8c8; border-radius: 3px;}
+
+  a.statinfo {/* position: relative; */font-weight: normal;color: rgba(240, 240, 240, 0.70);text-decoration: none;/*border-bottom: 1px gray dotted;*/}
+  a.statinfo span {display: none;}
+  a.statinfo:hover {background: none; z-index: 500; /* cursor: help; */ color: white;background-color: rgb(50, 52, 77);}
+  a.statinfo:hover span {font-size: 0.625rem; font-weight: normal; display: inline; position: absolute; white-space: nowrap; top: 18px; left: 10px; background: white; color: black; padding: 3px; border: 1px solid orange; border-left: 4px solid orange; border-radius: 3px;}
+
+  a.statinfoQRT {/* position: relative; */font-weight: normal;color: rgba(100, 100, 100, 0.8);text-decoration: none;/*border-bottom: 1px gray dotted;*/}
+  a.statinfoQRT span {display: none;}
+  a.statinfoQRT:hover {background: none; z-index: 500; /* cursor: help; */ color: #ED3737; color: white;}
+  a.statinfoQRT:hover span {font-size: 0.625rem; font-weight: normal; display: inline; position: absolute; white-space: nowrap; top: 18px; left: 10px; background: white; color: black; padding: 3px; border: 1px solid orange; border-left: 4px solid orange; border-radius: 3px;}
+
+  a.statinfoAB { /*position: relative;*/ font-size: 0.625rem; font-weight: normal; color: rgba(255, 255, 255, 0.9); text-decoration: none;/*border-bottom: 1px gray dotted;*/}
+  a.statinfoAB span {display: none;}
+  a.statinfoAB:hover {background: none; z-index: 500; /* cursor: pointer; */ color: white;}
+  a.statinfoAB:hover span {font-size: 0.625rem; font-weight: normal; display: inline; position: absolute; white-space: nowrap; top: 18px; left: 10px; background: white; color: black; padding: 3px; border: 1px solid #2e7d2e; border-left: 4px solid #2e7d2e; border-radius: 3px;}
+  a.statinfoBB {/*position: relative;*/ font-size: 0.625rem; font-weight: normal; color: rgba(255, 255, 255, 0.9); text-decoration: none;/*border-bottom: 1px gray dotted;*/}
+  a.statinfoBB span {display: none;}
+  a.statinfoBB:hover {background: none; z-index: 500; /*  cursor: help; */ color: white;}
+  a.statinfoBB:hover span {font-size: 0.615rem; font-weight: normal; display: inline; position: absolute; white-space: nowrap; top: 18px; left: 10px; background: white; color: black; padding: 3px; border: 1px solid #960591; border-left: 4px solid #960591; border-radius: 3px;}
+  a.statinfoCB {/*position: relative;*/ font-size: 0.625rem; font-weight: normal; color: rgba(255, 255, 255, 0.9); text-decoration: none;/*border-bottom: 1px gray dotted;*/}
+  a.statinfoCB span {display: none;}
+  a.statinfoCB:hover {background: none; z-index: 500; /* cursor: pointer; */ color: white;}
+  a.statinfoCB:hover span {font-size: 0.625rem; font-weight: normal; display: inline; position: absolute; white-space: nowrap; top: 18px; left: 10px; background: white; color: black; padding: 3px; border: 1px solid #2e7d2e; border-left: 4px solid #2d58b9; border-radius: 3px;}
+  a.statinfoPR { /*position: relative;*/ font-size: 0.625rem; font-weight: normal; color: rgba(255, 255, 255, 0.9); text-decoration: none;/*border-bottom: 1px gray dotted;*/}
+  a.statinfoPR span {display: none;}
+  a.statinfoPR:hover {background: none; z-index: 500; /* cursor: pointer; */ color: white;}
+  a.statinfoPR:hover span {font-size: 0.625rem; font-weight: normal; display: inline; position: absolute; white-space: nowrap; top: 18px; left: 10px; background: white; color: black; padding: 3px; border: 1px solid #2e7d2e; border-left: 4px solid #9900e6; border-radius: 3px;}
+
+/*  input:not(:checked) + .keylist {display: none;} */
+/*  input:checked + .keylist {display: block;} */
+  .warning {color:red; font-weight:bold; border:2px; border-style:solid; border-color:black; background-color:white; margin:8px; padding:4px; display:none;}
+
+  .keylist {display: none;width: 250pt;position: absolute;left: -1px;background-color: #e0e0e0;margin-top: 29px;padding: 5px;border-radius: 4px;white-space: nowrap;border: solid #ffffff 1px;border-radius: 4px;box-shadow: 2px 2px 10px 0px rgba(0,0,0,0.4);}
+   div:hover > .keylist {display: block;}
+  .keylisttd1{width: 30%;}
+  .keylisttd2{width: 65%;}
+
+  .smeterpeak {
+    height:11.17px;
+    margin: 0px 0px -12px 7px;
+    background-color:#FF0000;
+    position:relative;
+    background-color: transparent;
+    border-right: 2px solid rgb(255, 0, 0);
+  }
+
+  .smetermin {
+    margin: 7px 0px -12px 7px; 
+    z-index: 1;
+    width: 0px;
+    height: 4.17px;
+    background-color: transparent;
+    position: absolute;
+    border-right: 2px solid #98ffee;
+	<!-- transition: 0.5s width; -->
+  }
+
+  .smeterbar {
+    width:252px;
+    height:10px;
+    background: linear-gradient(to right, #98ffee 113px, red 5px);
+    box-shadow: 0 0 10px rgba(251, 244, 135, 0.8);
+    position:relative;
+    margin: 9px 0px 0px 7px;
+  }
+
+  #soundappletdiv div{
+    border: none  !important;
+    background-color: #91a9a500 !important;
+    min-height: 0 !important;
+    max-width: 100% !important;
+    font-family: "Roboto Condensed" !important;
+  }
+
+  .tog1:not(:checked) ~ .hideiftog1notchecked, .tog2:not(:checked) ~ .hideiftog2notchecked, .hiddencontrol {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  a:active{ color: blue; }
+  a {
+    color: #4a005d;
+    font-weight: ;
+    cursor: pointer;
+    text-decoration: underline;
+  }
+  a:hover {
+    color: red;
+  } 
+  a:focus {
+    outline: 5px auto -webkit-focus-ring-color;
+    outline-offset: -2px;
+    color: red;
+  }
+  
+h1{
+    margin: -8px -8px 8px -8px;
+    padding: 15px 8px 20px;
+    font-size: 1.56rem;
+    background-color: #400000;
+    color: #ffd600;
+  }
+  h1 span{
+    font-weight: normal;
+  }
+  h1 span a{
+    color: #ffd600;
+    text-decoration: none;
+    font-weight: normal;
+  }
+  h1 em{
+    color: #b5a550;
+    display: block;
+    font-size: 0.75rem;
+    font-weight: normal;
+    background-color: #400000;
+  }
+  h1 em a{
+    color: #b5a550;
+    text-decoration: none;
+  }
+/* 
+ h3{
+    font-size: 1.5rem;
+    margin-top: 5px;
+    margin-bottom: 5px;
+    font-family: inherit;
+    font-weight: 500;
+    line-height: 1.1;
+    color: inherit;
+  }
+*/
+  input{
+    font-size: 0.85rem;
+  }
+
+  label.volumedb {
+    font-family: monospace;
+    vertical-align: middle;
+    cursor: pointer;
+  }
+
+  .btn-selected {
+	box-shadow: inset -2px -2px 5px white, inset 3px 3px 5px rgba(0, 0, 0, 0.1) !important;
+	border: inset !important; 
+    background: #a0fced91	 !important;
+}
+	
+	*:focus {
+    outline: none;
+}
+  .btnBand {
+    height: 22px;
+    width:50px;
+    font-family: inherit;
+    text-decoration: none;
+    font-size: 0.85rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    border: outset;
+    background: buttonface;
+	border-radius: 40px;
+	margin: 2px;
+  }
+  .btnBand:hover {
+   color: #000000;
+   background-color: #e6e6e6;
+   border-color: #ffffff !important;
+	}
+.band_offed {
+	text-decoration: line-through;
+	color: #00000038;
+	}
+	
+  .btnVFO {
+    height: 22px;
+    width:50px;
+    margin: 1px;
+    font-family: inherit;
+    text-decoration: none;
+    color: black;
+    font-size: 0.85rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    outline: none;
+  }
+
+  .btnTune {
+    height: 22px;
+    width:50px;
+    font-family: inherit;
+    text-decoration: none;
+    color: black;
+    font-size: 0.75rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    border: outset;
+    background: buttonface;
+	border-radius: 40px;
+	margin: 2px;
+  }
+  .btnTune:hover {
+   color: #000000;
+   background-color: #e6e6e6;
+   border-color: #ffffff !important;
+	}
+	.btnTune:active {
+    border: inset !important; 
+    background: #a0fced91	 !important;
+	}
+
+  .btnFTune {
+    height: 22px;
+    width:50px;
+    font-family: inherit;
+    text-decoration: none;
+    color: black;
+    font-size: 0.85rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    border: outset;
+    background: buttonface;
+	border-radius: 40px;
+  }
+  .btnFTune:hover {
+   color: #000000;
+   background-color: #e6e6e6;
+   border-color: #ffffff !important;
+	}
+	  .btnFTune:active {
+    border: inset !important; 
+    background: #a0fced91	 !important;
+	}
+
+
+  .btnMemTool {
+    height: 22px;
+    font-family: inherit;
+    text-decoration: none;
+    color: black;
+    font-size: 0.8rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    outline: none;
+    vertical-align: text-bottom;
+	margin: 2px;
+  }
+
+  .wfLabel {
+    font-size: 0.9rem;
+  }
+
+  .wfmb {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-family: inherit;
+	padding: 2px 0px 2px 10px;
+    border-radius: 10px;
+    text-align-last: center;
+  }
+.btnMem{
+	  height: 22px;
+    width: 50px;
+    font-family: inherit;
+    text-decoration: none;
+    color: black;
+    font-size: 0.8rem;
+    cursor: pointer;
+    box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    border: outset;
+    background: buttonface;
+  }
+  .btnMem:hover {
+   color: #000000;
+   background-color: #e6e6e6;
+   border-color: #ffffff !important;
+	}
+	.btnMem:active {
+    border: inset !important; 
+    background: #a0fced91	 !important;
+	}
+	
+  .btnZoom {
+	  height: 22px;
+    width: 71px;
+    font-family: inherit;
+    text-decoration: none;
+    color: black;
+    font-size: 0.8rem;
+    cursor: pointer;
+    box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    border: outset;
+    background: buttonface;
+  }
+  .btnZoom:hover {
+   color: #000000;
+   background-color: #e6e6e6;
+   border-color: #ffffff !important;
+	}
+	.btnZoom:active {
+    border: inset !important; 
+    background: #a0fced91	 !important;
+	}
+
+  .btnMode {
+    height: 22px;
+    width:65px;
+    font-family: inherit;
+    text-decoration: none;
+    font-size: 0.85rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    border: outset;
+    background: buttonface;
+	border-radius: 40px;
+	margin: 2px;
+  }
+  .btnMode:hover {
+   color: #000000;
+   background-color: #e6e6e6;
+   border-color: #ffffff !important;
+	}
+
+  .btnBandW {
+    height: 22px;
+    width:75px;
+    font-family: inherit;
+    text-decoration: none;
+    color: black; 
+    font-size: 0.8rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    border: outset;
+    background: buttonface;
+	border-radius: 40px;
+	margin: 2px;
+  }
+  .btnBandW:hover {
+   color: #000000;
+   background-color: #e6e6e6;
+   border-color: #ffffff !important;
+
+	}
+   .btnPassBand {
+    width: 108px;
+    height: 22px;
+    font-family: inherit;
+    text-decoration: none;
+    color: black;
+    font-size: 0.8rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    border: outset;
+    background: buttonface;
+	border-radius: 40px;
+  }
+  .btnPassBand:hover {
+   color: #000000;
+   background-color: #e6e6e6;
+   border-color: #ffffff !important;
+	}
+	.btnPassBand:active {
+    border: inset !important; 
+    background: #a0fced91	 !important;
+	}
+
+  .btnRec {
+    height: 22px;
+    min-width:50px;
+    text-decoration: none;
+    color: red;
+    font-size: 0.85rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    border: outset;
+    background: buttonface;
+	border-radius: 40px;
+  }
+  .btnRec:hover {
+   color: #000000;
+   background-color: #e6e6e6;
+   border-color: #ffffff !important;
+	}
+	.btnRec:active {
+    border: inset !important; 
+    background: #a0fced91	 !important;
+	}
+
+  .btnNorm {
+    height: 22px;
+    min-width:50px;
+    font-family: inherit;
+    text-decoration: none;
+    color: black;
+    font-size: 0.85rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    outline: none;
+  }
+
+  .btnSmall {
+    height: 22px;
+    font-family: inherit;
+    text-decoration: none;
+    font-size: 0.8rem;
+    cursor: pointer;
+        box-shadow: -2px -2px 5px white, 3px 3px 5px rgba(0, 0, 0, 0.1);
+    outline: none;
+  }
+ 
+  [user-label] {
+    position: relative;
+  }
+
+  [user-label]:after {
+    content: attr(user-label);
+    margin-top: 18px;
+    margin-left: -20px;
+    position: absolute;
+    padding: 2px 5px;
+    color: rgba(255, 255, 255, 1);
+    background: rgba(50, 52, 77, 0.9);
+    border: 1px solid #ffc080;
+    border-radius: 4px;
+    white-space: nowrap;
+    pointer-events: none;
+    -webkit-transition: 0.5s ease-in-out opacity;
+    -moz-transition: 0.5s ease-in-out opacity;
+    -ms-transition: 0.5s ease-in-out opacity;
+    transition: 0.5s ease-in-out opacity;
+    -webkit-box-shadow: 0px 0px 16px rgba(0, 0, 0, 0.85);
+    -moz-box-shadow: 0px 0px 16px rgba(0, 0, 0, 0.85);
+    -o-box-shadow: 0px 0px 16px rgba(0, 0, 0, 0.85);
+    box-shadow: 0px 0px 16px rgba(0, 0, 0, 0.85);
+    opacity: 0;
+  }
+
+  [user-label]:hover:after {
+    opacity: 1;
+    z-index: 9999;
+  }
+
+
+@-webkit-keyframes blinker {
+  from {opacity: 1.0;}
+  to {opacity: 0.0;}
+}
+.blink{
+	text-decoration: blink;
+	-webkit-animation-name: blinker;
+	-webkit-animation-duration: 4s;
+	-webkit-animation-iteration-count:infinite;
+	-webkit-animation-timing-function:ease-in-out;  
+	-webkit-animation-direction: alternate;
+}
+
+@font-face{
+ font-family:'digital-font';
+ src: url('/DS-DIGII.TTF');
+}
+
+.EQ {
+  /* Блок резиновый
+     width: 100%; height: 100%; */
+	width: 300px;
+	margin-left:7px;
+    max-width: 241px;
+    height: 8px;
+    font-size: 0;
+    position: relative;
+    background-color: #000;
+}
+
+.EQ * { box-sizing: border-box; }
+
+
+
+
+/* Столбик */
+.EQ-column {
+  display: inline-block;
+    width: 100%;
+    height: 100%;
+    position: relative;
+	background-image: linear-gradient(to right, #98ffee 115px, red 5px);
+}
+
+
+/* Регулировка высоты столбика кастомным атрибутом */
+.EQ-column[data-volume="0"]::after { height: 0; }
+.EQ-column[data-volume="1"]::after { height: 3%; }
+.EQ-column[data-volume="2"]::after { height: 13%; }
+.EQ-column[data-volume="3"]::after { height: 23%; }
+.EQ-column[data-volume="4"]::after { height: 33%; }
+.EQ-column[data-volume="5"]::after { height: 43%; }
+.EQ-column[data-volume="6"]::after { height: 53%; }
+.EQ-column[data-volume="7"]::after { height: 63%; }
+.EQ-column[data-volume="8"]::after { height: 73%; }
+.EQ-column[data-volume="9"]::after { height: 83%; }
+.EQ-column[data-volume="10"]::after { height: 93%; }
+
+table.smetertable td {border: 1px solid #000;background-color:rgba(226, 226, 226, 0.11)}
+
+.radio_info_container {
+    margin-top: 8px;
+    font-size: 11px;
+	cursor: default;
+	position: relative;
+}
+
+.radio_info {
+    color: #e2e2e229;
+    display: inline-block;
+	padding-right:11px;
+	position:absolute
+}
+
+ .is_on {
+    color: #15ff12;
+    text-shadow: 0px 0px 5px;
+    display: inline-block;
+  }
+  .is_off {
+  color: red;
+    text-shadow: 0px 0px 5px;
+    display: inline-block;
+  }
+  
+.loader {
+	display: flex;
+    font-size: 3em;
+    justify-content: center;
+    align-items: center;
+    background: rgb(245, 245, 245);
+    z-index: 1001;
+    position: fixed;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}	
+
+
+}
+.d-table{
+
+}
+.d-tr{
+    text-align: center;
+}
+.d-td{
+display: inline-block;
+    padding: 5px 0px;
+    text-align: center;
+    border: none;
+    vertical-align: top;
+}
+
+
+
+.notify{  
+	    position: fixed;
+    z-index: 1000;
+    top: 0px;
+    width: 100%;
+    height: 0;
+    box-sizing: border-box;
+    color: #ffffff;
+    text-align: center;
+    background: #bdbdbdf2;
+    overflow: hidden;
+    box-sizing: border-box;
+    transition: height .7s;
+
+}
+
+#notifyType:before{
+  display:block;
+  margin-top:15px; 
+  
+}
+
+.active{  
+  height:50px;
+}
+
+.success:before{
+  Content:"На этом диапазоне пока нет приёмника. Для его появления Вы можете помочь проекту! Кнопка  внизу страницы";
+}
+
+
+.progress-ring {
+  
+}
+
+.progress-ring__circle {
+  transition: 0.35s stroke-dashoffset;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+}
+
+    /* Username + Freq Button  Rand + Groesse   */
+    .userfreqbtn {
+      background-color: rgba(41, 41, 41, 1.0);
+      border: 1px;
+      border-radius: 5px;
+      border: solid 1px;
+      font-size: 10px;
+    }
+
+    .userfreqbtn:hover {
+      background-color: rgba(238, 154, 73, 0.5);
+      color: white
+    }
+
+    #container {
+      width: 500px;
+      height: 500px;
+      margin: 0;
+      padding: 0;
+    }
+
+
+</style>
+
+
+<script>
+$(document).ready(function(){
+        bodyonload()
+    })
+</script>
+
+
+
+
+
+
 </head>
 
-<body onload=bodyonload()>
 
-<!-- TODO: put something nice here that explains what this page is, where your receiver is, your contact information, etc. -->
-<!-- Please include some reference to the websdr.org side, so users of your radio can find out more about the system. -->
-Этот WebSDR приёмник находится в Ярославле
-It is operated by Andy, e-mail r3mav@srr-76.ru
-More information about the WebSDR project can be found on <a href="http://websdr.srr-76.ru">Наш WebSDR</a>.
-<p>
-<b>Note:</b> you need both <i>Java</i> and <i>JavaScript</i> enabled for this
-page to work properly. If you don't hear anything, probably Java 
-is disabled or its version is too old (i.e., pre-1.4.2).
+
+
+<body>
+
+
+<div class="notify" ><span id="notifyType" class=""></span></div>
+<div class="loader">
+    
+
+
+    
+    <!--    <div class="text"> С ДНЁМ РАДИО!!!</div> -->
+<!--    <div class="text"><img src="https://srr76.ru/wp-content/uploads/2021/05/georgievskaya-lenta_7.gif"> C днем ПОБЕДЫ! </div> -->
+  <div class="text">  WebSDR загружается</div>
+  <div class="dots">
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+   </div>
+</div>
+
+    <!-- Новогоднее украшение 
+<div style="position:fixed;top:0;left:50;z-index:999"><img alt="С Новым 2026 Годом!" src="/img/newyear.png" width="180"></div>    
+-->
+
+<div style="margin: 5px 5px 0px 5px;font-size: 11pt;background: #f5f5f5cc;border:solid 0px #fff;border-radius: 4px 4px 4px 4px;color: #4a005d;padding: 10px 5px 15px 15px;box-shadow: 4px 4px 15px 0px rgba(0,0,0);z-index: 2;position: relative;">
+    <span style="
+    font-size: 17pt;
+    font-weight: bold;
+">WebSDR приёмник находится в г. Ярославль, Россия, QTH локатор: <a href="http://k7fry.com/grid/?qth=LO07AQ" target="_blank">LO07AQ98LT</a></span>
+    
+<em style="font-size: 14px;">
+    Вопросы и пожелания по работе сайта можно отправлять на e-mail: <a href="mailto:r3mav@srr-76.ru?subject=WebSDR_" style="font-weight: normal;">r3mav@srr-76.ru</a>.&nbsp;
+      <br>
+Этот веб-интерфейс разработан Сергеем, RW3PS e-mail: <a href="mailto:sergey.rw3ps@gmail.com" >sergey.rw3ps@gmail.com</a> 
+
+
+<br>
+    Наш сервер в программе Pocket RxTx для Android имеет обозначение RD3MK. 
+
+   Саму программу можно установить через Google Play или скачать архив с программой <a href="https://srr-76.ru/wp-content/uploads/Pocket_RxTx_Lite_3.3.3.zip"> здесь</a>
+<hr>
+
+</em>
+
+</div>
+
+<!-- Новогоднее украшение -->
+<div style="z-index: 9999; position: fixed; top: -50px; right: -60px; width: 300px; height: 229px; background-image: url('/img/ny-2.png');"></div>
+<!-- end украшения --> 
+    
+    <div id="equip_info" style="margin: 0px 10px; font-size: 11pt; background: rgba(245, 245, 245, 0.8); border: 0px solid rgb(255, 255, 255); color: rgb(0, 0, 0); padding: 1px 5px 2px 15px; display: none;">
+    <div style="">
+
+    <img src="setup_1.png" style="float: right; height: 187px;margin-top: 7px; margin-right: 45px; box-shadow: 2px 2px 10px 0px rgba(0,0,0);">
+  <ul style="font-size: 0.91rem;">
+    <b>Computer and operator system</b>
+    <br>
+    <span>Intel Xeon CPU E5-2630L, 8 core</span>
+    <br>
+    <span>Debian GNU/Linux 11 (bullseye)</span>
+    <br>
+    <b>Receiver and Antenna</b>
+    <br>
+    <span style="/*text-decoration: line-through*/">Приёмник на все КВ диапазоны - RX888-mxII.  </span>
+    <br>
+    <span style="/*text-decoration: line-through*/">Inv.V antenna for each SW band   </span>
+    <br>
+    <span style="/*text-decoration: line-through*/">2 meters band - Yagi 5el. West direction  </span>
+    <br />
+    <span style="/*text-decoration: line-through*/">70 cm band - Yagi 13el. West direction  </span>
+    <span style="color: rgb(195, 45, 0);">	  
+</span>
+<br /><br /><br /><br />
+</ul>
+</div>
+</div>
+
+<div style="
+    margin: 0px 10px 0px 10px;
+    padding: 0px 5px 0px 15px;
+    height: 18px;
+    background: #f5f5f5cc;
+    text-align: center;
+    border-radius: 0px 0px 10px 10px;
+    line-height: 50px;
+    font-size: 1.4rem;
+    font-weight: bold;
+    box-shadow: 5px 14px 15px -4px rgba(0,0,0);
+    position: relative;
+    z-index: 1;
+"></div><div id="equip_button" style="
+	cursor:pointer;
+    margin-left: auto;
+    margin-right: auto;
+    width: 245px;
+    height: 30px;
+    background: #d6d6d6;
+    text-align: center;
+	text-shadow: 0px 0px 0px;
+    border-radius: 0px 0px 10px 10px;
+    line-height: 33px;
+    font-size: 1.0rem;
+    font-weight: 1; 
+    box-shadow: 3px 10px 15px -3px rgba(0,0,0);
+    position: relative;
+    z-index: 1;
+">Информация об оборудовании
+</div>
+
+
+<div style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; font-size: 1.25rem;" id="audiostartbutton">
+  <div class="mb" style="margin: 50px;padding: 20px;">
+    Click button to start audio:
+    <button onclick="soundapplet.audioresume()" style="font-size: 1.25rem;padding: 10px 10px;margin-left: 15px;"><i class="fas fa-volume-up"></i></button>
+  </div>
+</div>
+
+
+
+<br>
+
+<div class="mb" style="display:none" >
+<form name="usernameform" action="#">
+<script type="text/javascript">
+document_username();
+</script>
+<script>
+  window.sessionTime();
+</script>
+
+	
+<input type="text" size=1 name="dummytopreventsubmissiononenter" style="display:none" onclick="">
+</form>
+</div>
+
+<div id="dummyforie"></div>
+<a href="m.html">
+<div id="mobilewarning" class="warning" style="min-height:45px; text-align:center; vertical-align:middle;">
+Вы используете смартфон. Нажмите сюда, чтобы перейти на мобильную версию сайта.
+</div>
+</a>
+<div id="javawarning" class="warning">
+It seems Java is not installed or disabled on your computer. You need to install and/or enable it for this website to work properly.
+<br>Since Java version 7u51, Java needs to be enabled separately for each website; see <a href=http://websdr.org/java.html>http://websdr.org/java.html</a> for instructions.
+</div>
+<div id="html5warning" class="warning">
+Your browser does not seem to support HTML5 WebAudio; please try a recent version of Firefox, Chrome, Opera or Safari; or switch to Java.
+</div>
+<div style='margin-left: auto;
+    margin-right: auto;
+    text-align: center;'>
+<form name="viewform" action="#" style='display: inline-block;'>
+<div class="mb" style=' display: inline-flex;'>
+  <b>Водопад:</b>
+  <fieldset id='viewformbuttons' style="margin-left: 30px;margin-right: -40px;margin-top: -5px;margin-bottom: -20px;">
+<input class="radios" type="radio" name="group" id="radio-1" value="all bands" checked="checked" onclick="setview(0);">
+<label for="radio-1">все диапазоны</label>
+<input class="radios" type="radio" name="group" id="radio-2" value="one band"  onclick="setview(2);">
+<label for="radio-2">один диапазон</label>
+<input class="radios" type="radio" name="group" id="radio-3" value="blind" onclick="setview(3);">
+<label for="radio-3">выключен</label>
+</fieldset>
+</div>
+<div class="mb" style="padding-top: 5px;position: relative;z-index: 999; display:inline-flex;">
+    <b>Управление клавиатурой</b>
+	<div class="toggleWrapper" style="
+    display: flex;
+    vertical-align: middle;
+    text-align: center;
+    justify-content: center;
+    margin-left: 11px;
+">
+  <input type="checkbox" name="allowkeys" class="mobileToggle" id="allowkeys" onclick="settings_store()">
+<label for="allowkeys"></label></div>
+    <div class="keylist">
+      <table>
+        <tbody><tr><td class="keylisttd1"><tt><b>j k ← →</b></tt></td><td class="keylisttd2">freq. down/up (+shift/ctrl/alt faster)</td></tr>
+        <tr><td class="keylisttd1"><tt><b>u l c a f</b></tt></td><td class="keylisttd2">USB, LSB, CW, AM, FM</td></tr>
+        <tr><td class="keylisttd1"><tt><b>W w</b></tt></td><td class="keylisttd2">filter wider/narrower </td></tr>
+        <tr><td class="keylisttd1"><tt><b>z Z ^Z</b></tt></td><td class="keylisttd2">center/zoom waterfall </td></tr>
+        <tr><td class="keylisttd1"><tt><b>g</b></tt></td><td class="keylisttd2">enter frequency</td></tr>
+        <tr id="keyhelpmultiband"><td class="keylisttd1"><tt><b>b B</b></tt></td><td class="keylisttd2">change band</td></tr>
+        <tr><td class="keylisttd1"><tt><b>m V v</b></tt></td><td class="keylisttd2">mute, volume up/down</td></tr>
+        </tbody></table>
+    </div>
+  </div>
+</form>
+
+
+<form name="html5choiceform" action="#" style='display: inline-block;'>
+<div class="mb">
+<div id="html5choice"><b>Waterfall:</b><span style="color: red"><input type="radio" name="groupw" value="Java" onclick="html5orjava(0,1);">Java</span><span style="color:green"><input type="radio" name="groupw" value="HTML5" onclick="html5orjava(0,0);" checked="">HTML5</span>&nbsp;&nbsp;&nbsp;<b>Sound:</b><span style="color: red"><input type="radio" name="groupa" value="Java" onclick="html5orjava(1,1);">Java</span><span style="color: green"><input type="radio" name="groupa" value="HTML5" onclick="html5orjava(1,0);" checked="">HTML5</span></div>
+</div>
+<br style="clear:both">
+</form>
+
+<div class="mb" style="padding-top: 5px;position: relative;z-index: 999; display:inline-flex;vertical-align: bottom;
+    margin-bottom: 5px;">
+    <b>Фоновое изображение</b>
+	<div class="toggleWrapper" style="
+    display: flex;
+    vertical-align: middle;
+    text-align: center;
+    justify-content: center;
+    margin-left: 11px;
+">
+  <input type="checkbox" name="background_toggle" class="mobileToggle" id="background_toggle" onclick="background_load();">
+<label for="background_toggle"></label></div>
+  </div>
+  
+</div>
+
+
+<div style="text-align: center;">
+
+<div class='mb' style='display: inline-flex;'>
+<span  style="font-size:85%;margin: 0px 15px 0px 15px;">
+ Круглый стол Ярославской области по воскресеньям в 21:00msk <a href="http://websdr.srr-76.ru:8095" terget="_blank"> Частота 145,350 MHz </a> / FM / Субтон (CTCSS): 127.3 Гц 
+<br>
+<a href="https://srr-76.ru/eholink_ks_opisanie/" target="_blank"> Как это работает? </a> 
+</span>
+</div>
+
+<div class="users-bg">
+<div id="wfccontainer">
+    <div id="wfcontainer" style="position:relative; transform-origin: 0% 0%;" class="clear">
+<div id="test">
+</div>
+
+<div id="waterfalls">
+<div id="wfdiv0">
+<div id="wfcdiv8" style="height:250px;overflow:hidden;position:relative;">
+<canvas class="html5waterfall" id="wf1canvas8" width="1024" height="250">test</canvas>
+<canvas class="html5waterfall" id="wf2canvas8" width="1024" height="0">test</canvas>
+</div>
+</div>
+<div class="scale" style="overflow:hidden; width:1024px; height:14px; position:relative" title="click to tune" id="clipscale0" onmousedown="return false"><img onmousedown="imgmousedown(event,0)" class="scaleabs" style="top: 0px; left: 0px;" name="s0cale0"><img src="scaleblack.png" onmousedown="imgmousedown(event,0)" class="scaleabs" style="top: 0px; left: 1024px;" name="s1cale0">
+</div>
+<div class="scale" style="width:1024px;height:20px;background-color:black;position:relative;" id="blackbar0" title="click to tune" onmousedown="imgmousedown(event,0)">
+</div>
+<div id="wfdiv1">
+<div id="wfcdiv9" style="height:250px;overflow:hidden;position:relative;">
+<canvas class="html5waterfall" id="wf1canvas9" width="1024" height="250">test</canvas>
+<canvas class="html5waterfall" id="wf2canvas9" width="1024" height="0">test</canvas>
+</div>
+</div>
+<div class="scale" style="overflow:hidden; width:1024px; height:14px; position:relative" title="click to tune"  id="clipscale1" onmousedown="return false"><img onmousedown="imgmousedown(event,1)" class="scaleabs" style="top: 0px; left: 0px;" name="s0cale1"><img src="scaleblack.png" onmousedown="imgmousedown(event,1)" class="scaleabs" style="top: 0px; left: 1024px;" name="s1cale1">
+</div>
+<div class="scale" style="width:1024px;height:20px;background-color:black;position:relative;" id="blackbar1" title="click to tune"  onmousedown="imgmousedown(event,1)">
+</div>
+</div>
+
+
+<style>
+.vl {
+  position: absolute;
+  width:100%; 
+  height:170px; 
+  top:-167px; 
+  z-index: 2; 
+  background-image: linear-gradient(to right, rgb(255, 255, 0) -20%, rgba(255, 255, 154, 0.2) 5%, rgba(255, 255, 154, 0.2) 95%, rgb(255, 255, 0) 120%);
+}
+</style>
+
+
+<div class="hideblind" style="display: inline;">
+ <img src="edgelower.png" title="drag to change filter" id="edgelower" onmousedown="mousedownlower(event)" class="scaleabs" alt="" style="top: 115px; left: 493.5px;">
+ <img src="edgeupper.png" title="drag to change filter" id="edgeupper" onmousedown="mousedownupper(event)" class="scaleabs" alt="" style="top: 115px; left: 505.5px;">
+<div id="yellowbara">
+  <div id="yellowbar" title="drag to tune" class="scaleabs" style="position: absolute; width: 1px; height: 18px; background-color: transparent; top: 100px; left: 504.5px;" onmousedown="mousedownpassband(event)">
+   <div id="yellowbarr" class="scaleabs" style="position:relative;left:0px;">
+    <div class="scaleabs" style="position:absolute;width:0px;height:0px;"></div>
+<div class="vl"></div>
+   </div>
+  </div>
+  <img src="carrier.png" title="drag to tune" id="carrier" onmousedown="mousedownpassband(event)" class="scaleabs" style="z-index: 2; top: 115px; left: 505.5px; height: 33px;" alt="">
+ </div>
+</div>
+</div>
+</div>
+</div>
+
+<div class="mb" style="min-width: 1160px;">
+	
+    <div class="d-table" style="
+">
+<div class="d-tr" style="
+    display: inline;
+">
+    </div>
+            </div>
+    
+	
+<form name="freqform" action="#" onsubmit="setfreqif(this.frequency.value); return false;">
+<div class="d-table" style="position: relative;">
+ 
+    
+    <div class="d-td" style="width: 317px;left: -23%;position: relative;">
+    <div class="d-tr"><div style="display: inline-block; margin-right: 5px; vertical-align: middle; margin-block-start: 6px;">
+		<div style="font-weight: bold;margin: 0px 0px 6px 0px; font-size: 14px;">Band
+		</div>
+<!--		<button type="button" class="btnBand " name="group0" onclick="window.location.href='http://websdr.srr-76.ru:8905';">2m</button>
+		<button type="button" class="btnBand " name="group0" onclick="window.location.href='http://websdr.srr-76.ru:8901/?tune=437900fm';">70cm</button>
+-->
+		<br />
+		<button type="button" class="btnBand " name="group0" id="btnB-0" onclick="setband(0);set_mode('usb');toggle_info('mode', mode='USB')">10mH</button>
+		<button type="button" class="btnBand " name="group0" id="btnB-1" onclick="setband(1);set_mode('usb');toggle_info('mode', mode='USB')">10mL</button>
+		<button type="button" class="btnBand " name="group0" id="btnB-2" onclick="setband(2);set_mode('am');toggle_info('mode', mode='AM')">11m</button>
+		<button type="button" class="btnBand " name="group0" id="btnB-3" onclick="setband(3);set_mode('usb');toggle_info('mode', mode='USB')">15m</button>
+		
+		<br />
+		<button type="button" class="btnBand " name="group0" id="btnB-4" onclick="setband(4);set_mode('usb');toggle_info('mode', mode='USB')">20m</button>
+	<!--	<button type="button" class="btnBand " name="group0" id="btnB-5" onclick="setband(5);set_mode('lsb');toggle_info('mode', mode='LSB')">30m</button> -->
+		<button type="button" class="btnBand btn-selected" name="group0" id="btnB-5" onclick="setband(5);set_mode('lsb');toggle_info('mode', mode='LSB')">40m</button>
+                <button type="button" class="btnBand " name="group0" id="btnB-6" onclick="setband(6);set_mode('lsb');toggle_info('mode', mode='LSB')">80m</button>
+		<button type="button" class="btnBand " name="group0" id="btnB-7" onclick="setband(7);set_mode('lsb');toggle_info('mode', mode='LSB')">160m</button>
+		<br />
+		<button type="button" class="btnBand" onclick="window.location.href='http://websdr.srr-76.ru:8095';">2M</button>
+<!--		<button type="button" class="btnBand" onclick="window.location.href='http://websdr.srr-76.ru:8095';">70см</button> -->
+
+			</div></div>
+   <div class="d-tr" style="padding: 7px 0px 0px 0px;">
+<table style="
+    /* text-align: center; */
+    margin-left:auto;
+    margin-right:auto;
+    width: 270px;
+"><tbody>
+<tr style="vertical-align: top;">
+<td><center style="text-align: center;">
+
+  <div style="font-size: 0.85rem;">
+    <b style="font-size:14px;    margin-right: 3px; ">Filters: </b>
+    <b><span id="numericalbandwidth6">2.70</span></b> kHz @ -6dB;
+    <b><span id="numericalbandwidth60">3.16</span></b> kHz @ -60dB
+  </div>
+  <table>
+  <tbody><tr><td id="lsbpresets" style="display: none;">
+    <table>
+      <tbody><tr>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.00 kHz @ -6dB" onclick="setmf('lsb', -2.26, -0.35);  rememberpreset();">2.00 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.20 kHz @ -6dB" onclick="setmf('lsb', -2.36, -0.25);  rememberpreset();">2.20 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.40 kHz @ -6dB" onclick="setmf('lsb', -2.56, -0.25);  rememberpreset();">2.40 kHz</button></td>
+        </tr>
+    <tr>
+		<td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.60 kHz @ -6dB" onclick="setmf('lsb', -2.71, -0.2);  rememberpreset();">2.60 kHz</button></td>
+		<td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.70 kHz @ -6dB" onclick="setmf('lsb', -2.76, -0.15);  rememberpreset();">2.70 kHz</button></td>
+	        <td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.80 kHz @ -6dB" onclick="setmf('lsb', -2.8, -0.09);  rememberpreset();">2.80 kHz</button></td>
+		   </tr>
+    <tr>
+		<td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 3.00 kHz @ -6dB" onclick="setmf('lsb', -2.97, -0.06);  rememberpreset();">3.00 kHz</button></td>
+        	<td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 3.50 kHz @ -6dB" onclick="setmf('lsb', -3.47, -0.06);  rememberpreset();">3.50 kHz</button></td>
+    </tr>
+    </tbody></table>
+    </td>
+  <td id="usbpresets" style="display: none;">
+    <table>
+      <tbody><tr>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.00 kHz @ -6dB" onclick="setmf('usb', 0.35, 2.26);  rememberpreset();">2.00 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.20 kHz @ -6dB" onclick="setmf('usb', 0.25, 2.36);  rememberpreset();">2.20 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.40 kHz @ -6dB" onclick="setmf('usb', 0.25, 2.56);  rememberpreset();">2.40 kHz</button></td>
+     </tr>
+    <tr>
+	<td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.30 kHz @ -6dB" onclick="setmf('usb', 0.2, 2.71);  rememberpreset();">2.60 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.70 kHz @ -6dB" onclick="setmf('usb', 0.15, 2.76);  rememberpreset();">2.70 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.80 kHz @ -6dB" onclick="setmf('usb', 0.09, 2.8);  rememberpreset();">2.80 kHz</button></td>
+        
+    </tr>
+<tr>
+	<td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 3.00 kHz @ -6dB" onclick="setmf('usb', 0.06, 2.97);  rememberpreset();">3.00 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 3.50 kHz @ -6dB" onclick="setmf('usb', 0.06, 3.47);  rememberpreset();">3.50 kHz</button></td></tr>
+		</tbody></table>
+  </td>
+  <td id="ampresets" style="display: none;">
+    <table>
+      <tbody><tr>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (AM): 5.00 kHz @ -6dB" onclick="setmf('am', -2.46, 2.45);  rememberpreset();">5.00 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (AM): 6.50 kHz @ -6dB" onclick="setmf('am', -3.21, 3.2);  rememberpreset();">6.50 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (AM): 7.00 kHz @ -6dB" onclick="setmf('am', -3.46, 3.45);  rememberpreset();">7.00 kHz</button></td>
+		</tr>
+    <tr>
+	<td><button type="button" class="btnBandW" title="Bandwidth preset (AM): 10.00 kHz @ -6dB" onclick="setmf('am', -4.96, 4.95);  rememberpreset();">10.00 kHz</button></td>
+	<td><button type="button" class="btnBandW" title="Bandwidth preset (AM): 15.00 kHz @ -6dB" onclick="setmf('am', -7.46, 7.45);  rememberpreset();">15.00 kHz</button></td></tr>
+    </tbody></table>
+  </td>
+  <td id="fmpresets" style="display: none;">
+    <table>
+      <tbody><tr>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (FM): 5.50 kHz @ -6dB" onclick="setmf('fm', -2.7, 2.71);  rememberpreset();">5.50 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (FM): 6.50 kHz @ -6dB" onclick="setmf('fm', -3.2, 3.21);  rememberpreset();">6.50 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (FM): 10.00 kHz @ -6dB" onclick="setmf('fm', -4.95, 4.96);  rememberpreset();">10.00 kHz</button></td>
+		</tr>
+    <tr> <td><button type="button" class="btnBandW" title="Bandwidth preset (FM): 12.50 kHz @ -6dB" onclick="setmf('fm', -6.2, 6.21);  rememberpreset();">12.50 kHz</button></td>
+	<td><button type="button" class="btnBandW" title="Bandwidth preset (FM): 25.00 kHz @ -6dB" onclick="setmf('fm', -12.45, 12.46);  rememberpreset();">25.00 kHz</button></td></tr>
+    </tbody></table>
+  </td>
+  <td id="cwpresets" style="display: none;">
+    <table>
+      <tbody><tr>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset : 700 Hz - 800 Hz (CW)" onclick="setmf('cw', -0.8, -0.7);  rememberpreset();">100 Hz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset : 650 Hz - 850 Hz (CW)" onclick="setmf('cw', -0.85, -0.65);  rememberpreset();">200 Hz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset : 600 Hz - 900 Hz (CW)" onclick="setmf('cw', -0.9, -0.6);  rememberpreset();">300 Hz</button></td>
+
+</tr>
+    <tr>
+                <td><button type="button" class="btnBandW" title="Bandwidth preset : 550 Hz - 950 Hz (CW)" onclick="setmf('cw', -0.95, -0.55);  rememberpreset();">400 Hz</button></td>
+		<td><button type="button" class="btnBandW" title="Bandwidth preset : 500 Hz - 1 kHz (CW)" onclick="setmf('cw', -1, -0.5);  rememberpreset();">500 Hz</button></td>
+    </tr>
+    </tbody></table>
+   </td>
+  </tr></tbody></table>
+  </center></td></tr></tbody></table>
+</div>
+<div class="d-tr" style="">
+<b style="
+    /* display: inline-block; */
+    /* vertical-align: top; */
+    margin-top: 5px;
+	    font-size: 14px;
+    /* margin-left: 15px; */
+    /* float: left; */
+">Memories</b>
+</div>
+
+<center>
+<table>
+<tbody>
+    <tr>
+    <td>
+    <span title="Download memories as a CSV file, e.g. for Excel"><input type="button" class="btnMem" value="Download" style="border-radius: 40px 0px 0px 40px; vertical-align:text-bottom; width:100%; " onclick="mem_downloadCSV()"></span>
+    </td>
+    
+    <td>
+    <span title="Add memories from CSV file as extra columns"><input type="button" class="btnMem" value="Append" style="vertical-align:text-bottom; width:100%;" onclick="document.getElementById('uploadcsvfilebutton1').click();"></span>
+    </td>
+    
+    <td>
+    <span title="Delete current memories and replace by those from CSV file"><input type="button" class="btnMem" value="Replace" style="border-radius: 0px 40px 40px 0px; vertical-align:text-bottom; width:100%;" onclick="document.getElementById('uploadcsvfilebutton2').click();"></span>
+    </td>
+    </tr>
+    
+    <tr>
+    <td>
+    <span title="Delete all memories!"><input type="button" class="btnMem" value="Delete all" style="border-radius: 40px 0px 0px 40px; vertical-align:text-bottom; width:100%;" onclick="mem_deleteall()"></span>
+    </td>
+    
+    <td>
+    <span title="Undo last upload or delete action"><input type="button" class="btnMem" value="⤺" style="vertical-align:text-bottom; width:100%;" onclick="mem_revert()"></span>
+    </td>
+    
+    <td>
+    <span title="Show or hide user memories list"><input id="btnMemList" type="button" class="btnMem" value="Show/Hide" style="border-radius: 0px 40px 40px 0px; vertical-align:text-bottom; width:100%;" onclick="hide_memory_list()"></span>
+    </td>
+    </tr>
+    </tbody>
+    </table>
+   
+<input type="file" id="uploadcsvfilebutton1" style="height:0px; display:none;" onchange="mem_uploadCSV(1);">
+    <input type="file" id="uploadcsvfilebutton2" style="height:0px; display:none;" onchange="mem_uploadCSV(2);">
+  
+    
+
+<div class="d-tr">
+<div class="d-td" style="width: 350px; margin-left: 6.5px; ">
+<div id="memories" class="memories"><table><tbody><tr><td></td><td></td><td><center><input type="button" class="btnMem" title="Save current frequency to memory" value="SAVE" onclick="mem_store(0)"></center></td></tr></tbody></table></div>
+</div></div></center>
+
+</div>
+    
+    <div style="
+    margin: 12px -7px;
+    padding: 0px 0px 0px 4px;
+    height: 93%;
+    position:relative;
+    position: absolute;
+    left: 27%;
+    z-index:1;
+    " class="d-td">
+
+    <table style="margin-top: -12px;"><tbody><tr>
+    <td>
+    <div class="d-table" style="
+">
+    <div class="d-tr">
+    <div style="
+    display: flex;
+    background: black;
+    border: 3px solid #9e9883;
+    border-radius: 10px;
+    align-items: center;
+	position:relative
+"><div><input type="text" style="
+    font-size: 38px;
+    font-family: digital-font;
+    width: 160px;
+    margin: 4px 0px 0px 5px;
+    border-color: black;
+    background-position-x: 1px;
+    background-color: black;
+    color: #98ffee;
+    /*text-shadow: 0px 0px 8px;*/
+    margin-bottom: -13px;
+    padding-right: 0px;
+    text-align: center;
+    height: 51px;
+    display: inline-block;
+    border: 0px;
+    " size="3" name="frequency" onkeyup="setfreqif_fut(this.value);">
+ 
+<div style="
+    color: #98ffee;
+    font-size: 11px;
+    text-shadow: 0px 0px 42px;
+    margin-left: 11px;
+    margin-top: 7px;
+    margin-bottom: 12px;
+    text-align: left;
+"> 
+    <div class="radio_info_container" style="
+    cursor: default;
+    /* display: none; */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    position: relative;
+    ">
+	<div class="radio_info is_on" id="mode_info" style="
+    left: 11px;
+">LSB</div>
+</div>
+<div style="margin-left: 41px;position: absolute;display: inline;text-align: right;">BW
+<div style="
+    position: absolute;
+    display: inline;
+    text-align: right;
+    /* width: 3px; */
+    /* margin-left: 13px; */
+    padding-left: 64px;
+">kHz</div><div id="numericalfilterlow" style="margin-left: 2px;position: absolute;display: inline;text-align: right;width: 26px;">-2.76</div><div id="numericalfilterhigh" style="
+    position: absolute;
+    display: inline;
+    text-align: right;
+    width: 26px;
+    margin-left: 36px;
+">-0.15</div><div style="
+    position: absolute;
+    display: inline;
+    text-align: right;
+    /* width: 3px; */
+    /* margin-left: 13px; */
+    padding-left: 30px;
+">...</div>
+    
+</div>
+    <br>
+    
+
+</div>
+
+        </div>
+		
+		<div style="display: flex; align-items: center; margin-right: -22px; margin-left: -9px; opacity: 0.9;  transition: opacity 0.5s ease 0s;" class="progress-ring">
+<svg style="display: block;border: 2px solid rgb(43, 43, 43);border-radius: 50%;width: 56px;height: 56px;background: green;position: relative;bottom: 50%;top: 50%;box-shadow: 0 0 8px 0px rgb(13, 224, 12);" class="progress-ring" width="120" height="120">
+    
+    <g>
+    
+    <linearGradient id="gradient" style="
+    /* transform: rotate(45deg); */
+    x1: 50%;
+" gradientTransform="rotate(90)" x1="50%">
+
+<stop offset="0" stop-color="#59b189" style="stop-color: #c3ffc3;"></stop><stop offset="0%" stop-color="#59b189" stop-opacity="0" style="     stop-color: rgb(15, 252, 13);     stop-opacity: 1; "></stop>
+</linearGradient>
+<linearGradient id="gradient2" style="
+    /* transform: rotate(45deg); */
+    x1: 50%;
+" gradientTransform="rotate(90)" x1="50%">
+
+<stop offset="0%" stop-color="#59b189" stop-opacity="0" style="     stop-color: rgb(15, 252, 13);     stop-opacity: 1; "></stop><stop offset="0" stop-color="#59b189" style="stop-color: #c3ffc3;"></stop>
+</linearGradient><circle class="progress-ring__circle" stroke= url(#gradient) stroke-width="17px" r="20" fill="transparent"cx=28 cy=28 style="stroke-dasharray: 125.664, 125.664; stroke-dashoffset: 125.664; position: absolute;  stroke: url(&quot;#gradient&quot;);"></circle>
+<circle class="progress-ring__circle" stroke= url(#gradient2) stroke-width="17px" r="20" fill="transparent" cx=28 cy=28 style="stroke-dasharray: 125.664, 125.664; stroke-dashoffset: -125.664; position: absolute stroke: url(&quot;#gradient2&quot;); mix-blend-mode: lighten;"></circle>
+</g>
+</svg>
+<div style="
+    border-radius: 50%;
+    width: 23px;
+    height: 23px;
+    background: #2d2d2d;
+    position: relative;
+    left: -41.5px;
+    box-shadow: 0 0 15px 1px rgba(0,0,0);
+    "></div>
+</div>
+	
+ <div style="width: 270px;height: 76px;border-radius: 10px;">
+ <div class="radio_info_container" style="
+    cursor: default;
+    /* display: none; */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    position: relative;
+    ">
+	
+    <span style="
+    color: #fee059;
+    margin-left: -233px;
+    position: relative;
+    display: inline;
+    text-align: right;
+    width: 15px;
+">SNR</span>
+<div style="
+    color: #fee059;
+    position: relative;
+    display: inline;
+    text-align: right;
+    width: 15px;
+    margin-left: 7px;
+    position: absolute;
+    display: inline;
+    text-align: right;
+    width: 13px;
+    margin-left: 3px;"
+ id="snr_info">16
+</div>
+<div style="
+    color: #fee059;
+    position: absolute;
+    margin-left: 18px;
+    display: inline;">
+ dB
+</div>
+<div class="radio_info" id="mute_info" style="left: 66px;">MUTED</div>
+<div class="radio_info" id="sql_info" style="left: 106px;">SQL</div>
+    
+<div class="radio_info" id="anf1_info" style="left: 132px;">ANF1</div>
+<span class="radio_info" id="anf2_info" style="left: 163px;">ANF2</span>
+    
+<div class="radio_info" id="nr_info" style="left: 195px;">NR</div>
+<div class="radio_info" id="agc_info" style="left: 216px;">AGC OFF</div>
+</div>
+
+
+
+      <div style="width:270px;margin-top: -10px;" align="left">
+        <br>
+        <div class="view_smeter">
+			<div id="smetermin" class="smetermin" style="width: 93.9782px; transition: width 0.1s ease 0s;">
+				<div style="position:absolute;height:0px;"></div>
+			  </div>
+          <div id="smeterpeak" class="smeterpeak" style="width: 113.436px; z-index: 10; transition: width 0.1s ease 0s;">
+            <div style="position:absolute;width:0px;height:0px;"></div>
+          </div>
+        
+          <div id="smeterbar" class="smeterbar" style="width: 93.9782px; display: none;">
+            <div style="position:absolute;width:0px;height:0px;"></div>
+          </div>
+		  <div class="EQ" id="smeterbarnew" style="width: 96px;">
+		  
+				<div class="EQ-column" data-volume="5"></div>
+				<table style="margin-top: -8px;position:relative;width: 228px;height: 8px;border-spacing: 0px;" class="smetertable"><tbody><tr>
+    <td></td>   
+    <td></td>
+     <td></td><td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td><td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td><td></td>
+    <td></td><td></td>
+    <td></td><td></td>
+    
+    <td></td><td></td>
+    
+    <td></td><td></td>
+    
+    <td></td><td></td>
+    
+    <td></td><td></td>
+    
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+    <td></td>
+				<td></td>
+				<td></td>
+				<td></td>
+				<td></td>
+			  </tr></tbody></table>
+				</div>
+          <div class="mask pattern-3 flex-center"></div>
+        </div>
+		
+        <img src="smeter.png" style="margin-top: 0px; width:270px" tppabs="smeter1down.png" alt="[scale]"> 
+        <br>
+      </div>
+
+    </div></div></div>
+	
+	
+    <div class="d-tr" style="
+    margin-top: 4px;
+">
+<b style="font-size:14px;
+">Frequency Tuning &amp; Mode</b>
+</div>
+     
+      <div class="d-tr" style="margin-block-start: 3px;">
+          <button type="button" class="btnTune" onclick="tune_step=0; freqstep(-3); setstep();">&lt;&lt;&lt;</button>
+          <button type="button" class="btnTune" onclick="tune_step=0; freqstep(-2); setstep();">&lt;&lt;</button>
+          <button type="button" class="btnTune" onclick="freq_step(-1);">&lt;</button>
+          <button type="button" class="btnTune" onclick="tune_step=0; freqstep(9); setstep();" style="width: 70px;">&gt;&gt;&gt; 0 &lt;&lt;&lt;</button>
+          <button type="button" class="btnTune" onclick="freq_step(+1);">&gt;</button>
+          <button type="button" class="btnTune" onclick="tune_step=0; freqstep(+2); setstep();">&gt;&gt;</button>
+          <button type="button" class="btnTune" onclick="tune_step=0; freqstep(+3); setstep();">&gt;&gt;&gt;</button>
+</div>
+    <div class="d-tr" style="margin-block-start: 3px;">
+<button type="button" id="btn-CW" class="btnMode" onclick="set_mode('cw');toggle_info('mode', mode='CW');">CW</button>
+<button type="button" id="btn-LSB" class="btnMode" onclick="set_mode('lsb');toggle_info('mode', mode='LSB');">LSB</button>
+<button type="button" id="btn-USB" class="btnMode" onclick="set_mode('usb');toggle_info('mode', mode='USB');">USB</button>
+<button type="button" id="btn-AM" class="btnMode" onclick="set_mode('am');toggle_info('mode', mode='AM');">AM</button>
+<button type="button" id="btn-FM" class="btnMode" onclick="set_mode('fm');toggle_info('mode', mode='FM');">FM</button>
+</div></div></td>
+<td>
+    </td></tr></tbody></table>
+<div class="d-tr" style="
+    margin-top: 3px;
+">
+<b style="    font-size: 14px;
+">Waterfall Settings</b>
+</div>
+
+
+<div class="d-tr" style="margin-bottom: 5px;margin-top: 5px;">
+      <span title="view entire frequency range of this receiver">
+	<button type="button" class="btnZoom" onclick="wfset(4);" style="border-radius: 40px 0px 0px 40px;">Max out</button>
+      </span>
+      <span title="zoom out one step">
+	<button type="button" class="btnZoom" onclick="wfset(1);" style="">Zoom out</button>
+      </span>
+      <span title="view the entire current amateur or broadcast band">
+	<button type="button" class="btnZoom" onclick="wfset(3);">Band</button>
+      </span>
+      <span title="zoom in one step">
+	<button type="button" class="btnZoom" onclick="wfset(0);">Zoom in</button>
+      </span>
+      <span title="zoom in as deep as possible">
+	<button type="button" class="btnZoom" onclick="wfset(2);" style="border-radius: 0px 40px 40px 0px;">Max in</button>
+      </span>
+    </div><div class="d-tr" style=" vertical-align: middle; font-size: 0.85rem !important;">
+    <div class="d-td">
+    <span style="
+    margin: 0px 9px 2px 9px;
+    display: block;
+">Type</span>
+      
+      <select id="wfmode" class="wfmb" onchange="waterfallmode(this.value)">
+        <option value="0">spectrum</option>
+        <option selected="" value="1">waterfall</option>
+        <option value="2">weak sigs</option>
+        <option value="3">strong sigs</option>
+      </select>
+</div>
+        <div class="d-td">
+    <span style="
+    display: block;
+    margin: 0px 9px 2px 9px;
+">
+      Size</span>
+      <select id="wf-size" class="wfmb" onchange="waterfallheight(this.value);">
+        <option value="75">tiny</option>
+        <option value="150">small</option>
+        <option  selected value="200">normal</option>
+        <option value="250">medium</option>
+        <option value="400">large</option>
+        </select></div>
+<div class="d-td">
+    <span style="
+    display: block;
+    margin: 0px 9px 2px 9px;
+">Speed</span>
+      <select id="wfspeed" class="wfmb" onchange="waterfallspeed(this.value)">
+	<option value="4">slow</option>
+        <option selected value="2">medium</option>
+        <option value="1">fast</option>
+      </select>
+        </div>
+	<div class="d-td" style="
+    /* line-height: 71px; */
+    margin-top: 17px;">
+
+<div class="toggleWrapper" style="display: inline-block;">
+<input type="checkbox" "=" name=" hidedx"="" class="mobileToggle" id="hidedx" onclick="sethidedx(this.checked);settings_store();">
+<label for="hidedx"></label>
+<div style="display: inline-block;margin: -13px  7px 0px 6px;vertical-align: middle;font-size: 0.85rem;">Hide labels</div>
+</div>	  
+           </div>
+
 <hr>
 
 
-<!--#include file="websdr-controls.html"-->
+ </div> 
+</div>	  
+		 
 
+	<div class="d-td" style="
+    padding-top: 20px;
+    position: relative;
+    right: -21.5%;
+">
+
+  
+
+    
+    
+ <div class="d-tr" style="
+    margin-bottom: 7px;
+">
+<b style="    font-size: 14px;
+">Tube &amp; DSP &amp; Audio </b>
+<br>
+
+</div>
+<span id="magiccontrol" style="white-space:nowrap;width:70%;font-size:0.85rem;">
+    Magic Eye:  Off
+    <input style="width: 60%;vertical-align: middle;margin: 0;" type="range" min="0" max="1" id="magicinput" name="magic" value="0.9" step="0.1" oninput="set_magic(this.value);" onchange="set_magic(this.value);">
+Max    </span> 
+<div style="font-size:0.85rem !important; margin-top:3px">
+  <center style="
+    display: flex;
+    justify-content: space-between;
+    width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 5px 0px;
+">
+  <div class="toggleWrapper" style="display: inline-block;">
+  <div style="
+    margin: 0px 9px 4px 9px;
+    vertical-align: middle;
+">Mute</div><input type="checkbox" name="mutecheckbox" class="mobileToggle" id="mutecheckbox" onclick="setmute(this.checked);toggle_info('mute');">
+<label for="mutecheckbox" style="
+"></label></div>
+    <div class="toggleWrapper" style="display: inline-block;">
+  <div style="
+    vertical-align: middle;
+    margin: 0px 9px 4px 9px;
+">Squelch</div><input type="checkbox" name="squelchcheckbox" class="mobileToggle" id="squelchcheckbox" onclick="setsquelch(this.checked); toggle_info('sql');">
+<label for="squelchcheckbox"></label></div>
+    
+    <div class="toggleWrapper" style="
+    display: inline-block;
+">
+  <div style="margin: 0px  9px 4px 9px; vertical-align: middle;">Autonotch</div>
+<input type="checkbox" name="autonotchcheckbox" class="mobileToggle" id="autonotchcheckbox" onclick="setautonotch(this.checked);toggle_info('anf1');">
+<label for="autonotchcheckbox"></label>
+</div>
+
+     <div class="toggleWrapper" style="display: inline-block;">
+  <div style="
+    vertical-align: middle;
+    margin: 0px 9px 4px 9px;
+">Notch-2</div><input type="checkbox" name="autonotch2checkbox" class="mobileToggle" id="autonotch2checkbox" onclick="setautonotch2(this.checked);toggle_info('anf2');">
+<label for="autonotch2checkbox"></label></div>
+
+  </center>
+<br>
+  <center style="
+    margin-top: -10px;
+    display: flex;
+    justify-content: center;
+    padding: 5px 0px;
+    ">
+    
+  <b style="padding-top: 2px;padding-right: 8px;   font-size: 14px;">DSP Noise Reduction:</b>
+    <select style="border-radius:10px" id="nrcheckbox" title="Select level of Noise Reduction from this box" onchange="setnoise(this.value);toggle_info('nr', info_mode=this.value);">
+     <option selected="" value="0">Off</option>
+      <option value="1">Low</option> 
+     <option value="2">Medium</option>
+    <option value="3">High</option>
+     <option value="4">Strong</option>
+  </select>
+  <div class="toggleWrapper" style="
+    display: flex;
+    vertical-align: middle;
+    text-align: center;
+    justify-content: center;
+    margin-left: 11px;">
+  <input type="checkbox" title="6dB high frequency boost with knee centered at 1500 Hz - Use with DSP noise reduction and/or to improve intelligibility of speech" name="hiboostcheckbox" class="mobileToggle" id="hiboostcheckbox" onclick="sethboost(this.checked)">
+<label for="hiboostcheckbox"></label><div style="
+    display: inline-block;
+    margin: 2px 7px 0px 6px;
+    vertical-align: middle;
+">Hi-Boost</div></div>
+ 
+    </center>
+  
+  </div>
+  <div style="
+    padding-left: 3px;
+    text-align: left;
+    margin-block-start: 10px;
+    padding-bottom: 10px;
+">
+  <span id="volumecontrol" style="white-space:nowrap; width:70%; font-size:0.85rem">
+    Volume: 
+    <input style="width: 60%;vertical-align: middle;margin: 0;" type="range" min="-20" max="10" id="volumecontrol2" name="volume" value="0" step="1" oninput="set_volume(this.value); volumedb(this.value)" onchange="set_volume(this.value); volumedb(this.value);">
+  </span> &nbsp;
+  <span id="volumedb"> -2dB</span>
+  <br>
+    <span style="font-size:0.85rem !important; padding: 5px;display: inline-block;">
+	<div class="toggleWrapper" style="display: contents;">
+		  <input type="checkbox" name="gainlevelcheckbox" class="mobileToggle" id="gainlevelcheckbox" 
+onclick="if (this.checked)
+			{
+    document.getElementById('gainlevelmask').classList.remove('hiddencontrol');
+     if (soundapplet) soundapplet.setparam('gain='+document.getElementById('manualgain').value);
+			}
+	else { document.getElementById('gainlevelmask').classList.add('hiddencontrol');
+     if (soundapplet) soundapplet.setparam('gain=10000'); };toggle_info('agc');
+">
+	<label for="gainlevelcheckbox" style=" "></label>
+<div style="display: inline-block; margin: -13px 7px 0px 6px; vertical-align: middle;">Manual Gain</div>
+	</div>
+    
+  </span>
+	<br>
+  <span id="gainlevelmask" class="hiddencontrol">
+    Gain: 
+    <input style="width: 66%;vertical-align: middle;" title="manually set gain; usually the automatic setting is much more convenient" type="range" min="-100" max="40" id="manualgain" name="manualgain" value="-20" step=".1" oninput="if (soundapplet) soundapplet.setparam('gain='+this.value);" onchange="if (soundapplet) soundapplet.setparam('gain='+this.value);">
+  </span>   
+  </div>
+  
+  <div id="record_span" style="display:inline;">
+    
+    <b style="    font-size: 14px;">Audio recording: </b>
+    <button type="button" id="recbutton" class="btnRec" onclick="record_click(); return false">start</button>
+    <span id="reccontrol"></span>
+    <br>
+    <div id="recwarning" style="width: 300px;display: none;font-size: 0.9rem;color: red"></div>
+
+  </div>
+
+</div>
+    <div style="position: absolute;height: 100%;width: 501px;top:0px;left: 307px;border-right: 2px solid #969595;border-left: 2px solid #969595;z-index=0;"></div>
+<div style="
+    margin: 12px 0px;
+    padding: 0px 0px 0px 4px;
+    height: 93%;
+    position:relative;
+    position: relative;
+    z-index:0;
+    " class="d-td"></div>
+	</div></form>  
+</div>
+<div style="text-align: center;">
+
+<!-- <div  id='spots'>
+
+	    <h3>DX Spots</h3>			
+	    </div>
+-->
+<form name="form1" action="#">
+<br>
+<div class='mb'>
+<span  style="font-size:85%;margin: 0px 15px 0px 15px; display: inline-flex;"onclick="var e=document.getElementById(''); e.style.display=(e.style.display=='none')?'block':'none';">
+This WebSDR is currently being used by <span id=numusers style='margin: 0px 3px;'>?</span> user(s) simultaneously
+<div class="toggleWrapper" style="
+		display: inline-flex;
+		margin: -2px 0px 0px 30px;
+		">
+		  <input type="checkbox" name="compactviewcheckbox" class="mobileToggle" id="compactviewcheckbox" onclick="setcompactview(this.checked)">
+		<label for="compactviewcheckbox" style="
+		"></label><div style="
+			display: inline-block;
+			margin: 2px 8px 0px 10px;
+			vertical-align: middle;
+		">compact view</div></div>
+</span>
+</div>
+<form class="users-bg" style="text-align: center" name="form1" action="#">
+<div id=users></div>
+</form>
+</div>
+<div class="mb">
+
+<div style="font-size:80%">
+Statistics:
+<div id="stats"></div>
+</div>
+<br>
+
+<div id="soundappletdiv"></div>
+
+
+    
 </body>
 </html>
 

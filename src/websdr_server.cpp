@@ -1,32 +1,30 @@
 /*
- * WebSDR Server - Multi-band SDR server for RX888
- * Reads IQ data from FIFO files provided by radiod
- * Supports sample rates from 192 kHz to 1600 kHz
- */
-
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
-#include <vector>
-#include <map>
-#include <thread>
-#include <mutex>
+WebSDR Server - Multi-band SDR server for RX888
+Reads IQ data from FIFO files provided by radiod
+Supports sample rates from 192 kHz to 1600 kHz
+*/
 #include <atomic>
 #include <condition_variable>
-#include <cstring>
-#include <cstdlib>
-#include <csignal>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <poll.h>
-#include <algorithm>
-#include <cmath>
 #include <complex>
+#include <csignal>
+#include <cstdlib>
+#include <cstring>
+#include <fcntl.h>
+#include <fstream>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <mutex>
+#include <netinet/in.h>
+#include <poll.h>
+#include <sstream>
+#include <string>
+#include <sys/socket.h>
+#include <thread>
+#include <unistd.h>
+#include <vector>
 #include <fftw3.h>
+#include <arpa/inet.h>
 
 // Constants
 const int MAX_USERS = 200;
@@ -51,7 +49,6 @@ struct BandConfig {
     int noiseBlanker;
     std::string antenna;
     bool enabled;
-    
     BandConfig() : sampleRate(768000), centerFreq(7000), gain(-20), 
                    swapIQ(false), extraZoom(0), noiseBlanker(0), enabled(true) {}
 };
@@ -65,7 +62,6 @@ struct Client {
     int waterfallSpeed;
     bool audioEnabled;
     bool active;
-    
     Client() : socket(-1), frequency(7000), mode("lsb"), 
                waterfallSpeed(50), audioEnabled(true), active(false) {}
 };
@@ -93,12 +89,10 @@ bool parseConfig(const std::string& filename) {
         std::cerr << "Error: Cannot open config file: " << filename << std::endl;
         return false;
     }
-    
     std::string line;
     std::string currentBand;
-    
+
     while (std::getline(file, line)) {
-        // Skip comments and empty lines
         if (line.empty() || line[0] == '#') continue;
         
         std::istringstream iss(line);
@@ -135,7 +129,7 @@ bool parseConfig(const std::string& filename) {
             g_bands[currentBand].antenna = antenna;
         }
     }
-    
+
     file.close();
     std::cout << "Configuration loaded: " << g_bands.size() << " bands configured" << std::endl;
     return true;
@@ -151,111 +145,88 @@ private:
     std::thread readerThread;
     std::atomic<bool> running;
     int fifoFd;
-    
 public:
     BandReader(BandConfig& cfg) : config(cfg), running(false), fifoFd(-1) {
         buffer.resize(BUFFER_SIZE);
     }
-    
-    ~BandReader() {
-        stop();
-    }
-    
+    ~BandReader() { stop(); }
+
     bool start() {
         if (config.device.empty()) {
             std::cerr << "No device configured for band " << config.name << std::endl;
             return false;
         }
-        
         running = true;
         readerThread = std::thread(&BandReader::readerLoop, this);
         return true;
     }
-    
+
     void stop() {
         running = false;
-        if (readerThread.joinable()) {
-            readerThread.join();
-        }
+        if (readerThread.joinable()) readerThread.join();
         if (fifoFd >= 0) {
             close(fifoFd);
             fifoFd = -1;
         }
     }
-    
-void readerLoop() {
-    std::cout << "Starting reader for band " << config.name
-              << " on " << config.device << std::endl;
 
-    int reconnectDelay = 100; // ms
-    const int MAX_RECONNECT_DELAY = 2000;
+    void readerLoop() {
+        std::cout << "Starting reader for band " << config.name << " on " << config.device << std::endl;
+        int reconnectDelay = 100;
+        const int MAX_RECONNECT_DELAY = 2000;
 
-    while (running) {
-        fifoFd = open(config.device.c_str(), O_RDONLY); // ← Убрать O_NONBLOCK для чтения
-        if (fifoFd < 0) {
+        while (running) {
+            fifoFd = open(config.device.c_str(), O_RDONLY);
+            if (fifoFd < 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(reconnectDelay));
+                reconnectDelay = std::min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
+                continue;
+            }
+            reconnectDelay = 100;
+            std::cout << "Connected to FIFO for band " << config.name << std::endl;
+
+            char readBuffer[BUFFER_SIZE * sizeof(IQSample)];
+            bool dataReceived = false;
+
+            while (running && fifoFd >= 0) {
+                ssize_t bytesRead = read(fifoFd, readBuffer, sizeof(readBuffer));
+                if (bytesRead > 0) {
+                    dataReceived = true;
+                    std::lock_guard<std::mutex> lock(bufferMutex);
+                    buffer.assign(reinterpret_cast<IQSample*>(readBuffer), 
+                                  reinterpret_cast<IQSample*>(readBuffer) + bytesRead / sizeof(IQSample));
+                    bufferCV.notify_all();
+                } else if (bytesRead < 0) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                        continue;
+                    }
+                    std::cerr << "Error reading FIFO: " << strerror(errno) << std::endl;
+                    break;
+                }
+                if (bytesRead == 0) {
+                    if (dataReceived) std::cout << "FIFO closed by writer, reconnecting..." << std::endl;
+                    break;
+                }
+            }
+
+            if (fifoFd >= 0) {
+                close(fifoFd);
+                fifoFd = -1;
+            }
+            if (!dataReceived) reconnectDelay = std::min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
             std::this_thread::sleep_for(std::chrono::milliseconds(reconnectDelay));
-            reconnectDelay = std::min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
-            continue;
         }
-        reconnectDelay = 100; // Сброс при успешном подключении
-        std::cout << "Connected to FIFO for band " << config.name << std::endl;
-
-        char readBuffer[BUFFER_SIZE * sizeof(IQSample)];
-        bool dataReceived = false;
-
-        while (running && fifoFd >= 0) {
-            ssize_t bytesRead = read(fifoFd, readBuffer, sizeof(readBuffer));
-
-            if (bytesRead > 0) {
-                dataReceived = true;
-                // ... обработка данных ...
-            } else if (bytesRead < 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                    continue;
-                }
-                std::cerr << "Error reading FIFO: " << strerror(errno) << std::endl;
-                break;
-            }
-
-            if (bytesRead == 0) {
-                // EOF
-                if (dataReceived) {
-                    std::cout << "FIFO closed by writer, reconnecting..." << std::endl;
-                }
-                break;
-            }
-        }
-
-        if (fifoFd >= 0) {
-            close(fifoFd);
-            fifoFd = -1;
-        }
-        // Задержка перед повторной попыткой (если не было данных — увеличиваем)
-        if (!dataReceived) {
-            reconnectDelay = std::min(reconnectDelay * 2, MAX_RECONNECT_DELAY);
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(reconnectDelay));
     }
-}
 
-    
-    
     bool getSamples(std::vector<IQSample>& outBuffer, int count) {
         std::unique_lock<std::mutex> lock(bufferMutex);
-        
-        // Wait for data if buffer is empty
-        if (buffer.empty()) {
-            bufferCV.wait_for(lock, std::chrono::milliseconds(100));
-        }
-        
-        // Copy available samples
+        if (buffer.empty()) bufferCV.wait_for(lock, std::chrono::milliseconds(100));
         int available = std::min(count, static_cast<int>(buffer.size()));
         outBuffer.assign(buffer.begin(), buffer.begin() + available);
-        
         return !outBuffer.empty();
     }
-    
+
     int getSampleRate() const { return config.sampleRate; }
     float getCenterFreq() const { return config.centerFreq; }
 };
@@ -269,13 +240,9 @@ private:
     
 public:
     WebSDRServer() : serverSocket(-1) {}
-    
-    ~WebSDRServer() {
-        stop();
-    }
-    
+    ~WebSDRServer() { stop(); }
+
     bool start() {
-        // Create band readers
         for (auto& pair : g_bands) {
             if (pair.second.enabled) {
                 auto reader = std::make_unique<BandReader>(pair.second);
@@ -284,18 +251,15 @@ public:
             }
         }
         
-        // Create socket
         serverSocket = socket(AF_INET, SOCK_STREAM, 0);
         if (serverSocket < 0) {
             std::cerr << "Error creating socket: " << strerror(errno) << std::endl;
             return false;
         }
         
-        // Set socket options
         int opt = 1;
         setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
         
-        // Bind
         struct sockaddr_in addr;
         memset(&addr, 0, sizeof(addr));
         addr.sin_family = AF_INET;
@@ -308,7 +272,6 @@ public:
             return false;
         }
         
-        // Listen
         if (listen(serverSocket, 10) < 0) {
             std::cerr << "Error listening: " << strerror(errno) << std::endl;
             close(serverSocket);
@@ -316,49 +279,34 @@ public:
         }
         
         std::cout << "WebSDR server listening on port " << g_tcpPort << std::endl;
-        
-        // Start accept thread
         acceptThread = std::thread(&WebSDRServer::acceptLoop, this);
-        
         return true;
     }
-    
+
     void stop() {
         g_running = false;
-        
         if (serverSocket >= 0) {
             close(serverSocket);
             serverSocket = -1;
         }
-        
-        if (acceptThread.joinable()) {
-            acceptThread.join();
-        }
-        
-        // Stop all band readers
-        for (auto& reader : bandReaders) {
-            reader->stop();
-        }
+        if (acceptThread.joinable()) acceptThread.join();
+        for (auto& reader : bandReaders) reader->stop();
         bandReaders.clear();
     }
-    
+
     void acceptLoop() {
         while (g_running) {
             struct sockaddr_in clientAddr;
             socklen_t clientLen = sizeof(clientAddr);
-            
             int clientSocket = accept(serverSocket, (struct sockaddr*)&clientAddr, &clientLen);
             
             if (clientSocket < 0) {
-                if (g_running) {
-                    std::cerr << "Error accepting connection: " << strerror(errno) << std::endl;
-                }
+                if (g_running) std::cerr << "Error accepting connection: " << strerror(errno) << std::endl;
                 continue;
             }
             
             std::cout << "New connection from " << inet_ntoa(clientAddr.sin_addr) << std::endl;
             
-            // Check user limit
             {
                 std::lock_guard<std::mutex> lock(g_clientsMutex);
                 if (static_cast<int>(g_clients.size()) >= g_maxUsers) {
@@ -368,12 +316,10 @@ public:
                     continue;
                 }
             }
-            
-            // Handle client in new thread
             std::thread(&WebSDRServer::handleClient, this, clientSocket).detach();
         }
     }
-    
+
     void handleClient(int clientSocket) {
         Client client;
         client.socket = clientSocket;
@@ -381,13 +327,12 @@ public:
         client.frequency = std::stof(g_initialFreq);
         client.mode = g_initialMode;
         
-        // Add to clients map
         {
             std::lock_guard<std::mutex> lock(g_clientsMutex);
             g_clients[clientSocket] = client;
         }
 
-       struct timeval tv;
+        struct timeval tv;
         tv.tv_sec = 5;
         tv.tv_usec = 0;
         setsockopt(clientSocket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
@@ -398,34 +343,23 @@ public:
         
         while (g_running && keepAlive && client.active) {
             int bytesRead = recv(clientSocket, buffer, sizeof(buffer) - 1, 0);
-            std::cout << "[HTTP] Request received: "  << std::endl;
-            if (bytesRead <= 0) {
-                break;
-            }
-            
+            if (bytesRead <= 0) break;
             buffer[bytesRead] = '\0';
             
-            // Parse HTTP request
             std::string request(buffer);
             std::istringstream iss(request);
             std::string method, path, protocol;
             iss >> method >> path >> protocol;
-            std::cout << "[HTTP] Path parsed: GET /" << std::endl;
-            std::cout << "Request: " << method << " " << path << std::endl;
             
-            // Route request
             if (method == "GET") {
                 keepAlive = handleGetRequest(clientSocket, path, client);
             } else if (method == "POST") {
                 keepAlive = handlePostRequest(clientSocket, request, client);
-std::cout << "[HTTP] Sending response..." << std::endl;
             } else {
                 sendErrorResponse(clientSocket, 405, "Method Not Allowed");
-std::cout << "[HTTP] Response sent." << std::endl;
             }
         }
         
-        // Cleanup
         close(clientSocket);
         {
             std::lock_guard<std::mutex> lock(g_clientsMutex);
@@ -433,98 +367,80 @@ std::cout << "[HTTP] Response sent." << std::endl;
         }
         std::cout << "Client disconnected" << std::endl;
     }
-    
-    bool handleGetRequest(int clientSocket, const std::string& path, Client& client) {
-        // Serve static files from web/pub2
-        std::string filePath;
-        
-        if (path == "/" || path.empty()) {
-            filePath = "web/pub2/index.html";
-        } else if (path.find("..") != std::string::npos) {
-            sendErrorResponse(clientSocket, 403, "Forbidden");
-            return false;
-        } else {
-            filePath = "web/pub2" + path;
-        }
-        
-        // Check if file exists
-        std::ifstream file(filePath, std::ios::binary);
-        if (!file.is_open()) {
-            // Try pub directory
-            filePath = "pub" + path;
-            file.open(filePath, std::ios::binary);
-        }
-        
-        if (file.is_open()) {
-            // Get file size
-            file.seekg(0, std::ios::end);
-            size_t fileSize = file.tellg();
-            file.seekg(0, std::ios::beg);
-            
-            // Determine content type
-            std::string contentType = "text/html";
-            if (path.find(".css") != std::string::npos) contentType = "text/css";
-            else if (path.find(".js") != std::string::npos) contentType = "application/javascript";
-            else if (path.find(".png") != std::string::npos) contentType = "image/png";
-            else if (path.find(".jpg") != std::string::npos) contentType = "image/jpeg";
-            else if (path.find(".html") != std::string::npos) contentType = "text/html";
-            
-            // Send response
-            std::string headers = "HTTP/1.1 200 OK\r\n"
-            "Content-Type: " + contentType + "\r\n"
-            "Content-Length: "+ std::to_string(fileSize) + "\r\n"
-            "Connection: close\r\n\r\n";
-            
-            send(clientSocket, headers.c_str(), headers.size(), MSG_NOSIGNAL);
-            
-            // Send file content
-            char fileBuffer[4096];
-	    size_t sentTotal = 0;
-	    while (sentTotal < fileSize && file.good()) {
-		file.read(fileBuffer, sizeof(fileBuffer));
-		size_t toSend = file.gcount();
-		if (toSend == 0) break;
 
-		size_t sentNow = 0;
-		while (sentNow < toSend) {
-		    ssize_t n = send(clientSocket, fileBuffer + sentNow, toSend - sentNow, MSG_NOSIGNAL);
-		    if(n <= 0){
-			if (errno == EAGAIN || errno == EWOULDBLOCK) {
-			    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-			    continue;
-			}
-			std::cerr << "[HTTP] Send error: " << strerror(errno) << std::endl;
-			file.close();
-			return false;
-		    }
-		    sentNow += n;
-		}
-		sentTotal += toSend;
-	    }
-	    file.close();
-            return (sentTotal == fileSize);
-        }
-        
-        // API endpoints
-        if (path.find("/getwaterfall?") != std::string::npos) {
-            return sendWaterfallData(clientSocket, client);
-        } else if (path.find("/getaudio?") != std::string::npos) {
-            return sendAudioData(clientSocket, client);
-        } else if (path.find("/status") != std::string::npos) {
-            return sendStatus(clientSocket);
-        }
-        
+bool handleGetRequest(int clientSocket, const std::string& path, Client&) {
+    std::string filePath;
+    
+    if (path == "/" || path.empty()) {
+        filePath = "web/pub2/index.html";
+    } else if (path.find("..") != std::string::npos) {
+        sendErrorResponse(clientSocket, 403, "Forbidden");
+        return false;
+    } else {
+        filePath = "web/pub2" + path;
+    }
+    
+    std::ifstream file(filePath, std::ios::binary);
+    if (!file.is_open()) {
         sendErrorResponse(clientSocket, 404, "Not Found");
         return false;
     }
     
+    file.seekg(0, std::ios::end);
+    size_t fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+    
+    std::string contentType = "text/html";
+    if (path.find(".css") != std::string::npos) contentType = "text/css";
+    else if (path.find(".js") != std::string::npos) contentType = "application/javascript";
+    else if (path.find(".png") != std::string::npos) contentType = "image/png";
+    else if (path.find(".jpg") != std::string::npos) contentType = "image/jpeg";
+    else if (path.find(".html") != std::string::npos) contentType = "text/html";
+    else if (path.find(".ttf") != std::string::npos) contentType = "font/ttf";
+    else if (path.find(".woff") != std::string::npos) contentType = "font/woff";
+    else if (path.find(".woff2") != std::string::npos) contentType = "font/woff2";
+    else if (path.find(".svg") != std::string::npos) contentType = "image/svg+xml";
+    else if (path.find(".ico") != std::string::npos) contentType = "image/x-icon";
+    else if (path.find(".json") != std::string::npos) contentType = "application/json";
+    
+    std::string headers = "HTTP/1.1 200 OK\r\n"
+        "Content-Type: " + contentType + "\r\n"
+        "Content-Length: " + std::to_string(fileSize) + "\r\n"
+        "Connection: close\r\n\r\n";
+    
+    if (send(clientSocket, headers.c_str(), headers.size(), MSG_NOSIGNAL) < 0) 
+        return false;
+    
+    char fileBuffer[4096];
+    size_t sentTotal = 0;
+    while (sentTotal < fileSize && file.good()) {
+        file.read(fileBuffer, sizeof(fileBuffer));
+        size_t toSend = file.gcount();
+        if (toSend == 0) break;
+        
+        size_t sentNow = 0;
+        while (sentNow < toSend) {
+            ssize_t n = send(clientSocket, fileBuffer + sentNow, toSend - sentNow, MSG_NOSIGNAL);
+            if (n <= 0) {
+                if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    continue;
+                }
+                file.close();
+                return false;
+            }
+            sentNow += n;
+        }
+        sentTotal += toSend;
+    }
+    file.close();
+    return (sentTotal == fileSize);
+}
+
     bool handlePostRequest(int clientSocket, const std::string& request, Client& client) {
-        // Handle parameter updates
         size_t bodyPos = request.find("\r\n\r\n");
         if (bodyPos != std::string::npos) {
             std::string body = request.substr(bodyPos + 4);
-            
-            // Parse parameters
             if (body.find("frequency=") != std::string::npos) {
                 size_t pos = body.find("frequency=");
                 client.frequency = std::stof(body.substr(pos + 10));
@@ -542,122 +458,89 @@ std::cout << "[HTTP] Response sent." << std::endl;
                 client.band = body.substr(pos + 5, end - pos - 5);
             }
         }
-        
         send(clientSocket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
         return true;
     }
-    
+
     bool sendWaterfallData(int clientSocket, Client& client) {
-        // Generate waterfall data from IQ samples
-        // This is a simplified implementation
-        
         std::vector<uint8_t> waterfallData(WATERFALL_WIDTH * WATERFALL_HEIGHT);
+        for (size_t i = 0; i < waterfallData.size(); i++) waterfallData[i] = rand() % 256;
         
-        // Fill with dummy data for now
-        for (size_t i = 0; i < waterfallData.size(); i++) {
-            waterfallData[i] = rand() % 256;
-        }
-        
-        // Send response
         std::ostringstream header;
-        header << "HTTP/1.1 200 OK\r\n";
-        header << "Content-Type: application/octet-stream\r\n";
-        header << "Content-Length: " << waterfallData.size() << "\r\n";
-        header << "\r\n";
+        header << "HTTP/1.1 200 OK\r\n"
+               << "Content-Type: application/octet-stream\r\n"
+               << "Content-Length: " << waterfallData.size() << "\r\n"
+               << "\r\n";
         
-        send(clientSocket, header.str().c_str(), header.str().length(), 0);
-        send(clientSocket, waterfallData.data(), waterfallData.size(), 0);
-        
+        send(clientSocket, header.str().c_str(), header.str().length(), MSG_NOSIGNAL);
+        send(clientSocket, waterfallData.data(), waterfallData.size(), MSG_NOSIGNAL);
         return true;
     }
-    
+
     bool sendAudioData(int clientSocket, Client& client) {
-        // Send audio data (demodulated)
-        // Simplified implementation
-        
         std::vector<int16_t> audioData(4096);
-        
-        // Generate dummy audio
-        for (size_t i = 0; i < audioData.size(); i++) {
-            audioData[i] = (rand() % 65535) - 32768;
-        }
+        for (size_t i = 0; i < audioData.size(); i++) audioData[i] = (rand() % 65535) - 32768;
         
         std::ostringstream header;
-        header << "HTTP/1.1 200 OK\r\n";
-        header << "Content-Type: application/octet-stream\r\n";
-        header << "Content-Length: " << (audioData.size() * sizeof(int16_t)) << "\r\n";
-        header << "\r\n";
+        header << "HTTP/1.1 200 OK\r\n"
+               << "Content-Type: application/octet-stream\r\n"
+               << "Content-Length: " << (audioData.size() * sizeof(int16_t)) << "\r\n"
+               << "\r\n";
         
-        send(clientSocket, header.str().c_str(), header.str().length(), 0);
-        send(clientSocket, audioData.data(), audioData.size() * sizeof(int16_t), 0);
-        
+        send(clientSocket, header.str().c_str(), header.str().length(), MSG_NOSIGNAL);
+        send(clientSocket, audioData.data(), audioData.size() * sizeof(int16_t), MSG_NOSIGNAL);
         return true;
     }
-    
+
     bool sendStatus(int clientSocket) {
         std::ostringstream json;
-        json << "{";
-        json << "\"bands\": [";
-        
+        json << "{ \"bands\": [ ";
         bool first = true;
         for (const auto& pair : g_bands) {
-            if (!first) json << ",";
+            if (!first) json << ", ";
             first = false;
-            json << "{\"name\":\"" << pair.first << "\",";
-            json << "\"centerFreq\":" << pair.second.centerFreq << ",";
-            json << "\"sampleRate\":" << pair.second.sampleRate << ",";
-            json << "\"enabled\":" << (pair.second.enabled ? "true" : "false") << "}";
+            json << "{\"name\":\"" << pair.first << "\", "
+                 << "\"centerFreq\":" << pair.second.centerFreq << ", "
+                 << "\"sampleRate\":" << pair.second.sampleRate << ", "
+                 << "\"enabled\":" << (pair.second.enabled ? "true" : "false") << "}";
         }
-        
-        json << "],\"users\":" << g_clients.size() << "}";
+        json << "], \"users\": " << g_clients.size() << "}";
         
         std::string response = json.str();
-        
         std::ostringstream header;
-        header << "HTTP/1.1 200 OK\r\n";
-        header << "Content-Type: application/json\r\n";
-        header << "Content-Length: " << response.length() << "\r\n";
-        header << "\r\n";
+        header << "HTTP/1.1 200 OK\r\n"
+               << "Content-Type: application/json\r\n"
+               << "Content-Length: " << response.length() << "\r\n"
+               << "\r\n";
         
-        send(clientSocket, header.str().c_str(), header.str().length(), 0);
-        send(clientSocket, response.c_str(), response.length(), 0);
-        
+        send(clientSocket, header.str().c_str(), header.str().length(), MSG_NOSIGNAL);
+        send(clientSocket, response.c_str(), response.length(), MSG_NOSIGNAL);
         return true;
     }
-    
+
     void sendErrorResponse(int clientSocket, int code, const std::string& message) {
         std::ostringstream response;
-        response << "HTTP/1.1 " << code << " " << message << "\r\n";
-        response << "Content-Type: text/html\r\n";
-        response << "Content-Length: " << message.length() << "\r\n";
-        response << "\r\n";
-        response << message;
-        
-        send(clientSocket, response.str().c_str(), response.str().length(), 0);
+        response << "HTTP/1.1 " << code << " " << message << "\r\n"
+                 << "Content-Type: text/html\r\n"
+                 << "Content-Length: " << message.length() << "\r\n"
+                 << "\r\n" << message;
+        send(clientSocket, response.str().c_str(), response.str().length(), MSG_NOSIGNAL);
     }
 };
 
-// Main function
 int main(int argc, char* argv[]) {
     std::cout << "WebSDR Server starting..." << std::endl;
     std::cout << "Multi-band SDR server for RX888" << std::endl;
-    
-    // Setup signal handlers
     signal(SIGINT, signalHandler);
     signal(SIGTERM, signalHandler);
-    
-    // Parse configuration
+
     std::string configFile = "cfg/websdr.cfg";
-    if (argc > 1) {
-        configFile = argv[1];
-    }
-    
+    if (argc > 1) configFile = argv[1];
     if (!parseConfig(configFile)) {
         std::cerr << "Failed to load configuration" << std::endl;
         return 1;
     }
-    
-    // Print band information
+
     std::cout << "\nConfigured bands:" << std::endl;
     for (const auto& pair : g_bands) {
         std::cout << "  " << pair.first << ": " 
@@ -666,33 +549,26 @@ int main(int argc, char* argv[]) {
                   << pair.second.device << std::endl;
     }
     std::cout << std::endl;
-    
-    // Initialize FFTW
+
     fftwf_init_threads();
-    
-    // Start server
+
     WebSDRServer server;
     if (!server.start()) {
         std::cerr << "Failed to start server" << std::endl;
         return 1;
     }
-    
+
     std::cout << "Server running. Press Ctrl+C to stop." << std::endl;
-    
-    // Main loop
     while (g_running) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
-        
-        // Print status
         {
             std::lock_guard<std::mutex> lock(g_clientsMutex);
             std::cout << "Active users: " << g_clients.size() << "/" << g_maxUsers << std::endl;
         }
     }
-    
+
     std::cout << "Shutting down..." << std::endl;
     server.stop();
     fftwf_cleanup_threads();
-    
     return 0;
 }
