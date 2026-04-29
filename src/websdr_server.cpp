@@ -4,12 +4,13 @@ Reads IQ data from FIFO files provided by radiod
 Supports sample rates from 192 kHz to 1600 kHz
 */
 #include <atomic>
-#include <condition_variable>
 #include <complex>
+#include <condition_variable>
 #include <csignal>
-#include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <fcntl.h>
+#include <fftw3.h>
 #include <fstream>
 #include <iostream>
 #include <map>
@@ -23,7 +24,6 @@ Supports sample rates from 192 kHz to 1600 kHz
 #include <thread>
 #include <unistd.h>
 #include <vector>
-#include <fftw3.h>
 #include <arpa/inet.h>
 
 // Constants
@@ -135,7 +135,7 @@ bool parseConfig(const std::string& filename) {
     return true;
 }
 
-// Band reader thread - reads IQ data from FIFO
+// Band reader thread - reads IQ data from FIFO and computes Waterfall
 class BandReader {
 private:
     BandConfig& config;
@@ -145,17 +145,36 @@ private:
     std::thread readerThread;
     std::atomic<bool> running;
     int fifoFd;
+
+    // Waterfall & FFT members
+    std::deque<std::vector<uint8_t>> waterfallHistory;
+    std::mutex wfMutex;
+    fftwf_plan fftPlan;
+    fftwf_complex *fftIn, *fftOut;
+
 public:
-    BandReader(BandConfig& cfg) : config(cfg), running(false), fifoFd(-1) {
+    BandReader(BandConfig& cfg) : config(cfg), running(false), fifoFd(-1), fftPlan(nullptr), fftIn(nullptr), fftOut(nullptr) {
         buffer.resize(BUFFER_SIZE);
     }
-    ~BandReader() { stop(); }
+    
+    ~BandReader() { 
+        stop(); 
+        if (fftPlan) fftwf_destroy_plan(fftPlan);
+        if (fftIn) fftwf_free(fftIn);
+        if (fftOut) fftwf_free(fftOut);
+    }
 
     bool start() {
         if (config.device.empty()) {
             std::cerr << "No device configured for band " << config.name << std::endl;
             return false;
         }
+        
+        // Initialize FFT
+        fftIn = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * FFT_SIZE);
+        fftOut = (fftwf_complex*) fftwf_malloc(sizeof(fftwf_complex) * FFT_SIZE);
+        fftPlan = fftwf_plan_dft_1d(FFT_SIZE, fftIn, fftOut, FFTW_FORWARD, FFTW_ESTIMATE);
+
         running = true;
         readerThread = std::thread(&BandReader::readerLoop, this);
         return true;
@@ -168,6 +187,18 @@ public:
             close(fifoFd);
             fifoFd = -1;
         }
+    }
+
+    std::string getName() const { return config.name; }
+
+    // Get current waterfall snapshot
+    std::vector<uint8_t> getWaterfallSnapshot() {
+        std::lock_guard<std::mutex> lock(wfMutex);
+        std::vector<uint8_t> result;
+        for (const auto& row : waterfallHistory) {
+            result.insert(result.end(), row.begin(), row.end());
+        }
+        return result;
     }
 
     void readerLoop() {
@@ -190,12 +221,56 @@ public:
 
             while (running && fifoFd >= 0) {
                 ssize_t bytesRead = read(fifoFd, readBuffer, sizeof(readBuffer));
+                
                 if (bytesRead > 0) {
                     dataReceived = true;
-                    std::lock_guard<std::mutex> lock(bufferMutex);
-                    buffer.assign(reinterpret_cast<IQSample*>(readBuffer), 
-                                  reinterpret_cast<IQSample*>(readBuffer) + bytesRead / sizeof(IQSample));
-                    bufferCV.notify_all();
+                    
+                    // 1. Store raw samples for audio clients
+                    {
+                        std::lock_guard<std::mutex> lock(bufferMutex);
+                        buffer.assign(reinterpret_cast<IQSample*>(readBuffer), 
+                                      reinterpret_cast<IQSample*>(readBuffer) + bytesRead / sizeof(IQSample));
+                        bufferCV.notify_all();
+                    }
+
+                    // 2. Process Waterfall (Compute FFT of the first chunk)
+                    if ((size_t)bytesRead >= FFT_SIZE * sizeof(IQSample)) {
+                        memcpy(fftIn, readBuffer, FFT_SIZE * sizeof(IQSample));
+                        fftwf_execute(fftPlan);
+
+                        std::vector<uint8_t> row(WATERFALL_WIDTH);
+                        float maxPower = 0.0f;
+                        std::vector<float> powerSpectrum(WATERFALL_WIDTH, 0.0f);
+
+                        for (int i = 0; i < WATERFALL_WIDTH; ++i) {
+                            float re = fftOut[i][0];
+                            float im = fftOut[i][1];
+                            float power = re * re + im * im;
+                            powerSpectrum[i] = power;
+                            if (power > maxPower) maxPower = power;
+                        }
+
+                        for (int i = 0; i < WATERFALL_WIDTH; ++i) {
+                            if (maxPower > 0) {
+                                float db = 10.0f * log10f(powerSpectrum[i] / maxPower + 1e-9f); 
+                                int val = (int)((db + 40.0f) / 40.0f * 255.0f);
+                                if (val < 0) val = 0;
+                                if (val > 255) val = 255;
+                                row[i] = (uint8_t)val;
+                            } else {
+                                row[i] = 0;
+                            }
+                        }
+
+                        {
+                            std::lock_guard<std::mutex> lock(wfMutex);
+                            waterfallHistory.push_back(row);
+                            if (waterfallHistory.size() > WATERFALL_HEIGHT) {
+                                waterfallHistory.pop_front();
+                            }
+                        }
+                    }
+
                 } else if (bytesRead < 0) {
                     if (errno == EAGAIN || errno == EWOULDBLOCK) {
                         std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -204,6 +279,7 @@ public:
                     std::cerr << "Error reading FIFO: " << strerror(errno) << std::endl;
                     break;
                 }
+
                 if (bytesRead == 0) {
                     if (dataReceived) std::cout << "FIFO closed by writer, reconnecting..." << std::endl;
                     break;
@@ -368,74 +444,73 @@ public:
         std::cout << "Client disconnected" << std::endl;
     }
 
-bool handleGetRequest(int clientSocket, const std::string& path, Client&) {
-    std::string filePath;
-    
-    if (path == "/" || path.empty()) {
-        filePath = "web/pub2/index.html";
-    } else if (path.find("..") != std::string::npos) {
-        sendErrorResponse(clientSocket, 403, "Forbidden");
-        return false;
-    } else {
-        filePath = "web/pub2" + path;
-    }
-    
-    std::ifstream file(filePath, std::ios::binary);
-    if (!file.is_open()) {
-        sendErrorResponse(clientSocket, 404, "Not Found");
-        return false;
-    }
-    
-    file.seekg(0, std::ios::end);
-    size_t fileSize = file.tellg();
-    file.seekg(0, std::ios::beg);
-    
-    std::string contentType = "text/html";
-    if (path.find(".css") != std::string::npos) contentType = "text/css";
-    else if (path.find(".js") != std::string::npos) contentType = "application/javascript";
-    else if (path.find(".png") != std::string::npos) contentType = "image/png";
-    else if (path.find(".jpg") != std::string::npos) contentType = "image/jpeg";
-    else if (path.find(".html") != std::string::npos) contentType = "text/html";
-    else if (path.find(".ttf") != std::string::npos) contentType = "font/ttf";
-    else if (path.find(".woff") != std::string::npos) contentType = "font/woff";
-    else if (path.find(".woff2") != std::string::npos) contentType = "font/woff2";
-    else if (path.find(".svg") != std::string::npos) contentType = "image/svg+xml";
-    else if (path.find(".ico") != std::string::npos) contentType = "image/x-icon";
-    else if (path.find(".json") != std::string::npos) contentType = "application/json";
-    
-    std::string headers = "HTTP/1.1 200 OK\r\n"
-        "Content-Type: " + contentType + "\r\n"
-        "Content-Length: " + std::to_string(fileSize) + "\r\n"
-        "Connection: close\r\n\r\n";
-    
-    if (send(clientSocket, headers.c_str(), headers.size(), MSG_NOSIGNAL) < 0) 
-        return false;
-    
-    char fileBuffer[4096];
-    size_t sentTotal = 0;
-    while (sentTotal < fileSize && file.good()) {
-        file.read(fileBuffer, sizeof(fileBuffer));
-        size_t toSend = file.gcount();
-        if (toSend == 0) break;
+    bool handleGetRequest(int clientSocket, const std::string& path, Client&) {
+        std::string filePath;
         
-        size_t sentNow = 0;
-        while (sentNow < toSend) {
-            ssize_t n = send(clientSocket, fileBuffer + sentNow, toSend - sentNow, MSG_NOSIGNAL);
-            if (n <= 0) {
-                if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                    continue;
-                }
-                file.close();
-                return false;
-            }
-            sentNow += n;
+        if (path == "/" || path.empty()) {
+            filePath = "web/pub2/index.html";
+        } else if (path.find("..") != std::string::npos) {
+            sendErrorResponse(clientSocket, 403, "Forbidden");
+            return false;
+        } else {
+            filePath = "web/pub2" + path;
         }
-        sentTotal += toSend;
+        
+        std::ifstream file(filePath, std::ios::binary);
+        if (!file.is_open()) {
+            sendErrorResponse(clientSocket, 404, "Not Found");
+            return false;
+        }
+        
+        file.seekg(0, std::ios::end);
+        size_t fileSize = file.tellg();
+        file.seekg(0, std::ios::beg);
+        
+        std::string contentType = "text/html";
+        if (path.find(".css") != std::string::npos) contentType = "text/css";
+        else if (path.find(".js") != std::string::npos) contentType = "application/javascript";
+        else if (path.find(".png") != std::string::npos) contentType = "image/png";
+        else if (path.find(".jpg") != std::string::npos) contentType = "image/jpeg";
+        else if (path.find(".html") != std::string::npos) contentType = "text/html";
+        else if (path.find(".ttf") != std::string::npos) contentType = "font/ttf";
+        else if (path.find(".woff") != std::string::npos) contentType = "font/woff";
+        else if (path.find(".woff2") != std::string::npos) contentType = "font/woff2";
+        else if (path.find(".svg") != std::string::npos) contentType = "image/svg+xml";
+        else if (path.find(".ico") != std::string::npos) contentType = "image/x-icon";
+        else if (path.find(".json") != std::string::npos) contentType = "application/json";
+        
+        std::string headers = "HTTP/1.1 200 OK\r\n"
+            "Content-Type: " + contentType + "\r\n"
+            "Content-Length: " + std::to_string(fileSize) + "\r\n"
+            "Connection: close\r\n\r\n";
+        
+        if (send(clientSocket, headers.c_str(), headers.size(), MSG_NOSIGNAL) < 0) return false;
+        
+        char fileBuffer[4096];
+        size_t sentTotal = 0;
+        while (sentTotal < fileSize && file.good()) {
+            file.read(fileBuffer, sizeof(fileBuffer));
+            size_t toSend = file.gcount();
+            if (toSend == 0) break;
+
+            size_t sentNow = 0;
+            while (sentNow < toSend) {
+                ssize_t n = send(clientSocket, fileBuffer + sentNow, toSend - sentNow, MSG_NOSIGNAL);
+                if (n <= 0) {
+                    if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                        continue;
+                    }
+                    file.close();
+                    return false;
+                }
+                sentNow += n;
+            }
+            sentTotal += toSend;
+        }
+        file.close();
+        return (sentTotal == fileSize);
     }
-    file.close();
-    return (sentTotal == fileSize);
-}
 
     bool handlePostRequest(int clientSocket, const std::string& request, Client& client) {
         size_t bodyPos = request.find("\r\n\r\n");
@@ -458,28 +533,42 @@ bool handleGetRequest(int clientSocket, const std::string& path, Client&) {
                 client.band = body.substr(pos + 5, end - pos - 5);
             }
         }
-        send(clientSocket, "HTTP/1.1 200 OK\r\n\r\n", 20, 0);
+        send(clientSocket, "HTTP/1.1 200 OK\r\n\r\n", 20, MSG_NOSIGNAL);
         return true;
     }
 
     bool sendWaterfallData(int clientSocket, Client& client) {
-        std::vector<uint8_t> waterfallData(WATERFALL_WIDTH * WATERFALL_HEIGHT);
-        for (size_t i = 0; i < waterfallData.size(); i++) waterfallData[i] = rand() % 256;
+        (void)client;
+        BandReader* reader = nullptr;
+        for (auto& r : bandReaders) {
+            if (r->getName() == client.band) {
+                reader = r.get();
+                break;
+            }
+        }
         
+        if (!reader && !bandReaders.empty()) reader = bandReaders[0].get();
+        if (!reader) {
+            sendErrorResponse(clientSocket, 404, "No bands available");
+            return false;
+        }
+
+        std::vector<uint8_t> data = reader->getWaterfallSnapshot();
+        if (data.empty()) data.resize(WATERFALL_WIDTH * WATERFALL_HEIGHT, 0);
+
         std::ostringstream header;
         header << "HTTP/1.1 200 OK\r\n"
                << "Content-Type: application/octet-stream\r\n"
-               << "Content-Length: " << waterfallData.size() << "\r\n"
+               << "Content-Length: " << data.size() << "\r\n"
                << "\r\n";
         
         send(clientSocket, header.str().c_str(), header.str().length(), MSG_NOSIGNAL);
-        send(clientSocket, waterfallData.data(), waterfallData.size(), MSG_NOSIGNAL);
+        send(clientSocket, data.data(), data.size(), MSG_NOSIGNAL);
         return true;
     }
 
-    bool sendAudioData(int clientSocket, Client& client) {
-        std::vector<int16_t> audioData(4096);
-        for (size_t i = 0; i < audioData.size(); i++) audioData[i] = (rand() % 65535) - 32768;
+    bool sendAudioData(int clientSocket, Client&) {
+        std::vector<int16_t> audioData(4096, 0);
         
         std::ostringstream header;
         header << "HTTP/1.1 200 OK\r\n"
