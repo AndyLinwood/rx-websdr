@@ -1288,9 +1288,11 @@ function updatesmeter()
 {
    if (!allloadeddone) return;
 
-   try {
-      var s=soundapplet.smeter();
-   } catch (e) { s=0; };
+   if (!document.getElementById('smeterbar')) return;
+    
+    try {
+        var s = soundapplet.smeter();
+    } catch (e) { s = 0; };
    if (s>=0) {
 	   block_width = document.getElementsByClassName('smetertable')[0].rows[0].cells[0].getBoundingClientRect().width
 	   smeterobj.style.width= s*0.0191667*1.08+"px";

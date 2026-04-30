@@ -3,6 +3,7 @@
 CXX = g++
 CXXFLAGS = -std=c++17 -O3 -Wall -Wextra -pthread
 LDFLAGS = -lfftw3f -lfftw3f_threads
+LDFLAGS += -lssl -lcrypto
 
 # Директории
 SRC_DIR = src
@@ -65,3 +66,4 @@ help:
 	@echo "  - pthread"
 
 .PHONY: all clean install run debug help directories
+LDFLAGS += -lssl -lcrypto -lgd

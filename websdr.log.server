@@ -1,0 +1,731 @@
+WebSDR Server starting...
+Multi-band SDR server for RX888
+Configuration loaded: 8 bands configured
+
+Configured bands:
+  10mH: 29100 kHz, 768000 sps, FIFO: /home/websdr/fifo/fifo10mHH
+  10mL: 28350 kHz, 768000 sps, FIFO: /home/websdr/fifo/fifo10mLH
+  11m: 27345 kHz, 768000 sps, FIFO: /home/websdr/fifo/fifo17mL
+  15m: 21225 kHz, 768000 sps, FIFO: /home/websdr/fifo/fifo15mL
+  160m: 1895 kHz, 192000 sps, FIFO: /home/websdr/fifo/fifo160mL
+  20m: 14175 kHz, 384000 sps, FIFO: /home/websdr/fifo/fifo20mL
+  40m: 7100 kHz, 384000 sps, FIFO: /home/websdr/fifo/fifo40mL
+  80m: 3660 kHz, 384000 sps, FIFO: /home/websdr/fifo/fifo80mL
+
+Generated /tmp/bandinfo.js
+Starting reader for band 10mH on /home/websdr/fifo/fifo10mHH
+Starting reader for band 10mL on /home/websdr/fifo/fifo10mLH
+Starting reader for band 11m on /home/websdr/fifo/fifo17mL
+Starting reader for band 15m on /home/websdr/fifo/fifo15mL
+Starting reader for band 160m on /home/websdr/fifo/fifo160mL
+Connected to FIFO for band 160m
+Starting reader for band 20m on /home/websdr/fifo/fifo20mL
+Starting reader for band 40m on /home/websdr/fifo/fifo40mL
+Starting reader for band 80m on /home/websdr/fifo/fifo80mL
+WebSDR server listening on port 80
+Server running. Press Ctrl+C to stop.
+New connection from 192.168.1.20
+Client disconnected
+Active users: 0/200
+New connection from 192.168.1.20
+Client disconnected
+Active users: 0/200
+New connection from 192.168.1.20
+Client disconnected
+Connected to FIFO for band 80m
+Active users: 0/200
+New connection from 192.168.1.20
+Client disconnected
+Active users: 0/200
+New connection from 192.168.1.20
+Client disconnected
+Active users: 0/200
+New connection from 192.168.1.20
+Client disconnected
+Connected to FIFO for band 40m
+Active users: 0/200
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+Active users: 0/200
+Active users: 0/200
+Connected to FIFO for band 20m
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Connected to FIFO for band 15m
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+Client disconnected
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+Client disconnected
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+Client disconnected
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+Client disconnected
+Client disconnected
+Client disconnected
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+New connection from 192.168.1.20
+Client disconnected
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+Client disconnected
+New connection from 192.168.1.20
+Client disconnected
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+Active users: 0/200
+                                        

@@ -1,0 +1,226 @@
+KA9Q Multichannel SDR main.c last modified Thu Apr 16 15:58:44 2026
+Copyright 2026, Phil Karn, KA9Q. May be used under the terms of the GNU Public License
+   Repo: https://github.com/ka9q/ka9q-radio.git
+ Commit: 25079891e8684f28c3e19508d491f9a9e5977740
+Loading config file /etc/radio/radiod.conf
+Block time 0,000000 invalid, default 0,020000 used
+Loading presets file /usr/local/share/ka9q-radio/presets.conf
+Dynamically loading rx888 hardware driver from /usr/local/lib/ka9q-radio/rx888.so
+found rx888 vendor 04b4, device 00f3, manufacturer 'Cypress', product 'WestBridge ', serial '0000000004BE', loading rx888 firmware file /usr/local/share/ka9q-radio/SDDC_FX3.img, done
+found rx888 vendor 04b4, device 00f1, manufacturer 'sdr prototypes', product 'RX888', serial '0009071F0B46203B', USB speed: Super (5 Gb/s), selected
+RX888: TCXO Mode, Reference fixed to 122.88 MHz
+RX888 AGC off, nominal gain 20,0 dB, actual gain 19,9 dB, atten 0,0 dB, gain cal 1,4 dB, dither 0, randomizer 0, USB queue depth 16, USB request size 32 * pktsize 16 384 = 524 288 bytes (0,00213333 sec)
+Block time 20,000 ms, overlap 5, forward FFT size 3 072 000 real
+FFTW version: fftw-3.3.10-sse2-avx
+fftwf_import_system_wisdom() succeeded
+fftwf_import_wisdom_from_filename(/var/lib/ka9q-radio/wisdom) failed
+/var/lib/ka9q-radio/wisdom not readable: Нет такого файла или каталога
+rx888 running
+Warning: system doesn't know leap second count; using 18 sec, which will break with the next leap second
+[low_2_websdr_384_80m] key "channels" not found
+[high_2_websdr_768_10m_low] key "channels" not found
+[high_2_websdr_768_10m_high] key "channels" not found
+start_demod: ssrc 3660, output 80m-websdr384-pcm.local, demod Linear (0), freq 3 660 000,000 Hz, preset iq, filter (-160 000,+160 000)
+start_demod: ssrc 7100, output 40m-websdr384-pcm.local, demod Linear (0), freq 7 100 000,000 Hz, preset iq, filter (-120 000,+120 000)
+start_demod: ssrc 1895, output 160m-websdr192-pcm.local, demod Linear (0), freq 1 895 000,000 Hz, preset iq, filter (-95 000,+95 000)
+start_demod: ssrc 28350, output 10m-low-websdr768-pcm.local, demod Linear (0), freq 28 350 000,000 Hz, preset iq, filter (-372 000,+372 000)
+start_demod: ssrc 14175, output 20m-websdr384-pcm.local, demod Linear (0), freq 14 175 000,000 Hz, preset iq, filter (-175 000,+175 000)
+[low_5_websdr_384_20m] 1 channels started
+[high_2_websdr_768_10m_low] 1 channels started
+Linear 14175 freq 14 175 000,000 Hz starting
+[low_3_websdr_384_40m] 1 channels started
+Linear 7100 freq 7 100 000,000 Hz starting
+start_demod: ssrc 29100, output 10m-high-websdr768-pcm.local, demod Linear (0), freq 29 100 000,000 Hz, preset iq, filter (-372 000,+372 000)
+Linear 28350 freq 28 350 000,000 Hz starting
+[low_1_websdr_192_160m] 1 channels started
+[low_2_websdr_384_80m] 1 channels started
+Linear 3660 freq 3 660 000,000 Hz starting
+Linear 1895 freq 1 895 000,000 Hz starting
+start_demod: ssrc 21225, output 15m-websdr768-pcm.local, demod Linear (0), freq 21 225 000,000 Hz, preset iq, filter (-360 000,+360 000)
+[high_2_websdr_768_10m_high] 1 channels started
+Linear 29100 freq 29 100 000,000 Hz starting
+[low_7_websdr_768_15m] 1 channels started
+Linear 21225 freq 21 225 000,000 Hz starting
+chan Linear 14175 new filter: IF=[-175 000,175 000], samprate 384 000, kaiser beta 11,0
+7 total demodulators started
+chan Linear 7100 new filter: IF=[-120 000,120 000], samprate 384 000, kaiser beta 11,0
+chan Linear 28350 new filter: IF=[-372 000,372 000], samprate 768 000, kaiser beta 11,0
+chan Linear 3660 new filter: IF=[-160 000,160 000], samprate 384 000, kaiser beta 11,0
+chan Linear 1895 new filter: IF=[-95 000,95 000], samprate 192 000, kaiser beta 11,0
+chan Linear 29100 new filter: IF=[-372 000,372 000], samprate 768 000, kaiser beta 11,0
+chan Linear 21225 new filter: IF=[-360 000,360 000], samprate 768 000, kaiser beta 11,0
+Linear 1895 starting at FFT jobum 0, preset RTP TS to 0
+Linear 3660 starting at FFT jobum 0, preset RTP TS to 0
+Linear 7100 starting at FFT jobum 0, preset RTP TS to 0
+Linear 14175 starting at FFT jobum 0, preset RTP TS to 0
+Linear 28350 starting at FFT jobum 0, preset RTP TS to 0
+Linear 21225 starting at FFT jobum 0, preset RTP TS to 0
+Linear 29100 starting at FFT jobum 0, preset RTP TS to 0
+Established under name '/etc/radio/radiod.conf-pcm.local'
+Established under name 'web.local'
+Established under name '/etc/radio/radiod.conf'
+Established under name '/etc/radio/radiod.conf'
+Established under name 'debian low_2_websdr_384_80m'
+Established under name '80m-websdr384-pcm.local'
+Established under name '10m-low-websdr768-pcm.local'
+Established under name 'debian high_2_websdr_768_10m_low'
+Established under name '40m-websdr384-pcm.local'
+Established under name 'debian low_3_websdr_384_40m'
+Established under name 'debian low_5_websdr_384_20m'
+Established under name '20m-websdr384-pcm.local'
+Established under name '160m-websdr192-pcm.local'
+Established under name 'debian low_1_websdr_192_160m'
+Established under name '10m-high-websdr768-pcm.local'
+Established under name 'debian high_2_websdr_768_10m_high'
+Established under name '15m-websdr768-pcm.local'
+Established under name 'debian low_7_websdr_768_15m'
+New input power high watermark: -69,8 dBFS
+CPU usage: 176,4% since start, 176,4% in last 62,3 sec
+CPU usage: 177,2% since start, 178,0% in last 60,0 sec
+CPU usage: 177,2% since start, 177,2% in last 60,0 sec
+CPU usage: 176,4% since start, 174,0% in last 60,0 sec
+CPU usage: 175,4% since start, 171,4% in last 60,0 sec
+CPU usage: 174,7% since start, 171,4% in last 60,0 sec
+CPU usage: 174,3% since start, 171,6% in last 60,0 sec
+CPU usage: 174,0% since start, 171,6% in last 60,0 sec
+New input power high watermark: -69,2 dBFS
+CPU usage: 174,0% since start, 174,1% in last 60,0 sec
+CPU usage: 173,9% since start, 172,9% in last 60,0 sec
+CPU usage: 173,8% since start, 172,9% in last 60,0 sec
+CPU usage: 173,7% since start, 172,9% in last 60,0 sec
+CPU usage: 173,6% since start, 172,4% in last 60,0 sec
+CPU usage: 173,5% since start, 171,9% in last 60,0 sec
+CPU usage: 173,4% since start, 172,6% in last 60,0 sec
+CPU usage: 173,4% since start, 173,1% in last 60,0 sec
+CPU usage: 173,4% since start, 173,2% in last 60,0 sec
+CPU usage: 173,4% since start, 173,1% in last 60,0 sec
+CPU usage: 173,3% since start, 172,0% in last 60,0 sec
+CPU usage: 173,2% since start, 171,9% in last 60,0 sec
+CPU usage: 173,2% since start, 171,7% in last 60,0 sec
+CPU usage: 173,1% since start, 172,0% in last 60,0 sec
+CPU usage: 173,1% since start, 172,1% in last 60,0 sec
+CPU usage: 173,1% since start, 172,9% in last 60,0 sec
+CPU usage: 173,2% since start, 175,3% in last 60,0 sec
+CPU usage: 173,2% since start, 174,4% in last 60,0 sec
+CPU usage: 173,3% since start, 175,2% in last 60,0 sec
+CPU usage: 173,4% since start, 177,4% in last 60,0 sec
+CPU usage: 173,5% since start, 176,8% in last 60,0 sec
+CPU usage: 173,7% since start, 177,5% in last 60,0 sec
+CPU usage: 173,7% since start, 174,9% in last 60,0 sec
+CPU usage: 173,7% since start, 172,0% in last 60,0 sec
+CPU usage: 173,6% since start, 173,3% in last 60,0 sec
+CPU usage: 173,7% since start, 176,6% in last 60,0 sec
+CPU usage: 173,8% since start, 176,4% in last 60,0 sec
+CPU usage: 173,9% since start, 177,1% in last 60,0 sec
+CPU usage: 174,0% since start, 176,7% in last 60,0 sec
+CPU usage: 174,1% since start, 176,8% in last 60,0 sec
+CPU usage: 174,2% since start, 179,3% in last 60,0 sec
+CPU usage: 174,3% since start, 177,7% in last 60,0 sec
+CPU usage: 174,4% since start, 178,2% in last 60,0 sec
+CPU usage: 174,4% since start, 176,9% in last 60,0 sec
+CPU usage: 174,5% since start, 178,4% in last 60,0 sec
+CPU usage: 174,6% since start, 179,6% in last 60,0 sec
+CPU usage: 174,7% since start, 176,2% in last 60,0 sec
+CPU usage: 174,7% since start, 176,5% in last 60,0 sec
+CPU usage: 174,8% since start, 180,4% in last 60,0 sec
+CPU usage: 174,9% since start, 178,2% in last 60,0 sec
+CPU usage: 174,9% since start, 176,3% in last 60,0 sec
+CPU usage: 175,0% since start, 176,4% in last 60,0 sec
+CPU usage: 175,0% since start, 175,9% in last 60,0 sec
+CPU usage: 175,0% since start, 175,6% in last 60,0 sec
+CPU usage: 175,0% since start, 175,4% in last 60,0 sec
+CPU usage: 175,0% since start, 175,5% in last 60,0 sec
+CPU usage: 175,0% since start, 175,5% in last 60,0 sec
+CPU usage: 175,0% since start, 175,2% in last 60,0 sec
+CPU usage: 175,0% since start, 175,7% in last 60,0 sec
+New input power high watermark: -68,9 dBFS
+CPU usage: 175,1% since start, 177,1% in last 60,0 sec
+CPU usage: 175,1% since start, 175,1% in last 60,0 sec
+CPU usage: 175,0% since start, 173,5% in last 60,0 sec
+CPU usage: 175,0% since start, 173,3% in last 60,0 sec
+CPU usage: 175,0% since start, 174,3% in last 60,0 sec
+CPU usage: 175,0% since start, 176,6% in last 60,0 sec
+CPU usage: 175,0% since start, 175,6% in last 60,0 sec
+CPU usage: 175,0% since start, 175,2% in last 60,0 sec
+CPU usage: 175,0% since start, 175,6% in last 60,0 sec
+CPU usage: 175,1% since start, 176,1% in last 60,0 sec
+CPU usage: 175,1% since start, 176,0% in last 60,0 sec
+CPU usage: 175,1% since start, 176,3% in last 60,0 sec
+CPU usage: 175,1% since start, 178,8% in last 60,0 sec
+CPU usage: 175,2% since start, 176,6% in last 60,0 sec
+CPU usage: 175,2% since start, 176,2% in last 60,0 sec
+CPU usage: 175,2% since start, 174,4% in last 60,0 sec
+CPU usage: 175,1% since start, 172,5% in last 60,0 sec
+CPU usage: 175,1% since start, 172,6% in last 60,0 sec
+CPU usage: 175,1% since start, 174,2% in last 60,0 sec
+CPU usage: 175,1% since start, 175,8% in last 60,0 sec
+CPU usage: 175,1% since start, 176,5% in last 60,0 sec
+CPU usage: 175,1% since start, 176,2% in last 60,0 sec
+CPU usage: 175,1% since start, 176,2% in last 60,0 sec
+CPU usage: 175,2% since start, 176,3% in last 60,0 sec
+CPU usage: 175,2% since start, 176,5% in last 60,0 sec
+CPU usage: 175,2% since start, 176,9% in last 60,0 sec
+CPU usage: 175,2% since start, 176,6% in last 60,0 sec
+CPU usage: 175,2% since start, 175,7% in last 60,0 sec
+CPU usage: 175,2% since start, 173,9% in last 60,0 sec
+CPU usage: 175,2% since start, 174,0% in last 60,0 sec
+CPU usage: 175,2% since start, 173,9% in last 60,0 sec
+CPU usage: 175,2% since start, 174,1% in last 60,0 sec
+CPU usage: 175,1% since start, 174,2% in last 60,0 sec
+CPU usage: 175,1% since start, 174,1% in last 60,0 sec
+CPU usage: 175,1% since start, 174,1% in last 60,0 sec
+CPU usage: 175,1% since start, 174,4% in last 60,0 sec
+CPU usage: 175,1% since start, 174,6% in last 60,0 sec
+CPU usage: 175,1% since start, 174,5% in last 60,0 sec
+CPU usage: 175,1% since start, 174,2% in last 60,0 sec
+CPU usage: 175,1% since start, 176,3% in last 60,0 sec
+CPU usage: 175,1% since start, 176,6% in last 60,0 sec
+CPU usage: 175,1% since start, 177,1% in last 60,0 sec
+CPU usage: 175,2% since start, 176,8% in last 60,0 sec
+CPU usage: 175,2% since start, 177,1% in last 60,0 sec
+CPU usage: 175,2% since start, 177,1% in last 60,0 sec
+CPU usage: 175,2% since start, 177,3% in last 60,0 sec
+CPU usage: 175,2% since start, 177,7% in last 60,0 sec
+CPU usage: 175,3% since start, 178,0% in last 60,0 sec
+CPU usage: 175,3% since start, 177,6% in last 60,0 sec
+CPU usage: 175,3% since start, 177,8% in last 60,0 sec
+CPU usage: 175,3% since start, 177,4% in last 60,0 sec
+CPU usage: 175,4% since start, 177,7% in last 60,0 sec
+CPU usage: 175,4% since start, 178,1% in last 60,0 sec
+CPU usage: 175,4% since start, 177,8% in last 60,0 sec
+CPU usage: 175,4% since start, 178,0% in last 60,0 sec
+CPU usage: 175,4% since start, 178,0% in last 60,0 sec
+CPU usage: 175,5% since start, 177,7% in last 60,0 sec
+CPU usage: 175,5% since start, 177,7% in last 60,0 sec
+CPU usage: 175,5% since start, 177,2% in last 60,0 sec
+CPU usage: 175,5% since start, 176,0% in last 60,0 sec
+CPU usage: 175,5% since start, 176,1% in last 60,0 sec
+CPU usage: 175,5% since start, 176,1% in last 60,0 sec
+CPU usage: 175,5% since start, 176,1% in last 60,0 sec
+CPU usage: 175,5% since start, 176,9% in last 60,0 sec
+CPU usage: 175,6% since start, 178,5% in last 60,0 sec
+CPU usage: 175,6% since start, 178,4% in last 60,0 sec
+CPU usage: 175,6% since start, 178,5% in last 60,0 sec
+CPU usage: 175,6% since start, 178,5% in last 60,0 sec
+CPU usage: 175,7% since start, 181,3% in last 60,0 sec
+CPU usage: 175,7% since start, 181,4% in last 60,0 sec
+CPU usage: 175,7% since start, 176,5% in last 60,0 sec
+CPU usage: 175,7% since start, 177,7% in last 60,0 sec
+CPU usage: 175,8% since start, 180,9% in last 60,0 sec
+CPU usage: 175,8% since start, 181,8% in last 60,0 sec
+CPU usage: 175,9% since start, 181,8% in last 60,0 sec
+CPU usage: 175,9% since start, 181,8% in last 60,0 sec
+CPU usage: 176,0% since start, 182,0% in last 60,0 sec
+CPU usage: 176,0% since start, 181,8% in last 60,0 sec
+CPU usage: 176,0% since start, 181,9% in last 60,0 sec
+CPU usage: 176,1% since start, 182,0% in last 60,0 sec
+CPU usage: 176,1% since start, 181,4% in last 60,0 sec
+CPU usage: 176,2% since start, 182,9% in last 60,0 sec
+CPU usage: 176,2% since start, 182,0% in last 60,0 sec
+CPU usage: 176,3% since start, 182,0% in last 60,0 sec
+CPU usage: 176,3% since start, 182,0% in last 60,0 sec
+CPU usage: 176,3% since start, 182,3% in last 60,0 sec
+CPU usage: 176,4% since start, 182,3% in last 60,0 sec
+CPU usage: 176,4% since start, 181,7% in last 60,0 sec
+CPU usage: 176,5% since start, 182,0% in last 60,0 sec
+CPU usage: 176,5% since start, 181,8% in last 60,0 sec
