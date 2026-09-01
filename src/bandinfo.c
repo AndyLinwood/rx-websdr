@@ -1,0 +1,81 @@
+/*
+ * WebSDR Server — dynamic bandinfo.js generation
+ *
+ * Produces the `tmp/bandinfo.js` the client loads at page start, derived from
+ * the bands in websdr.cfg. Mirrors what the original websdr64 generates:
+ *   nbands, ini_freq/ini_mode/chseq, and per-band {centerfreq, samplerate(kHz),
+ *   tuningstep, maxlinbw, vfo, maxzoom, name, scaleimgs}.
+ *
+ * scaleimgs[zoom] is an array of 2^zoom tile paths (each tile = a 1024x14
+ * frequency-ruler PNG named tmp/<ts>-b<band>z<zoom>i<idx>.png, covering
+ * [centerfreq - samplerate/2 + idx*(samplerate/2^zoom), +samplerate/2^zoom)).
+ */
+
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+#include <time.h>
+
+#include "websdr.h"
+
+static int append(char *buf, size_t cap, size_t *o, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    int n = vsnprintf(buf + *o, cap - *o, fmt, ap);
+    va_end(ap);
+    if (n < 0 || (size_t)n >= cap - *o) return -1;
+    *o += (size_t)n;
+    return 0;
+}
+
+int bandinfo_build(char *buf, size_t cap, struct websdr_config *cfg, const char *ts) {
+    size_t o = 0;
+
+    if (append(buf, cap, &o, "var nbands=%d;\n", cfg->nbands)) return -1;
+    if (append(buf, cap, &o, "var ini_freq=%.6f;\n", cfg->ini_freq)) return -1;
+    if (append(buf, cap, &o, "var ini_mode='%s';\n", cfg->ini_mode[0] ? cfg->ini_mode : "lsb")) return -1;
+    if (append(buf, cap, &o, "var chseq=%d;\n", cfg->chseq)) return -1;
+    if (append(buf, cap, &o, "var bandinfo= [\n")) return -1;
+
+    for (int b = 0; b < cfg->nbands; b++) {
+        struct band *band = &cfg->bands[b];
+        int mz = band->maxzoom;
+        double centerfreq = band_eff_center(band);              /* kHz */
+        double sr_khz = band->samplerate / 1000.0;         /* kHz */
+        double tuningstep = band->samplerate / 12288000.0;  /* kHz = sr/12288 */
+        double vfo = centerfreq + 10.0;
+
+
+        if (append(buf, cap, &o, "  { centerfreq: %.6f,\n", centerfreq)) return -1;
+        if (append(buf, cap, &o, "    samplerate: %.6f,\n", sr_khz)) return -1;
+        if (append(buf, cap, &o, "    tuningstep: %.6f,\n", tuningstep)) return -1;
+        if (append(buf, cap, &o, "    maxlinbw: 8.000000,\n")) return -1;
+        if (append(buf, cap, &o, "    vfo: %.6f,\n", vfo)) return -1;
+        if (append(buf, cap, &o, "    maxzoom: %d,\n", mz)) return -1;
+        if (append(buf, cap, &o, "    name: '%s',\n", band->name)) return -1;
+        if (append(buf, cap, &o, "    stations: [\n")) return -1;
+        for (int s = 0; s < band->nstations; s++) {
+            if (append(buf, cap, &o, "      {freq:%.3f,mode:'%s',name:'%s'}%s\n",
+                       band->stations[s].freq, band->stations[s].mode, band->stations[s].name,
+                       s < band->nstations - 1 ? "," : "")) return -1;
+        }
+        if (append(buf, cap, &o, "    ],\n")) return -1;
+        if (append(buf, cap, &o, "    scaleimgs: [\n")) return -1;
+
+        for (int z = 0; z <= mz; z++) {
+            int ntiles = 1 << z;
+            if (append(buf, cap, &o, "      [")) return -1;
+            for (int k = 0; k < ntiles; k++) {
+                if (append(buf, cap, &o, "\"tmp/%s-b%dz%di%d.png\"%s",
+                           ts, b, z, k, k < ntiles - 1 ? "," : "")) return -1;
+            }
+            if (append(buf, cap, &o, "]%s\n", z < mz ? "," : "")) return -1;
+        }
+        if (append(buf, cap, &o, "    ]\n  }%s\n", b < cfg->nbands - 1 ? "," : "")) return -1;
+    }
+
+    if (append(buf, cap, &o, "];\nvar dxinfoavailable=1;\n")) return -1;
+    if (append(buf, cap, &o, "var idletimeout=%d;\n", cfg->idletimeout)) return -1;
+    if (append(buf, cap, &o, "var has_mobile=0;\n")) return -1;
+    return (int)o;
+}

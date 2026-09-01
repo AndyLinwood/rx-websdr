@@ -1,0 +1,165 @@
+#ifndef WEBSDR_H
+#define WEBSDR_H
+
+#include <stdint.h>
+#include <stdbool.h>
+#include <pthread.h>
+#include <time.h>
+#include <fftw3.h>
+
+#define MAX_BANDS 32
+#define MAX_CLIENTS 256
+#define WATERFALL_WIDTH 1024
+#define FFT_SIZE 32768
+
+struct client;
+
+struct band {
+    char name[64];
+    char device[256];
+    int samplerate;
+    double centerfreq;
+    double gain;
+    bool swapiq;
+    int hpf;
+    int noiseblanker;
+    int maxzoom;
+    int fifo_fd;
+    fftwf_plan fft_plan;
+    float fft_input[FFT_SIZE * 2];
+    float fft_output[FFT_SIZE * 2];
+    uint8_t waterfall_line[WATERFALL_WIDTH];
+    uint8_t prev_line[WATERFALL_WIDTH];
+    float power_spectrum[WATERFALL_WIDTH];
+    float avg_power[WATERFALL_WIDTH];
+    float power_hi[FFT_SIZE];
+    float wf_hi[FFT_SIZE];
+    float wf_floor;
+    int   wf_init;
+    int   wf_resync;
+    int   wf_dbgcal;
+    double noise_dB;
+    int   noise_init;
+    pthread_mutex_t lock;
+    pthread_t thread;
+    bool running;
+    struct client *clients[MAX_CLIENTS];
+    int nclients;
+};
+
+struct websdr_config {
+    int tcpport;
+    int maxusers;
+    int idletimeout;
+    int waterfallformat;
+    int audioformat;
+    int nbands;
+    double ini_freq;
+    char  ini_mode[16];
+    int   chseq;
+    struct band bands[MAX_BANDS];
+};
+
+#define AUDIO_BUFSZ 4096
+
+struct audio_state {
+    double nco_phase;
+    double nco_inc;
+    int decim;
+    int decim_count;
+    /* Stage 1: anti-alias lowpass at samplerate */
+    double *fir;
+    int fir_len;
+    int fir_pos;
+    double *fir_delay_i;
+    double *fir_delay_q;
+    /* Stage 2: bandpass at 8kHz */
+    double *fir2;
+    int fir2_len;
+    int fir2_pos;
+    double *fir2_delay_i;
+    double *fir2_delay_q;
+    int dec2_count;
+    /* Mode / passband */
+    int mode;
+    double lo_hz;
+    double hi_hz;
+    /* DC removal */
+    double dc_sum;
+    int dc_count;
+    double dc_avg;
+    /* Steady-rate output pacing. PCM is produced in bursts (one big FIFO read
+     * per band thread iter), so dumping everything at each flush makes the
+     * wire deliver in clumps (instant rate -54%..+22%) and the client's
+     * drift-corrector wobbles the pitch ("trembling" voices). `pace_budget`
+     * accumulates samples scheduled by wall-clock at AUDIO_RATE: each flush
+     * emits at most what time has earned, keeping the rest buffered. */
+    double pace_budget;
+    struct timespec pace_last;
+    int pace_init;
+    /* AGC */
+    double peak;
+    double last_phase;       /* FM discriminator state */
+    int rate_sent;
+    /* Output */
+    short pcm[AUDIO_BUFSZ];
+    int npcm;
+    double s_ema;
+};
+
+struct client {
+    int fd;
+    struct band *band;
+    struct lws *wsi;
+    int zoom;
+    int start;
+    bool waterfall_active;
+    bool audio_active;
+    bool muted;
+    int mode;
+    double freq;
+    int lo_filter;
+    int hi_filter;
+    struct audio_state audio;
+    bool audio_stream;
+    /* Serializes access to `audio` (and the audio FIR state) between the
+     * per-band DSP thread (audio_process_iq / audio_flush_pcm, which run under
+     * the band lock) and the lws service thread (audio_init/reconfigure on
+     * retune, audio_free on disconnect). Without it a client retune frees and
+     * reallocs the FIR arrays while the DSP thread is mid-loop reading/writing
+     * them -> use-after-free / SEGV core dump on frequency retune. */
+    pthread_mutex_t audio_mutex;
+    uint8_t prev_line[WATERFALL_WIDTH];
+    pthread_mutex_t out_mutex;
+#define CLIENT_OUT_MAX 128
+    uint8_t *outq[CLIENT_OUT_MAX];
+    size_t outq_len[CLIENT_OUT_MAX];
+    int outq_head;
+    int outq_tail;
+};
+
+int config_load(const char *filename, struct websdr_config *config);
+int bandinfo_build(char *buf, size_t cap, struct websdr_config *config, const char *ts);
+int scale_generate_all(const char *pubdir, const char *ts, struct websdr_config *config);
+void *band_thread(void *arg);
+void waterfall_init(void);
+void waterfall_process(struct band *band, int16_t *iq_data, int samples);
+float wf_brightness(float avg_power, double noise_dB, double gain_db);
+int server_start(struct websdr_config *config);
+void protocol_handle_message(struct client *client, const uint8_t *data, size_t len);
+int compress_waterfall_format9(const uint8_t *newrow, const uint8_t *prevrow, int width, uint8_t *out);
+void client_add_to_band(struct client *cli, struct band *band);
+void client_remove_from_band(struct client *cli);
+void client_send_waterfall_control(struct client *cli);
+void client_enqueue(struct client *cli, const uint8_t *data, size_t len);
+void client_free_outq(struct client *cli);
+
+void audio_init(struct client *cli, int samplerate);
+void audio_free(struct client *cli);
+void audio_reconfigure(struct client *cli, int samplerate,
+                       double centerfreq_khz);
+void audio_process_iq(struct client *cli, const int16_t *iq, int nsamples);
+void audio_flush_pcm(struct client *cli);
+void *audio_pacer_thread(void *arg);
+
+#endif

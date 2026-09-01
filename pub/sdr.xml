@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<sdr>
+	<station>
+		<!-- General station info -->
+		<callsign>RD3MK</callsign>
+		<locator>LO07aq</locator>
+		<!-- WebSDR server version -->
+		<version>11</version>
+		<!-- a link to a page where you can find more info about that WebSDR server -->
+		<about>https://srr-76.ru/</about>
+		<!-- a jpg representing server, 480x320 pixels -->
+		<picture>http://websdr.srr-76.ru/LogoWEBsdr.png</picture>
+		<!-- a jpg representing station logo, 128x128 pixels -->
+		<logo>http://websdr.srr-76.ru/logo_rd3mk.png</logo>
+		<message>Update the application to version 0.7.1-7 if no sound.</message>
+	
+
+	</station>
+	<band>
+		<nr>0</nr>
+		<name>10mH</name>
+		<centerfreq>29100</centerfreq>
+		<samplerate>768000</samplerate>
+	</band>
+
+	<band>
+		<nr>1</nr>
+		<name>10mL</name>
+		<centerfreq>28350</centerfreq>
+		<samplerate>768000</samplerate>
+	</band>
+
+	<band>
+		<nr>2</nr>
+		<name>15m</name>
+		<centerfreq>21225</centerfreq>
+		<samplerate>768000</samplerate>
+	</band>	
+	<band>
+		<nr>3</nr>
+		<name>17m</name>
+		<centerfreq>18118</centerfreq>
+		<samplerate>192000</samplerate>
+	</band>
+	<band>
+		<nr>4</nr>
+		<name>20m</name>
+		<centerfreq>14175.00</centerfreq>
+		<samplerate>384000</samplerate>
+	</band>
+
+	<band>
+		<nr>5</nr>
+		<name>40m</name>
+		<centerfreq>7100</centerfreq>
+		<samplerate>384000</samplerate>
+	</band>
+	<band>
+		<nr>6</nr>
+		<name>80m</name>
+		<centerfreq>3660</centerfreq>
+		<samplerate>384000</samplerate>
+	</band>
+	<band>
+		<nr>7</nr>
+		<name>160m</name>
+		<centerfreq>1895</centerfreq>
+		<samplerate>192000</samplerate>
+	</band>
+	
+	<band>
+		<nomore></nomore>
+	</band>
+</sdr>

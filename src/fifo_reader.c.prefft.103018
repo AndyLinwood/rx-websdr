@@ -1,0 +1,193 @@
+/*
+ * WebSDR Server — FIFO reader
+ *
+ * Reads raw LE int16 IQ from a (named-)pipe, accumulates a full FFT_SIZE
+ * complex frame (a short zero-padded FFT would smear the spectrum into
+ * spurious vertical stripes), runs a real FFT on each complete frame and
+ * averages a few frames per emitted waterfall row. Rows are emitted often
+ * enough that the client's one-pixel scroll looks smooth.
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <errno.h>
+
+#include <libwebsockets.h>
+
+#include "websdr.h"
+
+#define BLOCK_SIZE (FFT_SIZE * 2 * sizeof(int16_t))
+
+extern void band_send_waterfall(struct band *band);
+
+#ifdef DBG_WF
+static int cmp_float_gh(const void *a, const void *b) {
+    float x = *(const float *)a, y = *(const float *)b;
+    return (x > y) - (x < y);
+}
+#endif
+
+void *band_thread(void *arg) {
+    struct band *band = (struct band *)arg;
+
+    fprintf(stderr, "Band %s: opening %s\n", band->name, band->device);
+
+    band->fifo_fd = open(band->device, O_RDONLY);
+    if (band->fifo_fd < 0) {
+        fprintf(stderr, "Band %s: cannot open %s: %s\n",
+                band->name, band->device, strerror(errno));
+        band->running = 0;
+        return NULL;
+    }
+
+    int16_t *buffer = malloc(BLOCK_SIZE);          /* FIFO read chunk    */
+    int16_t *frame  = malloc((size_t)FFT_SIZE * 2 * sizeof(int16_t)); /* full IQ frame */
+    if (!buffer || !frame) {
+        free(buffer); free(frame);
+        close(band->fifo_fd);
+        band->running = 0;
+        return NULL;
+    }
+
+    fprintf(stderr, "Band %s: running (rate=%d Hz, center=%.1f kHz)\n",
+            band->name, band->samplerate, band->centerfreq);
+
+    /* A/B test [14 авг]: revert waterfall-speed equalization to native FFT-frame
+     * emission for ALL bands (need_overlap=0, emit_every=1). The equalization was
+     * introduced before the 15m audio-stretch symptom appeared; this isolates
+     * whether it is the trigger. The audio path (audio_process_iq feed below) is
+     * independent of this block. */
+    const int need_overlap = 0;
+    int emit_every = 1;
+
+    float accum[WATERFALL_WIDTH] = { 0 };
+    int acc_blocks = 0;
+    int frame_pos = 0;                             /* int16 samples in current frame */
+
+    struct timespec _t0; clock_gettime(CLOCK_MONOTONIC, &_t0);
+    while (band->running) {
+        ssize_t n = read(band->fifo_fd, buffer, BLOCK_SIZE);
+        {
+            struct timespec _t1; clock_gettime(CLOCK_MONOTONIC, &_t1);
+            long _ms = (_t1.tv_sec - _t0.tv_sec) * 1000 + (_t1.tv_nsec - _t0.tv_nsec) / 1000000;
+            _t0 = _t1;
+            /* Rate-limit this diagnostic: with many configured-but-idle bands
+             * it flooded journald at ~20 lines/s and caused periodic CPU/I/O
+             * jitter (synchronous waterfall lags + audio stutter). */
+            static long _last_note = 0;
+            if (_ms > 30 && _t1.tv_sec - _last_note >= 1) {
+                _last_note = _t1.tv_sec;
+                fprintf(stderr, "[dbg] FIFO %s read blocked %.0f ms\n", band->name, (double)_ms);
+            }
+        }
+        if (n <= 0) {
+            if (n < 0 && errno != EINTR)
+                perror("read fifo");
+            continue;
+        }
+
+        int ns = (int)(n / sizeof(int16_t));
+        int off = 0;
+
+        /* Feed continuous IQ to any audio clients on this band (they need
+         * every sample for tuning/decimation, unlike FFT frames). audio_process_iq
+         * counts IQ PAIRS (it indexes iq[2*s], iq[2*s+1]), but `ns` above is the
+         * int16 count — pass ns/2 or it processes the chunk twice and reads past
+         * the buffer, injecting a periodic buzz at the FFT-frame rate. */
+        pthread_mutex_lock(&band->lock);
+        for (int ai = 0; ai < MAX_CLIENTS; ai++) {
+            struct client *ac = band->clients[ai];
+            if (ac && ac->audio_stream && ac->audio_active && ac->audio.fir)
+                audio_process_iq(ac, buffer, ns / 2);
+        }
+        pthread_mutex_unlock(&band->lock);
+
+        while (off < ns) {
+            /* top up the current frame from this FIFO chunk */
+            size_t space = (size_t)FFT_SIZE * 2 - (size_t)frame_pos;
+            size_t take = (size_t)(ns - off);
+            if (take > space) take = space;
+            memcpy((char *)frame + (size_t)frame_pos * sizeof(int16_t),
+                   (char *)buffer + (size_t)off * sizeof(int16_t), take * sizeof(int16_t));
+            frame_pos += (int)take;
+            off += (int)take;
+
+            if (frame_pos < FFT_SIZE * 2)
+                break;                 /* not enough IQ for a complete frame yet */
+
+            pthread_mutex_lock(&band->lock);
+            int ready = 0;
+            if (band->nclients > 0) {
+                waterfall_process(band, frame, FFT_SIZE * 2);
+                for (int i = 0; i < WATERFALL_WIDTH; i++)
+                    accum[i] += band->waterfall_line[i];
+                acc_blocks++;
+                if (acc_blocks >= emit_every) {
+                    for (int i = 0; i < WATERFALL_WIDTH; i++)
+                        band->waterfall_line[i] = (uint8_t)(accum[i] / (float)acc_blocks);
+#ifdef DBG_WF
+                    {
+                        int mn = 255, mx = 0; long sum = 0;
+                        for (int i = 0; i < WATERFALL_WIDTH; i++) {
+                            int v = band->waterfall_line[i];
+                            if (v < mn) mn = v; if (v > mx) mx = v; sum += v;
+                        }
+                        fprintf(stderr, "[dbg] row min=%d max=%d mean=%.1f\n",
+                                mn, mx, (double)sum / WATERFALL_WIDTH);
+                        fprintf(stderr, "     floor=%.1fdB wfline=%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+                                band->wf_floor,
+                                band->waterfall_line[0], band->waterfall_line[64],
+                                band->waterfall_line[128], band->waterfall_line[192],
+                                band->waterfall_line[256], band->waterfall_line[320],
+                                band->waterfall_line[384], band->waterfall_line[448],
+                                band->waterfall_line[512], band->waterfall_line[576],
+                                band->waterfall_line[640], band->waterfall_line[704],
+                                band->waterfall_line[768], band->waterfall_line[832],
+                                band->waterfall_line[896], band->waterfall_line[960]);
+                        float tmpc[WATERFALL_WIDTH];
+                        memcpy(tmpc, band->power_spectrum, sizeof(tmpc));
+                        float pf[9]; int qi[9] = {0, 1, 2, 3, 4, 5, 6, 7, 8};
+                        qsort(tmpc, WATERFALL_WIDTH, sizeof(float), cmp_float_gh);
+                        for (int k = 0; k < 9; k++) pf[k] = tmpc[qi[k] * WATERFALL_WIDTH / 8];
+                        fprintf(stderr, "     rawdB P0/P12/P25/P37/P50/P62/P75/P87/P100=%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f,%.0f\n",
+                                pf[0], pf[1], pf[2], pf[3], pf[4], pf[5], pf[6], pf[7], pf[8]);
+                    }
+#endif
+                    memset(accum, 0, sizeof(accum));
+                    acc_blocks = 0;
+                    ready = 1;
+                }
+            }
+            pthread_mutex_unlock(&band->lock);
+
+            /* 50% overlap for the low-rate (192 kHz) bands so their FFT window
+             * advances twice as often; the 384/768 kHz bands reset (non-overlap). */
+            if (need_overlap) {
+                memmove(frame, frame + FFT_SIZE, (size_t)FFT_SIZE * sizeof(int16_t));
+                frame_pos = FFT_SIZE;
+            } else {
+                frame_pos = 0;
+            }
+
+            if (ready) {
+                band_send_waterfall(band);
+            }
+        }
+
+        /* Audio delivery is decoupled from this read loop: the audio pacer
+         * thread (audio_pacer_thread, server.c) flushes PCM to clients on a
+         * steady wall-clock cadence. Here we only feed IQ into the per-client
+         * demodulators; a FIFO read block on a 192 kHz band is ~170 ms of
+         * audio, and flushing on that rhythm made delivery clump (voice jitter
+         * / stutter on slow bands). */
+    }
+
+    free(buffer);
+    free(frame);
+    close(band->fifo_fd);
+    fprintf(stderr, "Band %s: stopped (running=%d)\n", band->name, band->running);
+    return NULL;
+}

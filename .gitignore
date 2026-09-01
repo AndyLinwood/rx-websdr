@@ -1,0 +1,3 @@
+*.o
+websdr-server
+*.d
