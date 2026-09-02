@@ -140,6 +140,17 @@ static void draw_num(uint8_t *px, int x, int y, long v) {
     }
 }
 
+/* Round target to nearest "nice" number: 1, 2, 5, 10, 20, 50, 100... */
+static double nice_step(double target) {
+    if (target <= 0) return 1.0;
+    double exponent = pow(10.0, floor(log10(target)));
+    double fraction = target / exponent;
+    if (fraction <= 1.4) return exponent;
+    if (fraction <= 3.0) return exponent * 2.0;
+    if (fraction <= 7.0) return exponent * 5.0;
+    return exponent * 10.0;
+}
+
 /* ------------------------------------------------------------------ */
 /* Scale tile generator                                                */
 /* ------------------------------------------------------------------ */
@@ -161,9 +172,9 @@ static int generate_band_tiles(const char *pubdir, const char *ts,
     for (int z = 0; z <= mz; z++) {
         int ntiles = 1 << z;
         double span = sr / (double)(1 << z);       /* Hz per tile */
-        double hzperpix = span / (double)SCALE_W;
         for (int k = 0; k < ntiles; k++) {
             memset(px, 0, SCALE_W * SCALE_H);
+            double hzperpix = span / (double)SCALE_W;
             double tileLower = centerHz - sr / 2.0 + k * span;
 
             /* Major (labeled) ticks ~120px apart, with finer minor ticks
@@ -178,13 +189,24 @@ static int generate_band_tiles(const char *pubdir, const char *ts,
              * division cycles 10,5,5 counting from the deepest zoom (deepest
              * is always 10): 40m z4=10 (labels 7098/7099, 10 ticks), z3=5,
              * z2=5, z1=10 (labels 7090/7100, 10 ticks), z0=5. */
-            double base = band->samplerate / 384.0;   /* ~1000 Hz for 384k */
-            double minor = base;
-            if (z == 0) minor = base * 10.0;   /* max out: 10 kHz on 40m */
-            else if (z == mz) minor = base / 10.0;  /* deepest: 100 Hz */
-            static const double div_cycle[3] = {10.0, 5.0, 5.0};
-            double division = div_cycle[(mz - z) % 3];
-            double major = minor * division;
+            
+
+            /* Major (labelled) tick: target ~50 px apart, keep 20..120 px */
+            double major = nice_step(hzperpix * 50.0);
+            while (major / hzperpix > 120.0) major = nice_step(major * 0.7);
+            while (major / hzperpix < 20.0)  major = nice_step(major * 1.5);
+
+            /* Minor tick: 1/10 of major if possible, else nearest nice step */
+            double target_minor = major / 10.0;
+            if (target_minor < hzperpix * 1.5) target_minor = hzperpix * 1.5;
+            double minor = nice_step(target_minor);
+
+            /* Ensure major is an integer multiple of minor, 2x..10x */
+            double div = round(major / minor);
+            if (div < 2) div = 2;
+            if (div > 10) div = 10;
+            major = minor * div;
+            
 
             /* minor ticks (short) */
             for (double f = ceil(tileLower / minor) * minor;
@@ -195,23 +217,34 @@ static int generate_band_tiles(const char *pubdir, const char *ts,
                     px[yy * SCALE_W + x] = 1;
             }
 
-            /* semi-major tick (medium, the 5th of 10) halfway to a labelled
-             * tick — only when there are an EVEN number of ticks between the
-             * labelled ones (division 10), so the centre lands on a tick. With
-             * 5 ticks between (division 5) there is no centre tick, so none
-             * is drawn here. */
-            if ((int)division % 2 == 0)
-            for (double f = ceil((tileLower - major / 2.0) / major) * major;
-                 f < tileLower + span; f += major) {
-                int x = (int)round((f + major / 2.0 - tileLower) / hzperpix);
-                if (x < 0 || x >= SCALE_W) continue;
-                for (int yy = 0; yy < 5 && yy < SCALE_H; yy++)
-                    px[yy * SCALE_W + x] = 1;
+            /* semi-major tick: every 5th minor tick (medium height) */
+            double division = major / minor;
+            if (division >= 5) {
+                double semi = minor * 5.0;
+                for (double f = ceil(tileLower / semi) * semi;
+                     f < tileLower + span; f += semi) {
+                    /* skip if this coincides with a major tick */
+                    if (fmod(f + 0.5, major) < 1.0) continue;
+                    int x = (int)round((f - tileLower) / hzperpix);
+                    if (x < 0 || x >= SCALE_W) continue;
+                    for (int yy = 0; yy < 5 && yy < SCALE_H; yy++)
+                        px[yy * SCALE_W + x] = 1;
+                }
             }
 
             /* major ticks (tall) + kHz label. Label sits below the tick's
              * bottom edge (row 7, one past the 7px tick) so digits don't
-             * collide with the tick marks. */
+             * collide with the tick marks.
+             * On deep zooms labels are thinned so they don't overlap. */
+            int n_major = (int)(span / major) + 2;
+            int max_labels = SCALE_W / 28;   /* ~5 digits × 6px + margin */
+            int label_skip_raw = (n_major + max_labels - 1) / max_labels;
+            int label_skip = 1;
+            if (label_skip_raw > 5) label_skip = 10;
+            else if (label_skip_raw > 2) label_skip = 5;
+            else if (label_skip_raw > 1) label_skip = 2;
+
+            int tick_idx = 0;
             for (double f = ceil(tileLower / major) * major;
                  f < tileLower + span; f += major) {
                 int x = (int)round((f - tileLower) / hzperpix);
@@ -219,11 +252,14 @@ static int generate_band_tiles(const char *pubdir, const char *ts,
                 for (int yy = 0; yy < 7 && yy < SCALE_H; yy++)
                     px[yy * SCALE_W + x] = 1;
                 long label = (long)llround(f / 1000.0);
-                /* center the label on the tick, below the tick bottom */
-                int nd = snprintf(NULL, 0, "%ld", label);
-                int lx = x - (int)(nd * 6) / 2;
-                if (lx < 0) lx = 0;
-                draw_num(px, lx, 7, label);
+                /* draw label only every label_skip-th tick to prevent overlap */
+                if (tick_idx % label_skip == 0) {
+                    int nd = snprintf(NULL, 0, "%ld", label);
+                    int lx = x - (int)(nd * 6) / 2;
+                    if (lx < 0) lx = 0;
+                    draw_num(px, lx, 7, label);
+                }
+                tick_idx++;
             }
 
             snprintf(fname, sizeof(fname), "%s-b%dz%di%d.png", ts, bandidx, z, k);
