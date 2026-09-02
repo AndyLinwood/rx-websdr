@@ -808,12 +808,6 @@ Max    </span>
 ">Mute</div><input type="checkbox" name="mutecheckbox" class="mobileToggle" id="mutecheckbox" onclick="setmute(this.checked);toggle_info('mute', this.checked);">
 <label for="mutecheckbox" style="
 "></label></div>
-    <div class="toggleWrapper" style="display: inline-block;">
-  <div style="
-    vertical-align: middle;
-    margin: 0px 9px 4px 9px;
-">Squelch</div><input type="checkbox" name="squelchcheckbox" class="mobileToggle" id="squelchcheckbox" onclick="setsquelch(this.checked); toggle_info('sql', this.checked);">
-<label for="squelchcheckbox"></label></div>
     
     <div class="toggleWrapper" style="
     display: inline-block;
@@ -878,23 +872,17 @@ Max    </span>
     <span style="font-size:0.85rem !important; padding: 5px;display: inline-block;">
 	<div class="toggleWrapper" style="display: contents;">
 		  <input type="checkbox" name="gainlevelcheckbox" class="mobileToggle" id="gainlevelcheckbox" 
-onclick="if (this.checked)
-			{
-    document.getElementById('gainlevelmask').classList.remove('hiddencontrol');
-     if (soundapplet) soundapplet.setparam('gain='+document.getElementById('manualgain').value);
-			}
-	else { document.getElementById('gainlevelmask').classList.add('hiddencontrol');
-     if (soundapplet) soundapplet.setparam('gain=10000'); };toggle_info('agc');
-">
+		onclick="toggle_squelch(this.checked)">
 	<label for="gainlevelcheckbox" style=" "></label>
-<div style="display: inline-block; margin: -13px 7px 0px 6px; vertical-align: middle;">Manual Gain</div>
+<div style="display: inline-block; margin: -13px 7px 0px 6px; vertical-align: middle;">Squelch</div>
 	</div>
     
   </span>
 	<br>
   <span id="gainlevelmask" class="hiddencontrol">
-    Gain: 
-    <input style="width: 66%;vertical-align: middle;" title="manually set gain; usually the automatic setting is much more convenient" type="range" min="-100" max="40" id="manualgain" name="manualgain" value="-20" step=".1" oninput="if (soundapplet) soundapplet.setparam('gain='+this.value);" onchange="if (soundapplet) soundapplet.setparam('gain='+this.value);">
+    SQL threshold: 
+    <input style="width: 66%;vertical-align: middle;" title="squelch threshold in dB above noise floor" type="range" min="0" max="60" id="manualgain" name="manualgain" value="20" step="1" oninput="update_squelch_threshold(this.value);" onchange="settings_store();">
+    <span id="gaindb">SQL 20 dB</span>
   </span>   
   </div>
   

@@ -148,7 +148,7 @@ function bodyonload()
 
    uu_compactview=document.getElementById("compactviewcheckbox").checked;
    document.getElementById("mutecheckbox").checked=false;
-   document.getElementById("squelchcheckbox").checked=false;
+   document.getElementById("gainlevelcheckbox").checked=false;
    document.getElementById("autonotchcheckbox").checked=false;
 
    try { memories=JSON.parse(localStorage.getItem('memories')); } catch (e) {};
@@ -319,10 +319,20 @@ function send_soundsettings_to_server()
 }
 
 
-function setsquelch(a)
+function toggle_squelch(enabled)
 {
-   a=Number(a);
-   soundapplet.setparam("squelch="+a);
+    ab_squelch = enabled;
+    var mask = document.getElementById("gainlevelmask");
+    if (enabled) mask.classList.remove("hiddencontrol");
+    else mask.classList.add("hiddencontrol");
+    toggle_info('sql', enabled);
+    if (!enabled && soundapplet) {
+        soundapplet.setmute(false);
+    }
+}
+function update_squelch_threshold(val)
+{
+    document.getElementById('gaindb').innerHTML = "SQL " + val + " dB";
 }
 
 function setautonotch(a)
@@ -439,6 +449,8 @@ function settings_store()
    s.lo=lo;
    s.hi=hi;
    s.hidedx=hidedx;
+   s.squelch_enabled = document.getElementById('gainlevelcheckbox').checked;
+   s.squelch_threshold = document.getElementById('manualgain').value;
    s.waterfallheight=waterheight;
    s.background=document.getElementById('background_toggle').checked
    s.divRingOpacity=divRing.style.opacity
@@ -482,6 +494,14 @@ function settings_recall()
 	   background_load();
    }
    var c=document.getElementsByName('wf-size');
+   if (s.squelch_enabled !== undefined) {
+       document.getElementById('gainlevelcheckbox').checked = s.squelch_enabled;
+       toggle_squelch(s.squelch_enabled);
+   }
+   if (s.squelch_threshold) {
+       document.getElementById('manualgain').value = s.squelch_threshold;
+       update_squelch_threshold(s.squelch_threshold);
+   }
    var i;
    for (i=0;i<c.length;i++)
       if (c[i].value-waterheight>=0) {
@@ -921,8 +941,8 @@ function vfos_toggle()
    tmp=ab_mode; ab_mode=mode; mode=tmp;
    tmp=ab_band; ab_band=band; band=tmp;
    tmp=ab_freq; ab_freq=freq; freq=tmp;
-   tmp=ab_squelch; ab_squelch=document.getElementById('squelchcheckbox').checked; document.getElementById("squelchcheckbox").checked=tmp;
-   setsquelch(tmp);
+   tmp=ab_squelch; ab_squelch=document.getElementById('gainlevelcheckbox').checked; document.getElementById("gainlevelcheckbox").checked=tmp;
+   toggle_squelch(tmp);
    tmp=ab_mem_hilite; ab_mem_hilite=mem_hilite;
    setband(band);
    setfreq(freq);
@@ -1721,7 +1741,14 @@ function soundappletstarted2()
    }
 
    try { setmute(document.getElementById('mutecheckbox').checked) } catch(e){};
-   try { setsquelch(document.getElementById('squelchcheckbox').checked) } catch(e){};
+   try { toggle_squelch(document.getElementById('gainlevelcheckbox').checked) } catch(e){};
+   soundapplet.smetercallback = function(val) {
+       if (ab_squelch) {
+           var threshold_db = parseInt(document.getElementById('manualgain').value) || 20;
+           var thr = smetermin + threshold_db * 100;
+           if (thr > 0) soundapplet.setmute(val < thr);
+       }
+   };
    try { setautonotch(document.getElementById('autonotchcheckbox').checked) } catch(e){};
 
    test_serverbusy();
