@@ -19,6 +19,11 @@ var ab_band=band;
 var ab_freq=freq;
 var ab_squelch=false;
 
+var squelch_open = false;      // текущее состояние (открыт/закрыт)
+var squelch_hang_timer = null; // таймер задержки закрытия
+var SQL_HYSTERESIS_DB = 1.5;   // гистерезис в дБ
+var SQL_HANG_MS = 200;         // hang time в миллисекундах
+
 var mem_hilite=-1;
 var ab_mem_hilite=-1;
 
@@ -319,8 +324,7 @@ function send_soundsettings_to_server()
 }
 
 
-function toggle_squelch(enabled)
-{
+function toggle_squelch(enabled) {
     ab_squelch = enabled;
     var mask = document.getElementById("gainlevelmask");
     if (enabled) mask.classList.remove("hiddencontrol");
@@ -328,6 +332,11 @@ function toggle_squelch(enabled)
     toggle_info('sql', enabled);
     if (!enabled && soundapplet) {
         soundapplet.setmute(false);
+        squelch_open = false;
+        if (squelch_hang_timer) {
+            clearTimeout(squelch_hang_timer);
+            squelch_hang_timer = null;
+        }
     }
 }
 function update_squelch_threshold(val)
@@ -1742,13 +1751,39 @@ function soundappletstarted2()
 
    try { setmute(document.getElementById('mutecheckbox').checked) } catch(e){};
    try { toggle_squelch(document.getElementById('gainlevelcheckbox').checked) } catch(e){};
-   soundapplet.smetercallback = function(val) {
-       if (ab_squelch) {
-           var threshold_db = parseInt(document.getElementById('manualgain').value) || 20;
-           var thr = smetermin + threshold_db * 100;
-           if (thr > 0) soundapplet.setmute(val < thr);
-       }
-   };
+    soundapplet.smetercallback = function(val) {
+        if (!ab_squelch || !soundapplet) return;
+
+        var threshold_db = parseInt(document.getElementById('manualgain').value);
+        if (isNaN(threshold_db)) threshold_db = 20;
+
+        var thr = smetermin + threshold_db * 100;
+        if (thr <= 0) return;
+
+        var hysteresis = SQL_HYSTERESIS_DB * 100;
+
+        if (squelch_open) {
+            if (val < thr - hysteresis) {
+                if (!squelch_hang_timer) {
+                    squelch_hang_timer = setTimeout(function() {
+                        squelch_open = false;
+                        soundapplet.setmute(true);
+                        squelch_hang_timer = null;
+                    }, SQL_HANG_MS);
+                }
+            } else {
+                if (squelch_hang_timer) {
+                    clearTimeout(squelch_hang_timer);
+                    squelch_hang_timer = null;
+                }
+            }
+        } else {
+            if (val >= thr + hysteresis) {
+                squelch_open = true;
+                soundapplet.setmute(false);
+            }
+        }
+    };
    try { setautonotch(document.getElementById('autonotchcheckbox').checked) } catch(e){};
 
    test_serverbusy();
