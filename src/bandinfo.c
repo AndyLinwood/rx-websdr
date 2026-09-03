@@ -43,7 +43,7 @@ int bandinfo_build(char *buf, size_t cap, struct websdr_config *cfg, const char 
         double centerfreq = band_eff_center(band);              /* kHz */
         double sr_khz = band->samplerate / 1000.0;         /* kHz */
         double tuningstep = band->samplerate / 12288000.0;  /* kHz = sr/12288 */
-        double vfo = centerfreq + 10.0;
+        double vfo = centerfreq;
 
 
         if (append(buf, cap, &o, "  { centerfreq: %.6f,\n", centerfreq)) return -1;
