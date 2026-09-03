@@ -10,7 +10,34 @@
 #define MAX_BANDS 32
 #define MAX_CLIENTS 256
 #define WATERFALL_WIDTH 1024
-#define FFT_SIZE 8192
+#define FFT_SIZE 32768
+
+#define ZOOM_FFT_MIN_ZOOM 3
+
+struct zoom_fft_state {
+    int zoom;           /* zoom level (3,4,5,...) */
+    int decim;          /* decimation = 1 << zoom */
+    int active;         /* 1 if a client currently uses this zoom */
+    int decim_counter;  /* sample counter for decimation */
+
+    /* FIR anti-aliasing */
+    float *fir_taps;
+    int fir_len;
+    int fir_pos;
+    float *fir_delay_i;
+    float *fir_delay_q;
+
+    /* Accumulated decimated IQ (interleaved) */
+    float *accum_buf;
+    int accum_count;
+    int accum_target;   /* 8192, 4096, or 2048 -> zero-pad to FFT_SIZE */
+
+    /* FFT on decimated signal (always FFT_SIZE = 8192) */
+    fftwf_plan plan;
+    float *fft_in;      /* FFT_SIZE * 2 floats, interleaved IQ */
+    float *fft_out;     /* FFT_SIZE * 2 floats */
+    float *power;       /* FFT_SIZE linear power, shifted like power_hi */
+};
 
 /* Audio demodulation path selector.
  * 1 = band-wide FFT + per-client frequency-domain demod (src/audio_fft.c, port
@@ -52,6 +79,7 @@ struct band {
     float avg_power[WATERFALL_WIDTH];
     float power_hi[FFT_SIZE];
     float wf_hi[FFT_SIZE];
+    struct zoom_fft_state *zoom_fft;  /* array[maxzoom+1], NULL if maxzoom<3 */
     float wf_floor;
     int   wf_init;
     int   wf_resync;

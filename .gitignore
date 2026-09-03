@@ -1,3 +1,5 @@
 *.o
 websdr-server
 *.d
+pub/tmp/
+*.bak

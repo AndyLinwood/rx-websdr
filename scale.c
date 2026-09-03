@@ -207,8 +207,3 @@ static int generate_band_tiles(const char *pubdir, const char *ts,
 
 /* Generate all scale tiles for all configured bands into pubdir/tmp. */
 int scale_generate_all(const char *pubdir, const char *ts,
-                       struct websdr_config *cfg) {
-    for (int b = 0; b < cfg->nbands; b++)
-        generate_band_tiles(pubdir, ts, b, &cfg->bands[b]);
-    return 0;
-}

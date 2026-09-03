@@ -270,6 +270,9 @@ void band_send_waterfall(struct band *band) {
         int step = K >> z;                          /* bins per zoom-z px */
         if (step < 1) step = 1;
         int left = (cli->start * K) >> band->maxzoom;
+        fprintf(stderr, "WF cli=%d z=%d left=%d step=%d span=%.1fkHz active=%d wsi=%p\n",
+                i, z, left, step, step*1024.0*band->samplerate/FFT_SIZE/1000.0,
+                cli->waterfall_active, (void*)cli->wsi);
 
         uint8_t row[WATERFALL_WIDTH];
         for (int x = 0; x < WATERFALL_WIDTH; x++) {
