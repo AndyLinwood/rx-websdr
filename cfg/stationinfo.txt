@@ -155,14 +155,14 @@
 1458am LycaRadio
 1521am Радио  Китая
 1557am Радио Лента 
-1810lsb >160m
+1810lsb 160m>
 1854cw beacon OKM1 ex OK0EV
 2000lsb <160m
 2130fm РЖД
 2182usb Int Rescue
 2869usb RUS Volmet
 2920usb Вольные операторы
-3500lsb >80m
+3500lsb 80m>
 3800lsb <80m
 3920am Pirate Radio<br>Europe
 3950lsb Hurricane Watch
@@ -172,7 +172,7 @@
 4996cw Сигнналы<br>точного времени и частоты
 4930usb The Air Horn
 5279usb RAOTA
-5351.5lsb >60m
+5351.5lsb 60m>
 5363usb Dutch
 5366.5lsb <60m
 5583usb Air Shanwick
@@ -214,11 +214,11 @@
 6215am Maritime Rescue 
 6160am VoA
 6685usb Air Traffic<br>Russia
-7000lsb >40m
+7000lsb 40m>
 7200lsb <40m
 7340am China
 9490am Radio Romania
-10100cw >30m
+10100cw 30m>
 10150cw <30m
 10460usb Радиохулиганы!!
 13261usb Air Traffic<br>E-Pacific 1&2 route
@@ -245,18 +245,18 @@
 13670am China
 13750am Romania Int.
 13845am WWCR Nashville
-18068usb >17m
+18068usb 17m>
 18168usb <17m
-24890cw >12m
+24890cw 12m>
 24990usb <12m
-14000usb >20m
+14000usb 20m>
 14350usb <20m
 15200am Deutsche Welle
-21000usb >15m
+21000usb 15m>
 21435usb NassiBal
 21450usb <15m
 27135am Дальнобои
-28000usb >10m
+28000usb 10m>
 29700usb <10m
 144000fm >2m
 144430cw Beacon UA3MRS/b
@@ -265,7 +265,7 @@
 145425fm EchoLink
 145800fm ISS Down
 146000fm <2m
-430000fm >70cm
+430000fm 70cm>
 437750fm МЧС
 437900fm МЧС
 437800fm ISS FM Down
@@ -286,5 +286,5 @@
 433400fm ЧОП ТЦ РИО
 145700fm RR3N
 25900am Радио МТУСИ
-26960fm >CB
-27850fm <CB
+26960fm 11m>
+27850fm <11m

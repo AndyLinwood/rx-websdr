@@ -69,7 +69,7 @@ int config_load(const char *filename, struct websdr_config *config) {
             else if (strcmp(key, "maxusers") == 0 && p)
                 config->maxusers = atoi(p);
             else if (strcmp(key, "idletimeout") == 0 && p)
-                config->idletimeout = atoi(p);
+                config->idletimeout = atoi(p) * 1000;
             else if (strcmp(key, "waterfallformat") == 0 && p)
                 config->waterfallformat = atoi(p);
             else if (strcmp(key, "audioformat") == 0 && p)
@@ -103,7 +103,7 @@ fprintf(stderr, "[CONFIG] %s freqoffset=%.2f center=%.1f eff=%.3f\n",
     /* Defaults */
     if (config->tcpport == 0) config->tcpport = 8095;
     if (config->maxusers == 0) config->maxusers = 200;
-    if (config->idletimeout == 0) config->idletimeout = 900;
+    if (config->idletimeout == 0) config->idletimeout = 900 * 1000;
     if (config->waterfallformat == 0) config->waterfallformat = 9;
     
     return 0;

@@ -1124,7 +1124,15 @@ function setview(v)
    view=v;   
    createCookie("view",view,3652);
 
+   // Set target height BEFORE creating canvases so they are created at the
+   // correct size for the new view (waterfallheight() is a no-op while waiting)
+   if (v==Views.oneband) waterheight=250;
+   else if (v==Views.allbands) waterheight=75;
+
    document_waterfalls();  // (re)start the waterfall applets
+
+   var wfs=document.getElementById('wf-size');
+   if (wfs) wfs.value=waterheight;
 
    if (view==Views.blind) {
       var els = document.getElementsByTagName('*');
@@ -1706,6 +1714,8 @@ function waterfallspeed(sp)
 function waterfallheight(si)
 {
    waterheight=si;
+   var wfs=document.getElementById('wf-size');
+   if (wfs) wfs.value=si;
    if (waitingforwaterfalls>0) return;
    for (i=0;i<nwaterfalls;i++) {
       waterfallapplet[i].setSize(1024,si);

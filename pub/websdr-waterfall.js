@@ -215,8 +215,8 @@
             }
         }
         b.width || (b.width = 1024);
-        b.height || (b.height = 150);
-        document.getElementById(b.div).innerHTML = '<div id="wfcdiv' + v + '" style="height:150px;overflow:hidden;position:relative;"><canvas class="html5waterfall" id="wf1canvas' + v + '" width="' + b.width + '" height="' + b.height + '">test</canvas><canvas class="html5waterfall" id="wf2canvas' + v + '" width="' + b.width + '" height="' + b.height + '" >test</canvas></div>';
+        b.height || (b.height = window.waterheight || 150);
+        document.getElementById(b.div).innerHTML = '<div id="wfcdiv' + v + '" style="height:' + b.height + 'px;overflow:hidden;position:relative;"><canvas class="html5waterfall" id="wf1canvas' + v + '" width="' + b.width + '" height="' + b.height + '">test</canvas><canvas class="html5waterfall" id="wf2canvas' + v + '" width="' + b.width + '" height="' + b.height + '" >test</canvas></div>';
         b.h = document.getElementById("wfcdiv" + v);
         var s = 0 <= v ? "on" : "off";
         b.h.v = b.id;

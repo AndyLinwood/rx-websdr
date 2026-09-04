@@ -1,16 +1,17 @@
 #!/bin/bash
-# start.sh — launch the new WebSDR C server (uses the existing receiver feed).
+# start.sh — (re)start the WebSDR stack using systemd units only.
 #
-# Correct order (per sysop): radiod -> receiver (writer) -> websdr (reader).
-# CRITICAL: killing the websdr reader FIRST cascades and stops receiver
-# (pcmrecord gets EPIPE), so receiver must be restarted AFTER that kill.
+# Correct order (per sysop): radiod@rx888 -> receiver (writer) -> websdr (reader).
+# All three are enabled units, so a reboot brings them up automatically.
+# Use this script when you want to (re)start / fix the stack by hand without
+# waiting for a reboot. It never launches websdr-server directly: the service
+# owns the process, so `systemctl status websdr.service` stays the source of
+# truth and ExecStartPre (pkill) keeps the port free.
 #
 # Usage:  ./start.sh
-#   - requires sudo (prompts for password) to start radiod/receiver services
-#   - server logs to /tmp/wf_real.log
-#   - stop the server with:  pkill -x websdr-server
+#   - requires passwordless sudo (or will prompt)
+#   - exit code 0 on success, non-zero on failure
 set -e
-cd "$(dirname "$0")"
 
 # 1) radio front-end (RX888 / radiod) must be up
 if ! systemctl is-active --quiet radiod@rx888.service; then
@@ -18,26 +19,24 @@ if ! systemctl is-active --quiet radiod@rx888.service; then
     sudo systemctl start radiod@rx888.service
 fi
 
-# 2) kill any stale server reader FIRST. Killing it cascades and stops the
-#    receiver, so we then restart receiver fresh (guaranteed correct order).
-pkill -9 -x websdr-server 2>/dev/null || true
-sleep 1
-
-# 3) receiver writer: pcmrecord -> fifo. Restart unconditionally so it is
-#    always writing in the right order, regardless of prior state.
+# 2) receiver writer: pcmrecord -> fifos. Restart unconditionally so fifos are
+#    always written in the right order (its unit Restart=always revives on EPIPE).
 echo ">> (re)starting receiver.service ..."
 sudo systemctl restart receiver.service
 
-# 4) reader: start this server. Opening the FIFO as reader unblocks the
-#    receiver's pcmrecord and makes data flow.
-sleep 1
-( setsid ./websdr-server -c cfg/websdr.cfg > /tmp/wf_real.log 2>&1 </dev/null & disown )
+# 3) websdr reader. The unit's ExecStartPre kills any leftover websdr-server
+#    (e.g. a previous manual launch) before binding the port.
+echo ">> (re)starting websdr.service ..."
+sudo systemctl restart websdr.service
 
-sleep 1
-pid="$(pgrep -x websdr-server || true)"
-if [ -n "$pid" ]; then
-    echo ">> websdr-server started (pid $pid) on port 8095"
-    echo ">>  logs: /tmp/wf_real.log    stop: pkill -x websdr-server"
+# 4) verify
+sleep 3
+if systemctl is-active --quiet websdr.service && \
+   systemctl is-active --quiet receiver.service; then
+    echo ">> WebSDR stack is UP: websdr.service + receiver.service active"
+    systemctl show websdr.service -p MainPID --value | sed 's/^/>>   websdr pid /'
 else
-    echo ">> FAILED: websdr-server did not start (see /tmp/wf_real.log)"
+    echo ">> FAILED — check:"
+    echo "     systemctl status websdr.service receiver.service radiod@rx888.service"
+    exit 1
 fi
