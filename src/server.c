@@ -224,28 +224,6 @@ void band_send_waterfall(struct band *band) {
 
     pthread_mutex_lock(&band->lock);
 
-    /* Periodic temporal re-sync: format-9 is a delta codec whose baseline can
-     * drift under codebook quantisation, so roughly every second send a
-     * width-reset (clears the client row buffer to 0) and zero each client's
-     * prev_line, re-anchoring the delta baseline as the real websdr64 does.
-     * Without it, sparse vertical stripes accumulate and flood the display. */
-    if (++band->wf_resync >= 12 && band->nclients > 0) {
-        band->wf_resync = 0;
-        uint8_t wf[4];
-        wf[0] = 0xFF; wf[1] = 0x02;
-        wf[2] = (uint8_t)(WATERFALL_WIDTH & 0xFF);
-        wf[3] = (uint8_t)((WATERFALL_WIDTH >> 8) & 0xFF);
-        for (int i = 0; i < MAX_CLIENTS; i++) {
-            struct client *cli = band->clients[i];
-            if (cli && cli->waterfall_active && cli->wsi && !cli->audio_stream) {
-                memset(cli->prev_line, 0, WATERFALL_WIDTH);
-                client_enqueue(cli, wf, 4);
-                lws_callback_on_writable(cli->wsi);
-            }
-        }
-        if (g_lws_ctx) lws_cancel_service(g_lws_ctx);
-    }
-
     /* Per-client genuine zoom: each client is on its own (zoom,start), so we
      * slice that client's sub-range out of the full-band FFT (power_hi, K bins
      * per min-zoom pixel) and encode it against that client's own prev_line.
@@ -270,21 +248,37 @@ void band_send_waterfall(struct band *band) {
         int step = K >> z;                          /* bins per zoom-z px */
         if (step < 1) step = 1;
         int left = (cli->start * K) >> band->maxzoom;
-        fprintf(stderr, "WF cli=%d z=%d left=%d step=%d span=%.1fkHz active=%d wsi=%p\n",
-                i, z, left, step, step*1024.0*band->samplerate/FFT_SIZE/1000.0,
-                cli->waterfall_active, (void*)cli->wsi);
+
+        /* Deep zooms (>=3, window <= ~48 kHz) use the sub-band FFT: true
+         * bin-per-pixel resolution (websdr64 style) instead of magnifying
+         * full-band bins ("magnifying glass" smears signals wide). */
+        float *zoom_power = NULL;
+        int zoom_pts = 0;
+        if (z >= ZOOM_FFT_MIN_ZOOM) {
+            if (band->zoom_fft) zoom_fft_activate(band, z, cli->start);
+            zoom_power = zoom_fft_get_power(band, z);
+            if (zoom_power) zoom_pts = band->zoom_fft ? 1024 : 0;
+        }
 
         uint8_t row[WATERFALL_WIDTH];
         for (int x = 0; x < WATERFALL_WIDTH; x++) {
-            int base = left + x * step;
-            float sum = 0.0f;
-            for (int j = 0; j < step; j++) {
-                int idx = base + j;
-                if (idx < 0) idx = 0;
-                if (idx >= FFT_SIZE) idx = FFT_SIZE - 1;
-                sum += band->power_hi[idx];
+            float best = 0.0f;
+            if (zoom_power) {
+                /* sub-band spectrum: bin = 1 px, window = 1024 points.
+                 * (start-offset handling to come; currently fixed window.) */
+                if (x < zoom_pts)
+                    best = zoom_power[x];
+            } else {
+                /* MAX downsampling of the full-band power_hi on low zooms. */
+                int base = left + x * step;
+                for (int j = 0; j < step; j++) {
+                    int idx = base + j;
+                    if (idx < 0) idx = 0;
+                    if (idx >= FFT_SIZE) idx = FFT_SIZE - 1;
+                    if (band->power_hi[idx] > best) best = band->power_hi[idx];
+                }
             }
-            row[x] = (uint8_t)wf_brightness(sum / (float)step, band->noise_dB, band->gain);
+            row[x] = (uint8_t)wf_brightness(best, band->noise_dB, band->gain);
         }
 
         int len = compress_waterfall_format9(row, cli->prev_line,

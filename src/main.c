@@ -59,6 +59,7 @@ int main(int argc, char **argv) {
     fprintf(stderr, "Bands configured: %d\n", config.nbands);
 
     waterfall_init();
+    zoom_fft_global_init();
 
     for (int i = 0; i < config.nbands; i++) {
         struct band *b = &config.bands[i];
@@ -68,6 +69,7 @@ int main(int argc, char **argv) {
         b->fft_plan = fftwf_plan_dft_1d(
             FFT_SIZE, (fftwf_complex *)b->fft_input,
             (fftwf_complex *)b->fft_output, FFTW_FORWARD, FFTW_ESTIMATE);
+        b->zoom_fft = calloc((size_t)b->maxzoom + 1, sizeof(struct zoom_fft_state));
         b->running = 1;
         pthread_create(&b->thread, NULL, band_thread, b);
     }

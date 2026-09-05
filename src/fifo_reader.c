@@ -162,6 +162,10 @@ void *band_thread(void *arg) {
             int ready = 0;
             if (band->nclients > 0) {
                 waterfall_process(band, frame, FFT_SIZE * 2);
+                /* Feed the per-zoom sub-band FFTs (zoom >= 3) so deep zooms get
+                 * true resolution instead of magnified full-band bins. */
+                if (band->zoom_fft)
+                    zoom_fft_feed(band, frame, FFT_SIZE * 2);
                 /* Average LINEAR POWER over the last emit_every frames, then put
                  * the average back into power_hi so band_send_waterfall (server.c)
                  * serves the AVERAGED spectrum, exactly like the original websdr64

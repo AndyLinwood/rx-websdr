@@ -62,6 +62,10 @@ int config_load(const char *filename, struct websdr_config *config) {
                 current_band->hpf = atoi(p);
             else if (strcmp(key, "noiseblanker") == 0 && p)
                 current_band->noiseblanker = atoi(p);
+            else if (strcmp(key, "extrazoom") == 0 && p) {
+                int ez = atoi(p);
+                current_band->extrazoom = ez > 0 ? (ez > 8 ? 8 : ez) : 0;
+            }
         } else {
             /* Global settings */
             if (strcmp(key, "tcpport") == 0 && p)
@@ -92,11 +96,18 @@ fprintf(stderr, "[CONFIG] %s freqoffset=%.2f center=%.1f eff=%.3f\n",
 
     /* Derive the deepest usable waterfall zoom per band from its samplerate:
      * at maxzoom the 1024-pixel window shows ~24 kHz (moderately-resolved
-     * passband); flickout any larger. */
+     * passband); flickout any larger. cfg `extrazoom` adds extra zoom levels
+     * on top (original websdr semantics), but never beyond one FFT bin per
+     * display pixel: step = (FFT_SIZE/1024) >> zoom must stay >= 1, i.e.
+     * zoom <= log2(FFT_SIZE/1024). */
+    int zoom_cap = 0;
+    while ((FFT_SIZE / WATERFALL_WIDTH) >> (zoom_cap + 1) > 0) zoom_cap++;
     for (int i = 0; i < config->nbands; i++) {
         int mz = 0;
         while ((config->bands[i].samplerate >> (mz + 1)) >= 24000)
             mz++;
+        mz += config->bands[i].extrazoom;
+        if (mz > zoom_cap) mz = zoom_cap;
         config->bands[i].maxzoom = mz;
     }
     

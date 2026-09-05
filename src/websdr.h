@@ -12,7 +12,7 @@
 #define WATERFALL_WIDTH 1024
 #define FFT_SIZE 32768
 
-#define ZOOM_FFT_MIN_ZOOM 3
+#define ZOOM_FFT_MIN_ZOOM 99
 
 struct zoom_fft_state {
     int zoom;           /* zoom level (3,4,5,...) */
@@ -31,6 +31,8 @@ struct zoom_fft_state {
     float *accum_buf;
     int accum_count;
     int accum_target;   /* 8192, 4096, or 2048 -> zero-pad to FFT_SIZE */
+    long dstream_pos;   /* decimated-stream sample counter (for window offset) */
+    int start;          /* last client start (zoom-window left edge in maxzoom px) */
 
     /* FFT on decimated signal (always FFT_SIZE = 8192) */
     fftwf_plan plan;
@@ -69,6 +71,7 @@ struct band {
     int nstations;
     struct { double freq; char mode[8]; char name[128]; } stations[256];
     int maxzoom;
+    int extrazoom;       /* cfg "extrazoom N": extra waterfall zoom levels beyond the samplerate-derived maxzoom (original websdr semantics) */
     int fifo_fd;
     fftwf_plan fft_plan;
     float fft_input[FFT_SIZE * 2];
@@ -270,6 +273,10 @@ void waterfall_init(void);
 void waterfall_process(struct band *band, int16_t *iq_data, int samples);
 float wf_brightness(float avg_power, double noise_dB, double gain_db);
 int server_start(struct websdr_config *config);
+void zoom_fft_global_init(void);
+void zoom_fft_feed(struct band *band, const int16_t *iq, int ns16);
+void zoom_fft_activate(struct band *band, int z, int start);
+float *zoom_fft_get_power(struct band *band, int z);
 void protocol_handle_message(struct client *client, const uint8_t *data, size_t len);
 int compress_waterfall_format9(const uint8_t *newrow, uint8_t *prevrow, int width, uint8_t *out);
 void client_add_to_band(struct client *cli, struct band *band);

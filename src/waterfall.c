@@ -28,7 +28,7 @@ static float window[FFT_SIZE];
  * next to the production server. WF_BG is lowered so the noise floor lands at
  * ~64 (the production background level) instead of 80 on the busy HF bands.
  * When avg_power equals the noise floor, brightness = WF_BG + gain. */
-#define WF_BG 38.0f   /* target background brightness (noise floor -> this, before gain) */
+#define WF_BG 22.0f   /* target background brightness <-> reference websdr64 bg=64 (was 38 -> bg 80) */
 #define WF_SLOPE 1.5f /* contrast: brightness units per dB above the noise floor */
 float wf_brightness(float avg_power, double noise_dB, double gain_db) {
     float d = 20.0f * log10f(avg_power) - (float)noise_dB;
