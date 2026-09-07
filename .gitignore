@@ -3,3 +3,9 @@ websdr-server
 *.d
 pub/tmp/
 *.bak
+rx-websdr
+websdr-server
+*.prefft.*
+__pycache__/
+.DS_Store
+cfg/synth.cfg

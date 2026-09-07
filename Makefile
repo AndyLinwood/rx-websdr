@@ -5,11 +5,11 @@ LDFLAGS=$(shell pkg-config --libs libwebsockets fftw3f libbsd) -liniparser -lpth
 SRC=$(wildcard src/*.c)
 OBJ=$(SRC:.c=.o)
 
-websdr-server: $(OBJ)
+rx-websdr: $(OBJ)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 src/%.o: src/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	rm -f $(OBJ) websdr-server
+	rm -f $(OBJ) rx-websdr

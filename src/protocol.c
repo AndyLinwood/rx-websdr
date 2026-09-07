@@ -32,6 +32,26 @@ static void handle_waterparam(struct client *cli, const char *params) {
     (void)width;
     (void)slow;
 
+    /* The client sends zoom/start changes WITHOUT "band=" (websdr-waterfall.js):
+     *   zoomchange() ->  a.e("GET /~~waterparam?zoom="+a.b+"&start="+a.c)
+     *   L()/setzoom() -> this.e("GET /~~waterparam?zoom="+f+"&start="+d)
+     * while the initial/subscribe request carries band=. So a band-less
+     * request must apply to the client's CURRENT band: update zoom/start,
+     * reset the per-client delta baseline, re-send the position control. */
+    if (!band_name) {
+        /* zoom/start update for the current band (client omits band=) */
+        if (!cli->band) { free(band_name); free(tmp); return; }
+        cli->zoom = zoom;
+        cli->start = start;
+        memset(cli->prev_line, 0, WATERFALL_WIDTH);
+        client_send_waterfall_control(cli);
+        fprintf(stderr, "[proto] client zoom=%d start=%d band=%s\n",
+                zoom, start, cli->band->name);
+        free(band_name);
+        free(tmp);
+        return;
+    }
+
     if (band_name && g_config) {
         client_remove_from_band(cli);
 
