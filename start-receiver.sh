@@ -6,8 +6,10 @@ cd /home/radio/
 
 start_band() {
     local ssrc="$1" data="$2" fifo="$3"
+    # No per-band sleep: a writer blocks on opening the fifo until the websdr
+    # reader appears, so the FIFO handshake already enforces ordering. The old
+    # "sleep 3" per band (x12 = ~36 s) stretched every start for no reason.
     pcmrecord -c -r -S "$ssrc" "$data" > "$fifo" &
-    sleep 3
 }
 
 start_band 29100 "10m-high-pcm.local" /home/radio/fifo/fifo10mHH
