@@ -13,16 +13,18 @@ extern struct websdr_config *g_config;
 static void handle_waterparam(struct client *cli, const char *params) {
     char *band_name = NULL;
     int zoom = 0, start = 0, width = 0, slow = 0;
+    int zoom_seen = 0, start_seen = 0;
 
     char *tmp = strdup(params);
     char *token = strtok(tmp, "&");
     while (token) {
         if (strncmp(token, "band=", 5) == 0)
             band_name = strdup(token + 5);
-        else if (strncmp(token, "zoom=", 5) == 0)
-            zoom = atoi(token + 5);
-        else if (strncmp(token, "start=", 6) == 0)
-            start = atoi(token + 6);
+        else if (strncmp(token, "zoom=", 5) == 0) {
+            zoom = atoi(token + 5); zoom_seen = 1;
+        } else if (strncmp(token, "start=", 6) == 0) {
+            start = atoi(token + 6); start_seen = 1;
+        }
         else if (strncmp(token, "width=", 6) == 0)
             width = atoi(token + 6);
         else if (strncmp(token, "slow=", 5) == 0)
@@ -41,12 +43,12 @@ static void handle_waterparam(struct client *cli, const char *params) {
     if (!band_name) {
         /* zoom/start update for the current band (client omits band=) */
         if (!cli->band) { free(band_name); free(tmp); return; }
-        cli->zoom = zoom;
-        cli->start = start;
+        if (zoom_seen) cli->zoom = zoom;
+        if (start_seen) cli->start = start;
         memset(cli->prev_line, 0, WATERFALL_WIDTH);
         client_send_waterfall_control(cli);
         fprintf(stderr, "[proto] client zoom=%d start=%d band=%s\n",
-                zoom, start, cli->band->name);
+                cli->zoom, cli->start, cli->band->name);
         free(band_name);
         free(tmp);
         return;
@@ -73,8 +75,8 @@ static void handle_waterparam(struct client *cli, const char *params) {
         if (band_idx >= 0) {
             struct band *b = &g_config->bands[band_idx];
             cli->band = b;
-            cli->zoom = zoom;
-            cli->start = start;
+            if (zoom_seen) cli->zoom = zoom;
+            if (start_seen) cli->start = start;
             cli->waterfall_active = true;
             client_add_to_band(cli, b);
             /* each client's format-9 delta baseline is per-client (they can be
