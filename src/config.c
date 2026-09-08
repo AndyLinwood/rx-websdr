@@ -84,6 +84,10 @@ int config_load(const char *filename, struct websdr_config *config) {
                 if (p) { char *m = trim(p); strncpy(config->ini_mode, m, sizeof(config->ini_mode)-1); }
             } else if (strcmp(key, "chseq") == 0 && p)
                 config->chseq = atoi(p);
+            else if (strcmp(key, "chat") == 0 && p)
+                config->chat = atoi(p) ? 1 : 0;
+            else if (strcmp(key, "chatfile") == 0 && p)
+                strncpy(config->chatfile, trim(p), sizeof(config->chatfile)-1);
         }
     }
     
@@ -116,6 +120,7 @@ fprintf(stderr, "[CONFIG] %s freqoffset=%.2f center=%.1f eff=%.3f\n",
     if (config->maxusers == 0) config->maxusers = 200;
     if (config->idletimeout == 0) config->idletimeout = 900 * 1000;
     if (config->waterfallformat == 0) config->waterfallformat = 9;
-    
+    if (config->chatfile[0] == 0) strcpy(config->chatfile, "chat.log");
+
     return 0;
 }

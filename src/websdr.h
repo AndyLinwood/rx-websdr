@@ -127,6 +127,8 @@ struct websdr_config {
     double ini_freq;
     char  ini_mode[16];
     int   chseq;
+    int   chat;             /* 1 = chat enabled (default 0) */
+    char  chatfile[256];    /* chat log path (default "<cwd>/chat.log") */
     struct band bands[MAX_BANDS];
 };
 

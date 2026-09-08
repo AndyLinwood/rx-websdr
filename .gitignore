@@ -10,3 +10,6 @@ __pycache__/
 .DS_Store
 cfg/synth.cfg
 rx-websdr-test/
+chat.log
+*.bak-*
+*.bak-*

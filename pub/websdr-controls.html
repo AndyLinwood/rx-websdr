@@ -914,6 +914,22 @@ This WebSDR is currently being used by <span id=numusers style='margin: 0px 3px;
 </div>
 <div class="mb">
 
+<div id="chatboxspan">
+<p><b>Чат:</b><br>
+<span style="font-size:80%">
+Чат предназначен для обсуждения работы WebSDR.
+<br>
+Администрация не несёт ответственности за содержимое сообщений.
+</span>
+<div id="chatboxnew" style="background-color:#c0ffff; overflow:auto; height:250px; width:100%; font-family: monospace"></div>
+<br>
+<form name="chatform" onsubmit="return sendchat()" action="#">
+<input type="text" size=80 name="chat" onclick="">
+<input type="button" value="Отправить" onclick="return sendchat()">
+</form>
+<br>
+</div>
+
 <div style="font-size:80%">
 Statistics:
 <div id="stats"></div>

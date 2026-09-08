@@ -519,6 +519,11 @@ fail:
     return -1;
 }
 
+/* forward declarations (chat handlers defined below serve_othersjj) */
+static int chat_emit(struct lws *wsi, unsigned client_chseq,
+                     char *body, int n, int cap);
+static void chat_append(struct lws *wsi, const char *name, const char *msg);
+
 /* ------------------------------------------------------------------ */
 /* /~~othersjj — "who is listening" list                              */
 /* ------------------------------------------------------------------ */
@@ -590,7 +595,143 @@ static int serve_othersjj(struct lws *wsi) {
     if (n < (int)sizeof(body) - 64)
         n += snprintf(body + n, sizeof(body) - n, "numusersobj.innerHTML=\"%d\";\n", nusers);
 
+    /* Append new chat lines (if enabled) — see chat_emit() below. */
+    if (g_config && g_config->chat)
+        n = chat_emit(wsi, client_chseq, body, n, (int)sizeof(body));
+
     return serve_mem(wsi, body, (size_t)n, "text/javascript");
+}
+
+/* ------------------------------------------------------------------ */
+/* /~~chat — simple chat box                                           */
+/* ------------------------------------------------------------------ */
+/* Client sends:  GET /~~chat?name=<callsign>&msg=<message>
+ * (message is encodeURIComponent'ed). Each accepted message is appended,
+ * one line per message, to the chat file (format: seq<TAB>seq_number is
+ * implicit by line number) as:
+ *     <epoch>\t<name>\t<message>\n
+ * The line number (1-based, starting at 1) is the "sequence" used by
+ * chat_emit() to hand each client only lines it has not seen yet, via the
+ * same client_chseq mechanics as the statistics.
+ *
+ * The file itself is both the persistent store and the server-side order;
+ * rotation is not needed for a hobby server (messages are tiny).
+ * Escaping: name/message must not contain \n or \t (we strip them) so a line
+ * stays one record; the JS-side rendering HTML-escapes on display. */
+
+static unsigned g_chat_rows = 0;   /* how many lines are in the chat file */
+static int      g_chat_rows_init = 0;
+
+/* Count the lines in the chat file (once) so a server restart still hands
+ * the whole history to clients that were already connected. */
+static void chat_init_rows(void) {
+    if (g_chat_rows_init || !g_config) return;
+    g_chat_rows_init = 1;
+    FILE *fp = fopen(g_config->chatfile, "r");
+    if (!fp) return;
+    int c;
+    unsigned rows = 0;
+    while ((c = fgetc(fp)) != EOF)
+        if (c == '\n') rows++;
+    fclose(fp);
+    g_chat_rows = rows;
+}
+
+static void chat_append(struct lws *wsi, const char *name, const char *msg) {
+    if (!g_config || !g_config->chat) return;
+    chat_init_rows();
+
+    char line[512];
+    char tbuf[24];
+    snprintf(tbuf, sizeof(tbuf), "%ld", (long)time(NULL));
+
+    /* sanitize: no tabs or newlines in the record */
+    char nbuf[96], mbuf[300];
+    int i, j;
+    for (i = 0, j = 0; name[i] && j < (int)sizeof(nbuf) - 2; i++) {
+        char c = name[i];
+        if (c == '\t' || c == '\n' || c == '\r') c = ' ';
+        nbuf[j++] = c;
+    }
+    nbuf[j] = 0;
+    for (i = 0, j = 0; msg[i] && j < (int)sizeof(mbuf) - 2; i++) {
+        char c = msg[i];
+        if (c == '\t' || c == '\n' || c == '\r') c = ' ';
+        mbuf[j++] = c;
+    }
+    mbuf[j] = 0;
+
+    snprintf(line, sizeof(line), "%s\t%s\t%s\n", tbuf, nbuf, mbuf);
+
+    FILE *fp = fopen(g_config->chatfile, "a");
+    if (fp) {
+        fputs(line, fp);
+        fclose(fp);
+        g_chat_rows++;   /* this is what drives "have you seen it?" */
+        (void)wsi;       /* response body is empty; 200 below */
+    }
+}
+
+/* Render chatnewline('...'); statements for lines this client hasn't seen.
+ * Returns the new total body length. */
+static int chat_emit(struct lws *wsi, unsigned client_chseq,
+                     char *body, int n, int cap) {
+    if (!g_config || !g_config->chat) return n;
+    chat_init_rows();
+    if (client_chseq >= g_chat_rows) return n;   /* nothing new for this client */
+
+    FILE *fp = fopen(g_config->chatfile, "r");
+    if (!fp) return n;
+
+    char line[600];
+    unsigned lineno = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        lineno++;
+        if (lineno <= client_chseq) continue;   /* already seen */
+
+        /* line: <epoch>\t<name>\t<message>\n  (message may not contain \t) */
+        char *t1 = strchr(line, '\t');
+        if (!t1) continue;
+        char *t2 = strchr(t1 + 1, '\t');
+        if (!t2) continue;
+        char *name = t1 + 1;
+        char *msg  = t2 + 1;
+        *t2 = 0;                 /* terminate name at the second tab */
+        /* trim trailing newline/CR from msg */
+        char *e = msg + strlen(msg);
+        while (e > msg && (e[-1] == '\n' || e[-1] == '\r')) *--e = 0;
+
+        if (n + 96 >= cap) break;   /* body full — give what we have */
+
+        /* HTML-escape for the JS string + single quotes for the JS literal */
+        char esc[560];
+        int j = 0;
+        for (int k = 0; name[k] && j < (int)sizeof(esc) - 4; k++) {
+            char c = name[k];
+            if (c == '\'') { esc[j++]='\\'; esc[j++]='\''; continue; }
+            if (c == '\\') { esc[j++]='\\'; esc[j++]='\\'; continue; }
+            if (c == '<') { esc[j++]='&'; esc[j++]='l'; esc[j++]='t'; esc[j++]=';'; continue; }
+            if (c == '>') { esc[j++]='&'; esc[j++]='g'; esc[j++]='t'; esc[j++]=';'; continue; }
+            if (c == '&') { esc[j++]='&'; esc[j++]='a'; esc[j++]='m'; esc[j++]='p'; esc[j++]=';'; continue; }
+            esc[j++] = c;
+        }
+        esc[j++] = ':'; esc[j++] = ' ';
+        for (int k = 0; msg[k] && j < (int)sizeof(esc) - 4; k++) {
+            char c = msg[k];
+            if (c == '\'') { esc[j++]='\\'; esc[j++]='\''; continue; }
+            if (c == '\\') { esc[j++]='\\'; esc[j++]='\\'; continue; }
+            if (c == '<') { esc[j++]='&'; esc[j++]='l'; esc[j++]='t'; esc[j++]=';'; continue; }
+            if (c == '>') { esc[j++]='&'; esc[j++]='g'; esc[j++]='t'; esc[j++]=';'; continue; }
+            if (c == '&') { esc[j++]='&'; esc[j++]='a'; esc[j++]='m'; esc[j++]='p'; esc[j++]=';'; continue; }
+            esc[j++] = c;
+        }
+        esc[j] = 0;
+
+        n += snprintf(body + n, (size_t)(cap - n),
+                      "chatnewline('%s');\n", esc);
+    }
+    fclose(fp);
+    return n;
 }
 
 /* ------------------------------------------------------------------ */
@@ -639,6 +780,16 @@ static int ws_handler(struct lws *wsi, enum lws_callback_reasons reason,
                              "application/javascript");
         if (strncmp(uri, "/~~othersjj", 11) == 0)
             return serve_othersjj(wsi);
+        if (strncmp(uri, "/~~chat", 6) == 0) {
+            /* GET /~~chat?name=<callsign>&msg=<message> — append to chat file.
+             * The real websdr also returns a 200 with empty JS body. */
+            char an[96], am[320];
+            int anl = lws_get_urlarg_by_name_safe(wsi, "name", an, (int)sizeof(an));
+            int aml = lws_get_urlarg_by_name_safe(wsi, "msg",  am, (int)sizeof(am));
+            if (anl > 0 && aml > 0)
+                chat_append(wsi, an, am);
+            return serve_mem(wsi, ";", 1, "text/javascript"); /* empty JS 200 */
+        }
         return serve_file(wsi, "pub", uri);
     }
 
