@@ -52,15 +52,22 @@ echo "   the page may look empty briefly right after this step"
 sudo systemctl restart websdr.service
 
 # 4) wait for the reader to actually open the fifos, then confirm.
-echo ">> waiting for websdr.service to become active..."
-for i in $(seq 1 15); do
-    systemctl is-active --quiet websdr.service && break
+#    A bare `is-active` can succeed while the process is still binding the
+#    port (systemd flips state before main() calls listen()), so also require
+#    an HTTP reply on :8095. Give it up to ~20s — the HTTP bind is fast but
+#    the first FFT frames need a moment after that.
+echo ">> waiting for websdr.service to be reachable on :8095..."
+ok=0
+for i in $(seq 1 20); do
+    if systemctl is-active --quiet websdr.service && \
+       curl -sf -o /dev/null "http://127.0.0.1:8095/"; then
+        ok=1
+        break
+    fi
     sleep 1
 done
-sleep 2   # let the first FFT frames accumulate so the waterfall starts moving
 
-if systemctl is-active --quiet websdr.service && \
-   systemctl is-active --quiet receiver.service; then
+if [ "$ok" -eq 1 ] && systemctl is-active --quiet receiver.service; then
     echo
     echo ">> WebSDR stack is UP:"
     echo "   websdr.service   active (pid $(systemctl show websdr.service -p MainPID --value))"

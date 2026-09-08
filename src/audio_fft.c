@@ -28,9 +28,17 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <pthread.h>
 #include <fftw3.h>
 
 #include "filter_table.h"
+
+/* FFTW plan construction is NOT thread-safe: band_threads and audio clients
+ * create/destroy FFTW plans concurrently at startup, and on this box the
+ * planner corrupted its tcache and SIGSEGV'd inside fftwf_plan_dft_1d. All
+ * plan create/destroy calls are serialised under this lock; executing a plan
+ * afterwards is thread-safe and stays unlocked. */
+static pthread_mutex_t fft_plan_lock = PTHREAD_MUTEX_INITIALIZER;
 
 #define AF_HALF 128          /* demod IFFT half width -> 8k audio */
 #define AF_AUDIOLEN 128
@@ -60,8 +68,10 @@ int audio_fft_band_init(struct band *b)
     memset(b->af_in, 0, sizeof(fftwf_complex) * (size_t)n);
     memset(b->af_out, 0, sizeof(fftwf_complex) * (size_t)n);
 
+    pthread_mutex_lock(&fft_plan_lock);
     b->af_plan = fftwf_plan_dft_1d(n, b->af_in, b->af_out,
                                    FFTW_FORWARD, FFTW_ESTIMATE);
+    pthread_mutex_unlock(&fft_plan_lock);
     if (!b->af_plan) {
         audio_fft_band_free(b);
         return -1;
@@ -80,10 +90,12 @@ int audio_fft_band_init(struct band *b)
 
 void audio_fft_band_free(struct band *b)
 {
+    pthread_mutex_lock(&fft_plan_lock);
     if (b->af_plan) { fftwf_destroy_plan(b->af_plan); b->af_plan = NULL; }
     if (b->af_in)  { fftwf_free(b->af_in);  b->af_in  = NULL; }
     if (b->af_out) { fftwf_free(b->af_out); b->af_out = NULL; }
     if (b->af_spec){ fftwf_free(b->af_spec); b->af_spec = NULL; }
+    pthread_mutex_unlock(&fft_plan_lock);
     b->af_ready = 0;
 }
 
@@ -303,6 +315,7 @@ void audio_fft_client_setup(struct client *cli)
 
     /* Plan kind depends on the demod mode (SSB = c2r, AM/FM = complex
      * backward), so a mode switch rebuilds the plan even at equal size. */
+    pthread_mutex_lock(&fft_plan_lock);
     if (a->af_dplan) fftwf_destroy_plan(a->af_dplan);
     if (a->af_din)   fftwf_free(a->af_din);
     if (a->af_dout)  fftwf_free(a->af_dout);
@@ -314,8 +327,10 @@ void audio_fft_client_setup(struct client *cli)
     a->af_dplan = NULL;
     a->af_dplan_len = 0;
     a->af_am_plan = 0;
-    if (!a->af_din || !a->af_dout || !a->af_dout_r)
+    if (!a->af_din || !a->af_dout || !a->af_dout_r) {
+        pthread_mutex_unlock(&fft_plan_lock);
         return;
+    }
     memset(a->af_din, 0, sizeof(fftwf_complex) * (size_t)len);
     memset(a->af_dout, 0, sizeof(fftwf_complex) * (size_t)len);
 
@@ -325,6 +340,7 @@ void audio_fft_client_setup(struct client *cli)
     else
         a->af_dplan = fftwf_plan_dft_c2r_1d(len, a->af_din, a->af_dout_r,
                                             FFTW_ESTIMATE);
+    pthread_mutex_unlock(&fft_plan_lock);
     if (!a->af_dplan)
         return;
     a->af_dplan_len = len;

@@ -25,4 +25,10 @@ start_band 4625  "uvb-pcm.local"      /home/radio/fifo/fifoUVB
 start_band 3660  "80m-pcm.local"      /home/radio/fifo/fifo80mL
 start_band 1895  "160m-pcm.local"     /home/radio/fifo/fifo160mL
 
-wait -n
+# Wait for ALL writers, not just the first one to exit. With `wait -n` a single
+# pcmrecord dying (e.g. EPIPE when websdr.service restarts and briefly closes a
+# fifo) makes this script exit, and systemd (Restart=always) then SIGKILLs the
+# whole cgroup — every band's writer, not just the dead one. Waiting for all of
+# them keeps the process alive while at least one writer runs; when every writer
+# is gone, wait returns, the script exits and Restart=always rebuilds the set.
+wait
