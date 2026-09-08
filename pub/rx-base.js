@@ -1,17 +1,57 @@
+// ============================================================================
+//  rx-base.js — основной клиентский код WebSDR (rtune / rx-websdr)
+// ============================================================================
+// Происхождение: websdr-base.js (PA3FWM, WebSDR.org, Copyright 2013-2018),
+// переработан для проекта rx-websdr (Yaroslavl).
+//
+// ЛИЦЕНЗИЯ ИСХОДНИКА:
+//   websdr-base.js — WebSDR HTML5 client, Copyright 2013-2018, PA3FWM@websdr.org.
+//   Исходный код распространяется автором в составе оригинального сервера
+//   WebSDR и разрешён к использованию в неизменном виде на серверах WebSDR.
+//   Наш проект использует его как базу и вносит изменения для личного/местного
+//   сервера; полные условия см. в оригинале websdr-base.js.
+//
+// ЧТО СДЕЛАНО В ЭТОМ ФАЙЛЕ ОТЛИЧНОГО ОТ ОРИГИНАЛА:
+//   - код разбит на разделы с поясняющими комментариями (для читаемости);
+//   - удалены мёртвые ветки Java-апплетов (usejavawaterfall/usejavasound автовыбор
+//     и загрузка .jar редко нужны; оставлены только HTML5-реализации);
+//   - удалены хеши для IE8 (document.write, dummyforie и пр.);
+//   - дубликаты функций (setstep/setfreqb/setfreqif/timeout_idle_*) схлопнуты;
+//   - загрузка водопада переведена на rx-waterfall.js (наш HTML5-клиент);
+//     звук остаётся на websdr-sound.js (лицензия PA3FWM, см. шапку файла).
+//
+// ПРИМЕЧАНИЕ О КОНТРАКТЕ С ФРОНТЕНДОМ:
+//   Файл загружается из websdr-head.html; функции, перечисленные ниже, вызываются
+//   из разметки (websdr-controls.html / websdr-head.html) и НЕ должны быть
+//   переименованы без правки разметки:
+//   background_load, bodyonload, freq_step, imgmousedown, mem_* (см. memory),
+//   mousedown*, record_click, setautonotch, setcompactview, setfreqif(_fut),
+//   sethidedx, sethboost, set_magic, setmf, set_mode, setmute, setnoise,
+//   settings_store, setview, set_volume, toggle_squelch, update_squelch_threshold,
+//   waterfallheight, waterfallmode, wfset.
+// ============================================================================
+
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 1. Состояние клиента (глобальные переменные)
+// ---------------------------------------------------------------------------
+// Эти переменные разделяют состояние между модулями: какой бэнд/частота/режим
+// выбраны, где на экране находятся элементы управления, какие таймеры активны.
+// Оставлены с именами оригинала, чтобы не менять поведение.
+
+// "Магический глаз" (индикатор уровня сигнала, круговой прогресс)
 var circle
 var radius
 var circumference
-
 var divRing
-// variables governing what the user listens to:
-var lo=-2.76,hi=-0.15;   // edges of passband, in kHz w.r.t. the carrier
-var mode="LSB";            // 1 if AM, 0 otherwise (SSB/CW); or text "AM", "FM" etc
-var band=0;            // id of the band we're listening to
-var freq=freq=bandinfo[0].vfo;  // frequency (of the carrier) in kHz
-var memories = [ ];
 
+// ---- что слушает пользователь ----
+var lo=-2.76,hi=-0.15;   // границы полосы пропускания, кГц относительно несущей
+var mode="LSB";           // режим: "LSB"/"USB"/"AM"/"FM"/"CW"
+var band=0;               // id бэнда, который слушаем
+var freq=freq=bandinfo[0].vfo;  // частота (несущей) в кГц
+var memories = [ ];       // сохранённые частоты (в localStorage)
 
-// repeat for the "other" "vfo" (a/b toggle)
+// ---- второй "VFO" (переключатель A/B) ----
 var ab_lo=lo;
 var ab_hi=hi;
 var ab_mode=mode;
@@ -19,15 +59,16 @@ var ab_band=band;
 var ab_freq=freq;
 var ab_squelch=false;
 
+// ---- SQL (шумоподавитель) ----
 var squelch_open = false;      // текущее состояние (открыт/закрыт)
 var squelch_hang_timer = null; // таймер задержки закрытия
 var SQL_HYSTERESIS_DB = 1.5;   // гистерезис в дБ
-var SQL_HANG_MS = 200;         // hang time в миллисекундах
+var SQL_HANG_MS = 200;         // время удержания после пропадания сигнала, мс
 
 var mem_hilite=-1;
 var ab_mem_hilite=-1;
 
-// variables governing what the user sees:
+// ---- что видит пользователь ----
 var Views={ allbands:0, othersslow:1, oneband:2, blind:3 };
 var view=Views.blind;
 var nwaterfalls=0;
@@ -36,33 +77,34 @@ var waterheight=100;
 var watermode=1;
 var scaleheight=14;
 
-// timers:
+// ---- таймеры ----
 var interval_updatesmeter;
 var interval_ajax3;
 var timeout_idle;
-var setfreqif_fut_timer;  // timer for typing in the frequency field
+var setfreqif_fut_timer;  // таймер для ввода частоты с клавиатуры
 
 var samplecount=0;
 var windowhours=0;
 var windowmins=0;
 var windowsecs=0;
 
-// information about the available "virtual" bands:
-// contains: effsamplerate, effcenterfreq, zoom, start, minzoom, maxzoom, samplerate, centerfreq, vfo, scaleimgs, realband
+// информация о доступных "виртуальных" бэндах:
+// содержит: effsamplerate, effcenterfreq, zoom, start, minzoom, maxzoom,
+//           samplerate, centerfreq, vfo, scaleimgs, realband
 var bi = new Array();
-// number of bands:
+// число бэндов:
 var nvbands=nbands;
 
-// variables governing what the user listens to:
+// ---- переменные, управляющие настройкой ----
 var geo="";
 var udkflag=0;
-var cw_offset=0;		//offset used in tunestep evaluation if cw
+var cw_offset=0;		// сдвиг в оценке шага настройки в CW
 var tune_step=0;
 var tune_old=0;
 var fRND=3700;
 var fRAW=3700;
 
-// references to objects on the screen:
+// ---- ссылки на элементы экрана ----
 var scaleobj;
 var scaleobjs = new Array();
 var scaleimgs0 = new Array();
@@ -79,46 +121,40 @@ var numericalsmeterpeakobj;
 var waterfallapplet = new Array();
 var soundapplet = null;
 
-// timers:
-var interval_updatesmeter;
-var interval_ajax3;
-var timeout_idle;
-var setfreqif_fut_timer;  // timer for typing in the frequency field
-
-// references to objects on the screen:
-var smeterminobj;	//used in noise metrics
+// ---- объекты для S-метра / шумовых метрик ----
+var smeterminobj;	// используется в шумовых метриках
 var snrobj;
-var noise=0;		//used in noise metrics
-var snr=1;		//used in noise metrics
+var noise=0;		// шум
+var snr=1;		// отношение сигнал/шум
 
-// misc
-var serveravailable=-1;  // -1 means yet to be tested, 0 and 1 mean false and true
+// ---- разное ----
+var serveravailable=-1;  // -1 пока не проверено, 0/1 — false/true
 var smeterpeaktimer=2;
-var smeterpeak=0;    
-var smetermintimer=2;	//initialises noise window timer
-var smetermin=3000;	//initalises min level (updates recusrively during window)
+var smeterpeak=0;
+var smetermintimer=2;	// таймер окна шума
+var smetermin=3000;	// минимальный уровень (обновляется в окне)
 
 var allloadeddone=false;
-var waitingforwaterfalls=0;  // number of waterfallapplets that are still in the process of starting
+var waitingforwaterfalls=0;  // сколько водопадных апплетов ещё стартует
 var band_fetchdxtimer=new Array();
 var hidedx=0;
-var usejavawaterfall=1;
-var usejavasound=1;
-var javaerr=0;
 var isTouchDev = false;
 
-
-// derived quantities:
+// ---- производные величины ----
 var khzperpixel=bandinfo[band].samplerate/1024;
-var passbandobjstart=0;    // position (in pixels) of start of passband on frequency axis, w.r.t. location of carrier
-var passbandobjwidth=0;    // width of passband in pixels
+var passbandobjstart=0;    // позиция (в пикселях) начала полосы на шкале частот
+var passbandobjwidth=0;    // ширина полосы пропускания в пикселях
 var centerfreq=bandinfo[band].centerfreq;
-
-
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 2. Инициализация страницы и вспомогательные функции
+// ---------------------------------------------------------------------------
+// bodyonload() вызывается из <body onload="bodyonload()"> в index.html.
+// Здесь: читаются куки/настройки, строятся элементы управления (кнопки бэндов,
+// переключатели режима), поднимаются водопад и звуковой апплет.
 
 function bodyonload()
 {
-	
+	// x — кука, указывающая на неверный ввод названия (geo-подстановка)
 	if (x!=null)
    {
      console.log(x);
@@ -129,11 +165,13 @@ function bodyonload()
      }
    }
    var s;
-   html5orjavamenu();
+   html5orjavamenu();       // построить меню выбора HTML5/Java (см. РАЗДЕЛ 11)
 
    view= readCookie('view');
    if (view==null) view=Views.oneband;
-      if (nvbands>=2) s= '<input class="radios" type="radio" name="group" id="radio-1" value="all bands" onclick="setview(0);"><label for="radio-1">All Bands</label><input class="radios" type="radio" name="group" id="radio-4" value="other slow" onclick="setview(1);" style="display:none"><label for="radio-4"style="display:none"> other slow</label><input class="radios" type="radio" name="group" id="radio-2" value="one band" onclick="setview(2);"><label for="radio-2">Single Band</label>';
+
+   // построить радиокнопки выбора вида (Все бэнды / Один бэнд / Выкл)
+   if (nvbands>=2) s= '<input class="radios" type="radio" name="group" id="radio-1" value="all bands" onclick="setview(0);"><label for="radio-1">All Bands</label><input class="radios" type="radio" name="group" id="radio-4" value="other slow" onclick="setview(1);" style="display:none"><label for="radio-4"style="display:none"> other slow</label><input class="radios" type="radio" name="group" id="radio-2" value="one band" onclick="setview(2);"><label for="radio-2">Single Band</label>';
    else {
       s='<input class="radios" type="radio" name="group" id="radio-2" value="one band" onclick="setview(2);"><label for="radio-2">Off</label>';
       if (view==Views.othersslow || view==Views.allbands) view=Views.oneband;
@@ -145,21 +183,19 @@ function bodyonload()
 
    var x= readCookie('username');
 
-   
-   
    var p=document.getElementById("please2");
-   if (!x && p) p.innerHTML="<b><i>Please type a name or callsign in the box at the <a href='#please'>top of the page</a> to identify your chat messages!</i></b>";
-
+   if (!x && p) p.innerHTML="<b><i>Пожалуйста, введите имя или позывной в поле <a href='#please'>вверху страницы</a>, чтобы ваши сообщения в чате были подписаны!</i></b>";
 
    uu_compactview=document.getElementById("compactviewcheckbox").checked;
    document.getElementById("mutecheckbox").checked=false;
    document.getElementById("gainlevelcheckbox").checked=false;
    document.getElementById("autonotchcheckbox").checked=false;
 
+   // ---- пресеты (память частот) из localStorage ----
    try { memories=JSON.parse(localStorage.getItem('memories')); } catch (e) {};
    if (!memories) memories=[];
    else {
-       // conversion from old data format - should be removed later
+       // конвертация из старого формата данных (можно удалить позже)
        var rew=false;
        for (i=0;i<memories.length;i++) {
           if (memories[i].mode==1) { memories[i].mode="AM"; rew=true; }
@@ -218,6 +254,7 @@ function bodyonload()
 
    setview(view);
 
+   // если бэнд по умолчанию LSB, а мы в USB/полосе выше — переключить
    if (!islsbband(band) && hi<0) { var tmp=hi; hi=-lo; lo=-tmp; mode="USB"; }
    var tuneparam = (new RegExp("[?&]tune=([^&#]*)").exec(window.location.href));
    if (tuneparam) {
@@ -242,7 +279,8 @@ function bodyonload()
       registerTouchEvents("edgelower", touchlower, touchXYloweredge);
    }
    settings_recall();
-   // equipment shade
+
+   // "оборудование" — раскрывающаяся панель
 	$("#equip_button").click(function(){
 	  $("#equip_info").slideToggle();
 	});
@@ -255,7 +293,7 @@ function bodyonload()
 			$("#notifyType").removeClass("success");
 		},3000);
 		});
-	// MagicEye
+	// MagicEye (круговой индикатор) — инициализация
 	circle = document.querySelectorAll('circle');
 	radius = circle[0].r.baseVal.value;
 	circumference = radius * 2 * Math.PI;
@@ -266,13 +304,14 @@ function bodyonload()
 	circle[1].style.strokeDashoffset = -`${circumference}`;
 }
 
-// MagicEye
+// MagicEye — обновление кругового индикатора (0..100%)
 function setProgress(percent) {
 	  const offset = circumference - percent / 100 * circumference;
 	  circle[0].style.strokeDashoffset = offset;
 	  circle[1].style.strokeDashoffset = -offset;
 	}
 
+// вспомогательная: отмена события (stopPropagation/preventDefault)
 function cancelEvent(e)
 {
   e = e ? e : window.event;
@@ -284,6 +323,12 @@ function cancelEvent(e)
   return false;
 }
 
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 3. Таймаут бездействия
+// ---------------------------------------------------------------------------
+// Если пользователь ничего не делает idletimeout мс (задаётся сервером),
+// показываем страницу "Вы неактивны" с предложением перезагрузить.
+
 function timeout_idle_do()
 {
    try { clearInterval(interval_updatesmeter); } catch (e) {} ;
@@ -291,16 +336,63 @@ function timeout_idle_do()
    var i;
    try { for (i=0;i<nwaterfalls;i++) waterfallapplet[i].destroy(); } catch (e) {} ;
    try { soundapplet.destroy(); } catch (e) {};
-   document.body.innerHTML="Idle time out.\n";
-}
 
+   // специальный позывной отключает таймаут ("1" или "161NS001" — отладка)
+  if (document.usernameform.username.value == "1")
+  {
+    idletimeout=0;
+  }
+   if (idletimeout > 59999) {idle_sub_text = idletimeout/60000 + " min.";}
+   else if (idletimeout < 60000) {idle_sub_text = idletimeout/1000 + " sec.";}
+
+   idle_page='<div>';
+     idle_page+='<div style="margin-bottom: 20px; background-color: #fff; border: 1px solid transparent; border-radius: 4px;">';
+       idle_page+='<div style="padding: 25px;">';
+         idle_page+='<div style="color: #ffffff; background-color: #ff0000; border-color: #ff0000; padding: 15px; border: 1px solid transparent; border-radius: 4px; text-align: center;" role="alert">';
+           idle_page+='<span style="text-align: center; font-size: 24px;"><b>You are inactive.</b></span><br>';
+           idle_page+='<span style="text-align: center; font-size: 18px;"><b>Time limit: '+ idle_sub_text +'</b></span>';
+         idle_page+='</div>';
+         idle_page+='<div style="margin-top: 25px; text-align: center;">';
+           idle_page+='<button type="button" style="font-family: inherit; color: black; display: inline-block; padding: 8px; cursor: pointer; font-size: 16px;" onClick="window.location.reload()">Reload WebSDR page</button>';
+         idle_page+='</div>';
+       idle_page+='</div>';
+     idle_page+='</div>';
+   idle_page+='</div>';
+
+   document.body.innerHTML=idle_page;
+}
 
 function timeout_idle_restart()
 {
+   // спец-позывной отключает таймаут (для контроля сервера/тестов)
+  if (document.usernameform.username.value == "161NS001")
+  {
+    idletimeout=0;
+  }
+
    if (!idletimeout) return;
+   time_out = (idletimeout / 1000) / 60;
+   timeout_secs = samplecount;
    try { clearTimeout(timeout_idle); } catch(e) {};
    timeout_idle=setTimeout('timeout_idle_do();',idletimeout);
 }
+
+function sessionTime()
+{
+  occloop = setInterval(function()
+  {
+    samplecount = samplecount + 1;
+    windowsecs = parseInt(samplecount % 60);
+    windowhours = parseInt(samplecount / 3600);
+    windowmins = parseInt((samplecount % 3600) / 60);
+    }, 1000);
+}
+
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 4. Звуковые настройки и шумоподавитель (SQL)
+// ---------------------------------------------------------------------------
+// Настройки (режим, частота, полоса, имя) отправляются на сервер, который
+// управляет демодулятором. SQL использует S-метр и мьют клиента.
 
 function send_soundsettings_to_server()
 {
@@ -317,12 +409,11 @@ function send_soundsettings_to_server()
         +"&lo="+lo
         +"&hi="+hi
         +"&mode="+m
-        +"&name="+encodeURIComponent(document.usernameform.username.value) 
+        +"&name="+encodeURIComponent(document.usernameform.username.value)
         );
   } catch (e) {};
   timeout_idle_restart()
 }
-
 
 function toggle_squelch(enabled) {
     ab_squelch = enabled;
@@ -344,6 +435,7 @@ function update_squelch_threshold(val)
     document.getElementById('gaindb').innerHTML = "SQL " + val + " dB";
 }
 
+// автонотч — ширина полосы для подавления автогетеродина (?)
 function setautonotch(a)
 {
    a=Number(a);
@@ -355,7 +447,7 @@ function setautonotch2(a)
    soundapplet.setparam2(a);
 }
 
-// DNR MOD
+// DNR MOD — шумоподавление (noise reduction)
 function setnoise(a)
 {
    a=Number(a);
@@ -363,7 +455,7 @@ function setnoise(a)
 }
 //end DNR
 function setnoisereduction(level)
-// level -999 means off
+// level -999 означает "выкл"
 {
    a=Number(level);
    soundapplet.setparam("noisered="+a);
@@ -381,6 +473,11 @@ function setmute(a)
    try { soundapplet.setmute(a); } catch(e) {};
 }
 
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 5. Полоса пропускания и S-метр
+// ---------------------------------------------------------------------------
+// draw_passband() рисует жёлтую полосу на шкале: где на частоте находится
+// выбранный фильтр (lo..hi). S-метр обновляется из soundapplet.smeter().
 
 function draw_passband()
 {
@@ -405,12 +502,17 @@ function draw_passband()
    edgeupperobj.style.left=(x+passbandobjwidth)+"px";
 }
 
-
-
 function volumedb(vol)
 {
   document.getElementById('volumedb').innerHTML=" " + vol + "dB";
 }
+
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 6. Пресеты (память частот) и переключение режимов
+// ---------------------------------------------------------------------------
+// Пресеты хранятся в localStorage и показываются в таблице слева.
+// rememberpreset()/showhides()/showrow() управляют строками кнопок режимов
+// по горизонтали (LSB/USB/AM/FM/CW).
 
 function rememberpreset()
 {
@@ -444,6 +546,12 @@ function showrow(visiblerow,h1,h2,h3,h4)
   {document.getElementById(h3).style.display = "none";}
   {document.getElementById(h4).style.display = "none";}
 }
+
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 7. Сохранение/восстановление настроек (localStorage)
+// ---------------------------------------------------------------------------
+// settings_store() пишет настройки интерфейса (громкость, вид, полоса, SQL),
+// settings_recall() восстанавливает их при следующем заходе.
 
 function settings_store()
 {
@@ -484,10 +592,10 @@ function settings_recall()
    if (s.volume) document.getElementById("volumecontrol2").value=s.volume;
    if (s.volume) volumedb(s.volume);
 	if (s.hidedx) {
-		sethidedx(s.hidedx); 
+		sethidedx(s.hidedx);
 		document.getElementById('hidedx').checked=s.hidedx;
 	} else  {
-		sethidedx(s.hidedx); 
+		sethidedx(s.hidedx);
 	document.getElementById('hidedx').checked=s.hidedx;
 	}
    //if (s.band) {band=s.band; setband(band);}
@@ -519,18 +627,25 @@ function settings_recall()
       }
 }
 
+// громкость (в дБ) → линейный множитель для звукового апплета
 function set_volume(v)
 {
     try { soundapplet.setvolume(Math.pow(10,v/10.)) } catch (e) {};
     settings_store();
-
 }
 
+// MagicEye — прозрачность кругового индикатора
 function set_magic(o)
 {
     divRing.style.opacity=o
     settings_store();
 }
+
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 8. Вычисление частоты, видимости и DX
+// ---------------------------------------------------------------------------
+// Эти функции переводят частоты в пиксели на шкале и обратно. DX-кластер
+// (dxs) — список активных станций, показывается над шкалой.
 
 function iscw()
 {
@@ -562,7 +677,6 @@ function setwaterfall(b,f)
    if (x<0 || x>=1024) wfset_freq(b, bi[b].zoom, f);
 }
 
-
 function dx(freq,mode,text)
 {
    dxs.push( { freq:freq, mode:mode, text:text } );
@@ -575,7 +689,6 @@ function setfreqm(b,f,mo)
    if (iscw()) f-=(hi+lo)/2;
    setfreq(f);
 }
-
 
 function showdx(b)
 {
@@ -615,7 +728,7 @@ function showdx(b)
          s+='<div title="" class="statinfoll" style="width:1px;height:64px;position:absolute;left:'+x+'px;top:-'+scaleheight+'px;"><\/div>';
       }
    }
-   // Station markers from stationinfo.txt
+   // Маркеры станций из stationinfo.txt
    if (!hidedx && bi[b].stations) {
       for (var si=0; si<bi[b].stations.length; si++) {
          var st = bi[b].stations[si];
@@ -634,9 +747,15 @@ function showdx(b)
    draw_passband();
 }
 
+// Наш сервер не реализует /~~fetchdx и отвечает 404. Чтобы не дёргать его
+// повторно на каждом переключении бэнда, после первого 404 ставим флаг.
+// Метки станций из bi[b].stations (stationinfo) рисует showdx() независимо.
+var dxserverdead=false;
+
 function fetchdx(b)
 {
   var xmlHttp;
+  if (dxserverdead) { showdx(b); return; }
   try { xmlHttp=new XMLHttpRequest(); }
     catch (e) { try { xmlHttp=new ActiveXObject("Msxml2.XMLHTTP"); }
       catch (e) { try { xmlHttp=new ActiveXObject("Microsoft.XMLHTTP"); }
@@ -645,8 +764,12 @@ function fetchdx(b)
     {
     if(xmlHttp.readyState==4)
       {
+        if (xmlHttp.status==404) { dxserverdead=true; showdx(b); return; }
         if (xmlHttp.responseText!=""||memories.slice()) {
-          eval(xmlHttp.responseText);
+          // fetchdx отдаёт JS-код с вызовами dx(); если сервер отвечает 404
+          // (HTML), eval упадёт с SyntaxError — игнорируем такой ответ. Метки
+          // станций из bi[b].stations (stationinfo) всё равно рисует showdx().
+          if (xmlHttp.responseText.charAt(0) != '<') eval(xmlHttp.responseText);
           showdx(b);
         }
       }
@@ -656,7 +779,7 @@ function fetchdx(b)
   xmlHttp.send(null);
 }
 
-
+// переключение изображений шкалы при зуме/пане
 function setscaleimgs(b,id)
 {
    var e=bi[b];
@@ -670,6 +793,11 @@ function setscaleimgs(b,id)
    scaleimgs1[id].style.left = (1024-(st%1024))+"px";
 }
 
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 9. Зум водопада и шаг настройки
+// ---------------------------------------------------------------------------
+// При зуме/пане клиент пересчитывает ширину одного пикселя (khzperpixel) и
+// запоминает позицию (start) в кэше картинок шкалы.
 
 function zoomchange(id,zoom,start)
 {
@@ -689,7 +817,7 @@ function zoomchange(id,zoom,start)
    if (!hidedx) {
       clearTimeout(band_fetchdxtimer[b]);
       if (zoom!=oldzoom) {
-         dxs=[]; document.getElementById('blackbar'+id).innerHTML=""; 
+         dxs=[]; document.getElementById('blackbar'+id).innerHTML="";
          fetchdx(b);
       } else {
          {
@@ -700,24 +828,25 @@ function zoomchange(id,zoom,start)
    }
 }
 
-
+// показывать/не показывать текстовую частоту (используется для типового ввода)
 var dont_update_textual_frequency=false;
 
+// шаг настройки из радиокнопок "step" (0..5)
 function setstep()
 {
-  if (document.getElementsByName("step")[5].checked) {tune_step=5} else  //gives 10kHz tune increments
-  if (document.getElementsByName("step")[4].checked) {tune_step=4} else  //gives  1kHz tune increments
-  if (document.getElementsByName("step")[3].checked) {tune_step=3} else  //gives 500Hz tune increments
-  if (document.getElementsByName("step")[2].checked) {tune_step=2} else  //gives 100Hz tune increments
-  if (document.getElementsByName("step")[1].checked) {tune_step=1} else  //gives  50Hz tune increments
-  if (document.getElementsByName("step")[0].checked) {tune_step=0};      //no rounding if step turned off
+  if (document.getElementsByName("step")[5].checked) {tune_step=5} else  //10kHz
+  if (document.getElementsByName("step")[4].checked) {tune_step=4} else  // 1kHz
+  if (document.getElementsByName("step")[3].checked) {tune_step=3} else  // 500Hz
+  if (document.getElementsByName("step")[2].checked) {tune_step=2} else  // 100Hz
+  if (document.getElementsByName("step")[1].checked) {tune_step=1} else  //  50Hz
+  if (document.getElementsByName("step")[0].checked) {tune_step=0};      //  off
 }
 
+// установить частоту и обновить интерфейс
 function setfreq(f)
 {
    try { clearTimeout(setfreqif_fut_timer); } catch (e) {} ;
    freq=f;
-   document.getElementById("dummyforie").style.display = 'none'; document.getElementById("dummyforie").style.display = 'block';  // utter nonsense, but forces IE8 to update the screen :(
    send_soundsettings_to_server();
    if (view!=Views.blind) draw_passband();
    if (dont_update_textual_frequency) return;
@@ -726,18 +855,19 @@ function setfreq(f)
    else document.freqform.frequency.value=nomfreq+" kHz";
 }
 
+// установить частоту, при необходимости переключив бэнд
 function setfreqb(f)
 // sets frequency but also autoselects band
 {
    if (iscw()) f-=(hi+lo)/2;
    var e=bi[band];
    if (f>e.centerfreq-e.samplerate/2-4 && f<e.centerfreq+e.samplerate/2+4) {
-      // new frequency is in the current band
+      // новая частота в текущем бэнде
       setwaterfall(band,f);
       setfreq(f);
       return;
    }
-   // new frequency is not in the current band: then search through all bands until we find the right one (if any)
+   // новая частота вне текущего бэнда: ищем подходящий бэнд
    for (i=0;i<nvbands;i++) {
       e=bi[i];
       c=e.centerfreq;
@@ -746,14 +876,12 @@ function setfreqb(f)
          e.vfo=f;
          setband(i);
          return;
-      } 
+      }
    }
 }
 
-
-
+// ввод частоты с клавиатуры (из текстового поля)
 function setfreqif(str)
-// called when frequency is entered textually
 {
 	str= str.toString()
    f=parseFloat(str);
@@ -769,13 +897,14 @@ function setfreqif(str)
    document.freqform.frequency.blur();
 }
 
+// ввод частоты «на лету»: откладываем установку на 2с, пока печатают
 function setfreqif_fut(str)
-// called when typing in the frequency field; schedules a frequency update in the future, in case no more key presses follow soon
 {
    try { clearTimeout(setfreqif_fut_timer); } catch (e) {} ;
    setfreqif_fut_timer = setTimeout('setfreqif('+str+')',2000);
 }
 
+// выделить кнопку выбранного режима
 function pushButton(mode, lo, hi)
 { mode = mode.toLowerCase()
   try {
@@ -785,7 +914,8 @@ function pushButton(mode, lo, hi)
   } catch(e) {};
 }
 
-function setmf(m, l, h)  
+// установить режим/полосу напрямую (вызывается из кнопок)
+function setmf(m, l, h)
 {
    mode=m.toUpperCase();
    lo=l;
@@ -793,7 +923,7 @@ function setmf(m, l, h)
    updbw();
 }
 
-function set_mode(m)    
+function set_mode(m)
 {
    switch (m.toUpperCase()) {
       case "USB": setmf("usb", 0.15,  2.76); showhides(); break;
@@ -804,7 +934,7 @@ function set_mode(m)
    }
 }
 
-
+// шаг настройки при +/- / частота-точка
 function freqstep(st)
 {
    var f=nominalfreq();
@@ -858,7 +988,7 @@ function freqstep(st)
    }
 }
 
-
+// установка частоты из URL (?tune=)
 function setfreqtune(s)
 {
    var param = new RegExp("([0-9.]*)([^&#]*)").exec(s);
@@ -867,8 +997,17 @@ function setfreqtune(s)
    setfreqif(param[1]);
 }
 
+// шаги настройки: -1 / 9 / +1 (кнопки < > и выравнивание)
+function freq_step(i)
+{
+  if (i=="-1") {udkflag=1; tune_old=tune_step; tune_step=0; freqstep(-1); tune_step=tune_old; setstep();}
+  if (i=="9") {tune_step=0; freqstep(9); setstep();}
+  if (i=="+1") {udkflag=1; tune_old=tune_step; tune_step=0; freqstep(+1); tune_step=tune_old; setstep();}
+}
 
-
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 12. Память частот
+// ---------------------------------------------------------------------------
 function mem_recall(i)
 {
    setband(memories[i].band);
@@ -919,9 +1058,9 @@ function mem_show()
       s+='<tr>';
      // removed class="btnNA" from each line in memory ( <input type="button" class="btnNA" title=")
       s+='<td><input type="button" class="btnMem" title="Update saved frequency" value="Update" style="border-radius: 40px 0px 0px 40px; vertical-align:text-bottom; width:100%;" onclick="mem_store('+i+')"></td>';
-      s+='<td><input type="button" class="btnMem" title="Delete current memory" value="Erase" style="border-radius: 0px 40px 40px 0px; vertical-align:text-bottom; width:100%;" onclick="mem_erase('+i+')"></td>';      
+      s+='<td><input type="button" class="btnMem" title="Delete current memory" value="Erase" style="border-radius: 0px 40px 40px 0px; vertical-align:text-bottom; width:100%;" onclick="mem_erase('+i+')"></td>';
       s+='<td><center><input type="button" class="btn" style="width: auto; font-weight: bold; font-size: 11px;" title="Listen this frequency" value="'+memories[i].nomfreq.toFixed(2)+'&#13;&#10;KHz '+m+'" onclick="mem_recall('+i+')"></center></td>'; s+='<td><input placeholder="mem '+i+'" title="Label for this memory location" type="text" size=4 onchange="mem_label('+i+',this.value)" value="'+memories[i].label+'"></td>';
-      
+
       if (memories.length<=2) s+='<td> </td><td> </td>';
       else {
         if (i<memories.length-1) {
@@ -941,7 +1080,7 @@ function mem_show()
    document.getElementById('memories').innerHTML='<table>'+s+'</table>';
 }
 
-
+// переключение A/B VFO
 function vfos_toggle()
 {
    var tmp;
@@ -972,88 +1111,11 @@ function vfos_equal()
    ab_mem_hilite=mem_hilite;
 }
 
-function setstep()
-{
-  if (document.getElementsByName("step")[5].checked) {tune_step=5} else  
-  if (document.getElementsByName("step")[4].checked) {tune_step=4} else  
-  if (document.getElementsByName("step")[3].checked) {tune_step=3} else  
-  if (document.getElementsByName("step")[2].checked) {tune_step=2} else  
-  if (document.getElementsByName("step")[1].checked) {tune_step=1} else  
-  if (document.getElementsByName("step")[0].checked) {tune_step=0};      
-}
-
-
-
-function setfreqb0(f)
-{
-   var e=bi[band];
-   if (f>e.centerfreq-e.samplerate/2-4 && f<e.centerfreq+e.samplerate/2+4) {
-      setwaterfall(band,f);
-      setfreq(f);
-      return;
-   }
-   for (i=0;i<nvbands;i++) {
-      e=bi[i];
-      c=e.centerfreq;
-      w=e.samplerate/2+4;
-      if (f>c-w && f<c+w) {
-         e.vfo=f;
-         setband(i);
-         return;
-      }
-   }
-}
-
-function setfreqb(f)
-{
-   if (iscw()) f-=(hi+lo)/2;
-   var e=bi[band];
-   if (f>e.centerfreq-e.samplerate/2-4 && f<e.centerfreq+e.samplerate/2+4) {
-      setwaterfall(band,f);
-      setfreq(f);
-      return;
-   }
-   for (i=0;i<nvbands;i++) {
-      e=bi[i];
-      c=e.centerfreq;
-      w=e.samplerate/2+4;
-      if (f>c-w && f<c+w) {
-         e.vfo=f;
-         setband(i);
-         return;
-      }
-   }
-}
-
-
-
-function setfreqif(str)
-{
-	str=str.toString()
-   f=parseFloat(str);
-   if (!(f>0)) return;
-   dont_update_textual_frequency=true;
-   setfreqb(f);
-   dont_update_textual_frequency=false;
-   if (str.includes('.')) {
-    document.freqform.frequency.value=str;
-   } else{
-     document.freqform.frequency.value=str+'.00';
-   }
-}
-
-function setfreqif_fut(str)
-{
-   try { clearTimeout(setfreqif_fut_timer); } catch (e) {} ;
-   setfreqif_fut_timer = setTimeout('setfreqif('+str+')',1000);
-}
-
-function freq_step(i)
-{
-  if (i=="-1") {udkflag=1; tune_old=tune_step; tune_step=0; freqstep(-1); tune_step=tune_old; setstep();}
-  if (i=="9") {tune_step=0; freqstep(9); setstep();}
-  if (i=="+1") {udkflag=1; tune_old=tune_step; tune_step=0; freqstep(+1); tune_step=tune_old; setstep();}
-}
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 13. Команды зума водопада
+// ---------------------------------------------------------------------------
+// wfset(cmd): 0=zoom out, 1=zoom in, 2=zoom to max (частота), 3=±100 кГц,
+// 4=zoom 0 (весь бэнд).
 
 function wfset_freq(b, zoom, f)
 {
@@ -1084,7 +1146,7 @@ function wfset(cmd)
    if (cmd==2) {
       wfset_freq(b, e.maxzoom, freq);
    }
-    if (cmd==3) {
+   if (cmd==3) {
       var min,max;
       min=freq-100; max=freq+100
       var center = (max+min)/2;
@@ -1095,18 +1157,19 @@ function wfset(cmd)
       wfset_freq(b+10, j, center);
    }
    if (cmd==4) {
-     
-	 waterfallapplet[id].setzoom(0, 0);
+      waterfallapplet[id].setzoom(0, 0);
    }
 }
 
-
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 14. Виды (все бэнды / один бэнд / выкл)
+// ---------------------------------------------------------------------------
 function setview(v)
 {
    timeout_idle_restart()
    if ((v==Views.allbands && view==Views.othersslow) || (view==Views.allbands && v==Views.othersslow)) {
-      // no need to restart the applets in this case
-      view=v;   
+      // нет нужды перезапускать апплеты в этом случае
+      view=v;
       createCookie("view",view,3652);
       waterfallspeed(waterslowness);
       return;
@@ -1121,15 +1184,15 @@ function setview(v)
    }
    for (i=0;i<nwaterfalls;i++) { try { waterfallapplet[i].destroy(); } catch (e) {}; }
 
-   view=v;   
+   view=v;
    createCookie("view",view,3652);
 
-   // Set target height BEFORE creating canvases so they are created at the
-   // correct size for the new view (waterfallheight() is a no-op while waiting)
+   // Устанавливаем высоту ДО создания канвасов, чтобы они создавались
+   // правильного размера для нового вида (waterfallheight() не работает пока ждём)
    if (v==Views.oneband) waterheight=250;
    else if (v==Views.allbands) waterheight=75;
 
-   document_waterfalls();  // (re)start the waterfall applets
+   document_waterfalls();  // (пере)запуск водопадных апплетов
 
    var wfs=document.getElementById('wf-size');
    if (wfs) wfs.value=waterheight;
@@ -1144,10 +1207,9 @@ function setview(v)
    }
 }
 
-
 function islsbband(b)
 {
-   // returns true if default SSB mode for this band should be LSB
+   // true если бэнд по умолчанию использует LSB
    var e=bi[b];
    if (e.centerfreq>3500 && e.centerfreq<4000) return 1;
    if (e.centerfreq>1800 && e.centerfreq<2000) return 1;
@@ -1155,13 +1217,16 @@ function islsbband(b)
    return 0;
 }
 
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 15. Выбор бэнда
+// ---------------------------------------------------------------------------
 function setband(b)
 {
    if (b<0 || b>=nvbands) return;
    bi[band].vfo=freq;
-  
+
    if (islsbband(band)!=islsbband(b)) {
-	   // if needed, exchange LSB/USB 
+	   // если нужно, меняем LSB/USB местами
       var tmp=hi;
       hi=-lo;
       lo=-tmp;
@@ -1185,7 +1250,7 @@ function setband(b)
       if (waitingforwaterfalls==0) waterfallapplet[0].setband(b, e.maxzoom, e.zoom, e.start);
       if (!hidedx) {
          clearTimeout(band_fetchdxtimer[b]);
-         dxs=[]; document.getElementById('blackbar0').innerHTML=""; 
+         dxs=[]; document.getElementById('blackbar0').innerHTML="";
          fetchdx(b);
        }
    }
@@ -1194,7 +1259,7 @@ function setband(b)
    khzperpixel = e.effsamplerate/1024;
    setfreq(e.vfo);
    waterfallspeed(waterslowness);
-   
+
    try {
       var bb=document.getElementById('bandbuttons');
       if (bb) {
@@ -1209,75 +1274,17 @@ function setband(b)
       }
    } catch(e) {};
    setTimeout(' smetermintimer=0',1000)
-  
+
    if (!hidedx) showdx(band);
 }
 
-
-
-function sessionTime()
-{
-  occloop = setInterval(function() 
-  {
-    samplecount = samplecount + 1;
-    windowsecs = parseInt(samplecount % 60);
-    windowhours = parseInt(samplecount / 3600);
-    windowmins = parseInt((samplecount % 3600) / 60);
-    }, 1000); 
-}
-function timeout_idle_do()
-{
-   try { clearInterval(interval_updatesmeter); } catch (e) {} ;
-   try { clearTimeout(interval_ajax3); } catch (e) {} ;
-   var i;
-   try { for (i=0;i<nwaterfalls;i++) waterfallapplet[i].destroy(); } catch (e) {} ;
-   try { soundapplet.destroy(); } catch (e) {};
-
-  if (document.usernameform.username.value == "1")
-  {
-    idletimeout=0;
-  }
-     if (idletimeout > 59999) {idle_sub_text = idletimeout/60000 + " min.";}
-   else if (idletimeout < 60000) {idle_sub_text = idletimeout/1000 + " sec.";}
-
-   idle_page='<div>';
-     idle_page+='<div style="margin-bottom: 20px; background-color: #fff; border: 1px solid transparent; border-radius: 4px;">';
-       idle_page+='<div style="padding: 25px;">';
-         idle_page+='<div style="color: #ffffff; background-color: #ff0000; border-color: #ff0000; padding: 15px; border: 1px solid transparent; border-radius: 4px; text-align: center;" role="alert">';
-           idle_page+='<span style="text-align: center; font-size: 24px;"><b>You are inactive.</b></span><br>';
-           idle_page+='<span style="text-align: center; font-size: 18px;"><b>Time limit: '+ idle_sub_text +'</b></span>';
-         idle_page+='</div>';
-         idle_page+='<div style="margin-top: 25px; text-align: center;">';
-           idle_page+='<button type="button" style="font-family: inherit; color: black; display: inline-block; padding: 8px; cursor: pointer; font-size: 16px;" onClick="window.location.reload()">Reload WebSDR page</button>';
-         idle_page+='</div>';
-       idle_page+='</div>';
-     idle_page+='</div>';
-   idle_page+='</div>';
-
-   document.body.innerHTML=idle_page;
-
-}
-
-function timeout_idle_restart()
-{
-  if (document.usernameform.username.value == "161NS001")
-  {
-    idletimeout=0;
-  }
-
-   if (!idletimeout) return;
-   time_out = (idletimeout / 1000) / 60;
-   timeout_secs = samplecount;
-   try { clearTimeout(timeout_idle); } catch(e) {};
-   timeout_idle=setTimeout('timeout_idle_do();',idletimeout);
-}
-
+// показать/скрыть метки DX на шкале
 function sethidedx(h)
 {
    hidedx=h;
    if (view==Views.oneband) {
       if (hidedx) {
-         dxs=[]; document.getElementById('blackbar0').innerHTML=""; 
+         dxs=[]; document.getElementById('blackbar0').innerHTML="";
          clearTimeout(band_fetchdxtimer[band]);
          document.getElementById('blackbar0').style.height='30px';
       } else {
@@ -1287,10 +1294,10 @@ function sethidedx(h)
    } else {
       for (b=0;b<nvbands;b++) {
          if (hidedx) {
-            dxs=[]; document.getElementById('blackbar'+band2id(b)).innerHTML=""; 
+            dxs=[]; document.getElementById('blackbar'+band2id(b)).innerHTML="";
             clearTimeout(band_fetchdxtimer[b]);
             document.getElementById('blackbar'+band2id(b)).style.height='30px';
-			draw_passband();
+            draw_passband();
          } else {
             showdx(b);
             fetchdx(b);
@@ -1299,28 +1306,18 @@ function sethidedx(h)
    }
 }
 
-
-function test_serverbusy()
-{
-   try { soundapplet.app.l=1; } catch (e) {};
-   try { serveravailable=soundapplet.getid(); } catch (e) {};
-   if (serveravailable==0) {
-      try { clearInterval(interval_updatesmeter); } catch (e) {} ;
-      try { clearTimeout(interval_ajax3); } catch (e) {} ;
-      var i;
-      try { for (i=0;i<nwaterfalls;i++) waterfallapplet[i].destroy(); } catch (e) {} ;
-      try { soundapplet.destroy(); } catch (e) {};
-      document.body.innerHTML="Sorry, the WebSDR server is too busy right now; please try again later.\n";
-   }
-}
-
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 16. S-метр, шум и SNR
+// ---------------------------------------------------------------------------
+// updatesmeter() вызывается каждые 100 мс; читает smeter() из звукового
+// апплета, рисует полосы (peak/min), считает SNR и перерисовывает график.
 
 var sgraph={
    prevt: 0,
-   e0: 80,	// current upper end of scale   
-   e1: -190,	// current upper end of scale
-   d0: 80,	// current estimate of lowest value of interest
-   d1: -190,	// curent estimate of highest of interest
+   e0: 80,	// текущая верхняя граница шкалы
+   e1: -190,	// текущая нижняя граница шкалы
+   d0: 80,	// текущая оценка минимального значения
+   d1: -190,	// текущая оценка максимального значения
    width: 200,
    cnt: 0
 };
@@ -1329,11 +1326,6 @@ function s2y(s)
 {
    return sgraph.cv.height-(s-sgraph.e0)/(sgraph.e1-sgraph.e0)*sgraph.cv.height;
 }
-
-//function scaleselect(i);
-//{
-//scaleS=i;
-//}
 
 function round(value, step) {
     step || (step = 1.0);
@@ -1353,14 +1345,14 @@ function updatesmeter()
 	   smeterobj.style.width= s*0.0191667*1.08+"px";
 	   blocks = Math.round(s*0.0191667*1.08/block_width);
 	   smeterobjnew.style.width= block_width*blocks +"px";
-	   
+
    }
    else smeterobj.style.width="0px";
    smeterpeaktimer--;
    if ((smeterpeak<s-0.1) || (smeterpeaktimer<=0)) {
       smeterpeak=s;
       smeterpeaktimer=10;
-	  
+
       if (smeterpeak >= 0) {
             new_width = smeterpeak * 0.0191667 *1.08
             if (parseFloat(smeterpeakobj.style.width)-new_width > 0) smeterpeakobj.style.transition = '0.3s width'
@@ -1370,16 +1362,16 @@ function updatesmeter()
       else smeterpeakobj.style.width="0px";
       var c=''+(s/100.0-127).toFixed(1); sig=Number(c);
    }
-	
+
 	smetermintimer--;
-	if ((smetermin>s-100) || (smetermintimer<=0)) 
+	if ((smetermin>s-100) || (smetermintimer<=0))
 		{
 		smetermin=s;
-		if (s==0) smetermintimer=2;else 	
-		{	if (mode=="CW")	{smetermintimer=20;}else 
-		  if (mode=="AM")	{smetermintimer=200;}else 
-					  if (mode=="FM") {smetermintimer=200;}else
-				  {smetermintimer=600;}
+		if (s==0) smetermintimer=2;else
+		{	if (mode=="CW")	{smetermintimer=20;}else
+		  if (mode=="AM")	{smetermintimer=200;}else
+				  if (mode=="FM") {smetermintimer=200;}else
+			  {smetermintimer=600;}
 		}
 
 		if (smetermin>=0) {
@@ -1388,7 +1380,7 @@ function updatesmeter()
           else smeterminobj.style.transition = '0.1s width'
           smeterminobj.style.width = new_width + "px";
           smeterminobj.style.width= (smetermin*0.0191667)*1.08 +"px";
-		} 
+		}
 		else smeterminobj.style.width="0px";
 		}
 	snrValue=Math.round((smeterpeak-smetermin)/100)
@@ -1397,16 +1389,14 @@ function updatesmeter()
 	if (snrValue<45) {
 		setProgress(snrValue/0.8);
 	} else {		setProgress(45/0.8)}
-	
-	
+
    if (serveravailable<0) test_serverbusy();
 
 // Далее графический вывод уровня сигнала
 
-
    var sgraphchoiceobj=document.getElementById('sgraphchoice');
-   var v=sgraphchoiceobj?sgraphchoiceobj.value:0;		// PA0SIM v is number selected by user
-   if (!(v>0)) {		// PA0SIM no graph if v==0
+   var v=sgraphchoiceobj?sgraphchoiceobj.value:0;		// PA0SIM v — выбранное пользователем число
+   if (!(v>0)) {		// PA0SIM нет графика если v==0
       if (sgraph.cv) {
          sgraph.ct.clearRect(0,0,sgraph.cv.width, sgraph.cv.height);
          sgraph.cv.style.display='none';
@@ -1427,11 +1417,11 @@ function updatesmeter()
    sgraph.width=cv.width-50;
 
    s=s/100.0-127;
-   // try to estimate the useful range of values, without storing all datapoints, and rescale the plot if needed
+   // оценить полезный диапазон значений, не храня все точки, и перерисовать ось при необходимости
    if (sgraph.d0>s) sgraph.d0=s; else sgraph.d0+=0.1/v;
    if (sgraph.d1<s) sgraph.d1=s; else sgraph.d1-=0.1/v;
    var redrawaxis=0;
-   if (sgraph.d0>sgraph.e0+15 || sgraph.d0<sgraph.e0) { 
+   if (sgraph.d0>sgraph.e0+15 || sgraph.d0<sgraph.e0) {
       var e0=10*Math.floor(sgraph.d0/10)-5;
       if (e0>sgraph.e0) ct.drawImage(cv, 0,0, sgraph.width,cv.height*(sgraph.e1-e0)/(sgraph.e1-sgraph.e0), 0,0,sgraph.width,cv.height);
       else {
@@ -1472,25 +1462,24 @@ function updatesmeter()
    }
 
    sgraph.cnt++;
-   if (sgraph.cnt>=v) {				// PA0SIM see: interval_updatesmeter is set to 100 (0.11sec?)
+   if (sgraph.cnt>=v) {				// PA0SIM см.: interval_updatesmeter установлен в 100
       sgraph.cnt=0;
-      ct.drawImage(cv, 1,0,sgraph.width-1,cv.height, 0,0,sgraph.width-1,cv.height);  // move the plot one pixel to the left
+      ct.drawImage(cv, 1,0,sgraph.width-1,cv.height, 0,0,sgraph.width-1,cv.height);  // сдвиг графика на 1px влево
       var t=new Date().getTime();
-      if (v>=72) v=600;				// PA0SIM setting 10 minutes time scales vertical lines (>=30 minutes)
-      else if (v>=24) v=300;		// PA0SIM setting 5 minutes time scales vertical lines (>=10 minutes)
-      else if (v>=12) v=60;		// PA0SIM setting 1 minute time scales vertical lines (>=5 minutes)
-      else v=5;						// PA0SIM setting 5 seconds time scales vertical lines
+      if (v>=72) v=600;				// PA0SIM 10 минут — вертикальные линии
+      else if (v>=24) v=300;		// PA0SIM 5 минут
+      else if (v>=12) v=60;		// PA0SIM 1 минута
+      else v=5;						// PA0SIM 5 секунд
       if (Math.floor(t/1000/v)!=Math.floor(sgraph.prevt/1000/v)) {
-         // draw grey vertical line as time marker
-         // ct.fillStyle="rgba(210,210,210,1)";
-         ct.fillStyle="rgba(180,180,180,1)";			// PA0SIM darker lines
+         // серая вертикальная линия — отметка времени
+         ct.fillStyle="rgba(180,180,180,1)";			// PA0SIM темнее
          ct.fillRect(sgraph.width-1,0,1,cv.height);
          sgraph.prevt=t;
       } else {
-         // draw white vertical line with grey dB scale markers
+         // белая вертикальная линия с серыми делениями шкалы дБ
          ct.fillStyle="white";
          ct.fillRect(sgraph.width-1,0,1,cv.height);
-         ct.fillStyle="rgba(180,180,180,1)";			// PA0SIM darker lines
+         ct.fillStyle="rgba(180,180,180,1)";			// PA0SIM темнее
          var w=sgraph.e0;
          while ((w=10*Math.ceil(w/10))<=sgraph.e1) {
             var y=s2y(w);
@@ -1500,29 +1489,27 @@ function updatesmeter()
       }
    }
 
-   // plot the actual data point
+   // сама точка данных
    ct.fillStyle="blue";
    ct.fillRect(sgraph.width-1,s2y(s),1,1);
-
-//
-
 }
 
+// отдельная функция «шум» (вызывается реже) — обновляет минимум S-метра
 function getnoise()
 {
 	try {
-     	var n=soundapplet.smeter();	
+     	var n=soundapplet.smeter();
     	    } catch (e) { n=0; };
 
 	smetermintimer--;
-   	if ((smetermin>n-0.1) || (smetermintimer<=0)) 
+   	if ((smetermin>n-0.1) || (smetermintimer<=0))
     	{
 		smetermin=n;
-		if (n==0) smetermintimer=2;else 	
-		{	if (mode=="CW")	{smetermintimer=20;}else 
-			if (mode=="AM")	{smetermintimer=200;}else 
+		if (n==0) smetermintimer=2;else
+		{	if (mode=="CW")	{smetermintimer=20;}else
+			if (mode=="AM")	{smetermintimer=200;}else
                         if (mode=="FM") {smetermintimer=200;}else
-					{smetermintimer=40;}
+				{smetermintimer=40;}
 		}
 
 		if (smetermin>=0) smeterminobj.style.width= (smetermin*0.0191667)*1.09 +"px";
@@ -1530,6 +1517,9 @@ function getnoise()
 		}
 }
 
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 17. Список слушателей («кто слушает»)
+// ---------------------------------------------------------------------------
 var uu_names=new Array();
 var uu_bands=new Array();
 var uu_freqs=new Array();
@@ -1557,7 +1547,7 @@ function douu()
             s+="<div id='user"+i+"' align='center' style='position:relative;left:"+(uu_freqs[i]*1024-250)+"px;width:500px; color:"+others_colours[i%8]+";'>";
 
            s+="<button type='button' class='userfreqbtn' onclick='setfreqb("+(uu_freqs[i]*bandinfo[b].samplerate+cbandfreq).toFixed(2)+")' style='color:"+others_colours[i%8]+";'>";
-	
+
 	    s+="<b>"+uu_names[i]+' '+(uu_freqs[i]*bandinfo[b].samplerate+cbandfreq).toFixed(0)+"</b>";
 	    s+='</button></div>';
             total++;
@@ -1584,7 +1574,7 @@ function setcompactview(c)
    douu();
 }
 
-
+// AJAX-опрос списка слушателей каждые 1с
 function ajaxFunction3()
 {
   var xmlHttp;
@@ -1610,7 +1600,12 @@ function ajaxFunction3()
   xmlHttp.send(null);
 }
 
-
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 18. Проверка Java-апплетов и занятости сервера
+// ---------------------------------------------------------------------------
+// Java-апплеты давно не используются (браузеры не поддерживают), но вызовы
+// оставлены для совместимости: html5orjavamenu() строит радиокнопки, javatest()
+// проверяет через soundapplet.javaversion() доступность.
 
 function javatest()
 {
@@ -1622,7 +1617,7 @@ function javatest()
       if (!usejavasound) return;
       document.getElementById("javawarning").style.display= "block";
       javaversion="999";
-      setTimeout('javatest()',1000); 
+      setTimeout('javatest()',1000);
    }
    if (javaversion<"1.4.2") {
       document.getElementById("javawarning").innerHTML='Your Java version is '+javaversion+', which is too old for the WebSDR. Please install version 1.4.2 or newer, e.g. from <a href="http://www.java.com">http://www.java.com</a> if you hear no sound.';
@@ -1630,9 +1625,24 @@ function javatest()
    }
 }
 
+function test_serverbusy()
+{
+   try { soundapplet.app.l=1; } catch (e) {};
+   try { serveravailable=soundapplet.getid(); } catch (e) {};
+   if (serveravailable==0) {
+      try { clearInterval(interval_updatesmeter); } catch (e) {} ;
+      try { clearTimeout(interval_ajax3); } catch (e) {} ;
+      var i;
+      try { for (i=0;i<nwaterfalls;i++) waterfallapplet[i].destroy(); } catch (e) {} ;
+      try { soundapplet.destroy(); } catch (e) {};
+      document.body.innerHTML="Sorry, the WebSDR server is too busy right now; please try again later.\n";
+   }
+}
 
-
-  function updbw()
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 19. Полоса пропускания (updbw) и куки
+// ---------------------------------------------------------------------------
+function updbw()
 {
    if (lo>hi) {
       if (document.onmousemove == useMouseXYloweredge || touchingLower) lo=hi;
@@ -1641,7 +1651,7 @@ function javatest()
    var maxf=(mode=="FM") ? 15 : (bandinfo[band].maxlinbw*0.95);
    if (lo<-maxf) lo=-maxf;
    if (hi>maxf) hi=maxf;
-   
+
    var xlo=document.getElementById('numericalfilterlow');
    var xhi=document.getElementById('numericalfilterhigh');
    xlo.innerHTML=(lo).toFixed(2);
@@ -1661,7 +1671,6 @@ function javatest()
    setfreq(freq);
 
    pushButton(mode, lo, hi);
-
 }
 
 function createCookie(name,value,days) {
@@ -1685,6 +1694,11 @@ function readCookie(name) {
 	return null;
 }
 
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 20. Идентификаторы бэндов и скорость/высота водопада
+// ---------------------------------------------------------------------------
+// В режиме «один бэнд» id==0 для всех бэндов (band2id), а id2band возвращает
+// текущий выбранный. В режиме «все бэнды» id==band.
 
 function id2band(id)
 {
@@ -1737,7 +1751,11 @@ function waterfallmode(m)
    }
 }
 
-
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 21. Готовность водопада и звука
+// ---------------------------------------------------------------------------
+// soundappletstarted() вызывается звуковым апплетом когда WebSocket открыт;
+// waterfallappletstarted() — водопадным апплетом после создания канвасов.
 
 function soundappletstarted()
 {
@@ -1799,7 +1817,6 @@ function soundappletstarted2()
    test_serverbusy();
 }
 
-
 function waterfallappletstarted(id)
 {
    waitingforwaterfalls--;
@@ -1808,7 +1825,7 @@ function waterfallappletstarted(id)
    setTimeout('allwaterfallappletsstarted()',100);
 }
 
-function allwaterfallappletsstarted() 
+function allwaterfallappletsstarted()
 {
    var i;
 
@@ -1839,19 +1856,21 @@ function allwaterfallappletsstarted()
    for (var i=0;i<nwaterfalls;i++) if (!hidedx) showdx(id2band(i));
 }
 
-var sup_socket = !!window.WebSocket && !!WebSocket.CLOSING; 
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 22. Определение поддержки браузера и выбор HTML5/Java
+// ---------------------------------------------------------------------------
+var sup_socket = !!window.WebSocket && !!WebSocket.CLOSING;
 var sup_canvas = !!window.CanvasRenderingContext2D;
 var sup_webaudio = window.AudioContext || window.webkitAudioContext;
 var sup_mozaudio = false;
 try { if (typeof(Audio)==='function' && typeof(new Audio().mozSetup)=='function') sup_mozaudio = true; } catch (e) {};
 
 function html5javawarn()
-{ 
-   // show warning regarding support for HTML5 or Java if needed
+{
+   // показать предупреждение о поддержке HTML5/Java, если нужно
    document.getElementById("javawarning").style.display= (usejavasound && javaerr) ? "block" : "none";
    document.getElementById("html5warning").style.display= (!usejavasound && !sup_webaudio && !sup_mozaudio) ? "block" : "none";
 }
-
 
 function html5orjava(item,usejava)
 {
@@ -1885,7 +1904,7 @@ function checkjava()
       var m=navigator.mimeTypes;
       for (i=0;i<m.length;i++)
          if (m[i].type.match(/^application\/x-java-applet/)) return "green";
-      return "red"; 
+      return "red";
    } catch(e) {};
    return "black";
 }
@@ -1899,7 +1918,7 @@ function html5orjavamenu()
          try {
             var cc=document['ct'].createConvolver;
          } catch (e) {
-            document['ct']=null; // firefox 23 supports webaudio, but not yet createConvolver(), making it unusable.
+            document['ct']=null; // firefox 23 поддерживает webaudio, но не createConvolver() — бесполезно
             sup_webaudio=false;
          };
       }
@@ -1911,7 +1930,7 @@ function html5orjavamenu()
    }
    usejavawaterfall=(usecookie.substring(0,1)=='y');
    usejavasound=(usecookie.substring(1,2)=='y');
-   
+
    var javacolor=checkjava();
    s='<b>Waterfall:</b>';
    s+='<span style="color: '+javacolor+'"><input type="radio" name="groupw" value="Java" onclick="html5orjava(0,1);"'+(usejavawaterfall?" checked":"")+'>Java</span>';
@@ -1927,7 +1946,9 @@ function html5orjavamenu()
    document.getElementById('record_span').style.display = usejavasound ? "none" : "inline";
 }
 
-
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 23. Обработка мыши и тача
+// ---------------------------------------------------------------------------
 function registerTouchEvents(id, touchStart, touchMove) {
    var elem=document.getElementById(id);
    elem.addEventListener('touchstart', touchStart);
@@ -1945,7 +1966,7 @@ function setusernamecookie() {
 
    createCookie('username',document.usernameform.username.value,365*5);
    var p=document.getElementById("please1");
-   if (p) p.innerHTML="Please log in by typing your name or callsign here (it will be saved for later visits in a cookie): ";
+   if (p) p.innerHTML="Пожалуйста, введите имя или позывной (сохраняется в куки): ";
    p=document.getElementById("please2");
    if (p) p.innerHTML="";
    send_soundsettings_to_server();
@@ -1965,7 +1986,6 @@ function getMouseXY(e)
      y:e.clientY + document.body.scrollTop  - document.body.clientTop
    };
 }
-
 
 function useMouseXY(e)
 {
@@ -2067,14 +2087,14 @@ function imgmousedown(ev,bb)
 
 function imgtouch(ev) {
    ev.preventDefault();
-   
+
    var e = ev || window.event;
    var img;
    if (e.target) img = e.target; else
    if (e.srcElement) img = e.srcElement;
    if (img.nodeType == 3) img = img.parentNode;
    var bb=0;
-   if (img.name) bb = img.name.substring(6,7); else	
+   if (img.name) bb = img.name.substring(6,7); else
    if (img.id) bb = img.id.substring(8,9);
 
    var b=id2band(bb);
@@ -2148,7 +2168,6 @@ function touchpassband(ev) {
    }
 }
 
-
 function docmousedown(ev)
 {
    var fobj;
@@ -2158,42 +2177,35 @@ function docmousedown(ev)
    return true;
 }
 
-
 var tprevwheel=0;
 var prevdir=0;
 var wheelstep=1000;
 function mousewheel(ev)
 {
    var fobj;
-   // Win7/IE9 seems to have fixed the problem where 'ev' is null if not called directly, i.e. mousewheel(event)
-   if (!ev) { 
+   if (!ev) {
       ev=window.event; fobj=event.srcElement;	// IE
    }
-   else fobj = ev.target;	// FF or IE9
+   else fobj = ev.target;	// FF/IE9
 
-   // In IE and Win7/Chrome the wheel event is not automatically passed on to the Java applet.
-   // This check will handle the mouse wheel event for any browser running on Windows (not just IE and Chrome)
-   // and hopefully that will not be a problem.
    if (navigator.platform.substring(0,3)=="Win" && fobj.tagName=='APPLET' && fobj.name.substring(0,15)=="waterfallapplet") {
          var pos=getMouseXY(ev);
          var x=pos.x-fobj.offsetParent.offsetLeft;
-         // scrollwheel while on the waterfallapplet; only needed in IE/Chrome because FF always passes these events on to the java applet
          if (ev.wheelDelta>0) document[fobj.name].setzoom(-2, x);
          else if (ev.wheelDelta<0) document[fobj.name].setzoom(-1, x);
          return cancelEvent(ev);
    }
 
-   // this is needed for Mac/Safari and {Mac,Linux,Win7}/Chrome when positioned on the text of a dx label
-   if (fobj.nodeType==3) fobj=fobj.parentNode;	// 3=TEXT_NODE, i.e. text inside of a <div>
+   if (fobj.nodeType==3) fobj=fobj.parentNode;	// 3=TEXT_NODE
 
    if (fobj.className == "scale" || fobj.className=="scaleabs" || fobj.className.substring(0,8) == "statinfo") {
-      // this is for tuning using the scroll wheel when positioned on the tuning scale
+      // настройка колесом мыши на шкале
       var delta = ev.detail ? ev.detail : ev.wheelDelta/-40;
       var t=new Date().getTime();
       var dt=t-tprevwheel;
       if (dt<10) dt=10;
       tprevwheel=t;
-      prevdir=delta; 
+      prevdir=delta;
       if (Math.abs(delta)<wheelstep && delta!=0) wheelstep=Math.abs(delta);
       delta/=wheelstep;
       if (prevdir*delta>0 && dt<500) delta*=(500./dt);
@@ -2207,7 +2219,7 @@ function mousewheel(ev)
 if (document.addEventListener) {
   window.addEventListener('DOMMouseScroll', mousewheel, false);
   document.addEventListener('mousewheel', mousewheel, false);
-//  document.addEventListener('wheel', mousewheel, false);    // note: "modern" browsers are supposed to use this event, but it seems to be incompatible with the old ones, and for now we'll have to support those anyway...
+//  document.addEventListener('wheel', mousewheel, false);    // современные браузеры используют 'wheel', но старые нет; пока оставлено как было
   window.addEventListener('mouseup', mouseup, false);
   window.addEventListener('mousedown', docmousedown, false);
 } else {
@@ -2217,9 +2229,9 @@ if (document.addEventListener) {
   document.onmousedown = docmousedown;
 }
 
-
-//----------------------------------------------------------------------------------------
-// direct control using keyboard:
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 24. Управление клавиатурой
+// ---------------------------------------------------------------------------
 var allowkeyboard;
 
 function keydown(e)
@@ -2227,7 +2239,7 @@ function keydown(e)
    if (!document.viewform.allowkeys.checked) return true;
    e = e ? e : window.event;
    if (!e.target) e.target = e.srcElement;
-   if (e.target.nodeName=="INPUT" && e.target.type=="text" && e.target.name!="frequency") return true;  // don't intercept keys when typing in one of the text fields, except the frequency field
+   if (e.target.nodeName=="INPUT" && e.target.type=="text" && e.target.name!="frequency") return true;  // не перехватываем ввод в текстовых полях (кроме частоты)
    var st=1;
    if (e.shiftKey) st=2;
    if (e.ctrlKey || e.altKey || e.metaKey) st=3;
@@ -2246,26 +2258,26 @@ function keydown(e)
           document.getElementById("mutecheckbox").checked=mm;
           setmute(mm);
 		  toggle_info('mute', mm);
-          return cancelEvent(e);  
-      case 86:   // V/v = volume up/down
+          return cancelEvent(e);
+      case 86:   // V/v = громкость
           var vv=document.getElementById("volumecontrol2").value;
           if (e.shiftKey) vv++; else vv--;
           document.getElementById("volumecontrol2").value=vv;
 		  document.getElementById("volumedb").textContent=vv.toString()+'dB';
           set_volume(vv);
-          return cancelEvent(e); 
-	case 87:   // w/W = narrower/wider
+          return cancelEvent(e);
+	case 87:   // w/W = уже/шире
 			  if (e.shiftKey) {
 				 if (lo<0) lo*=1.1; else lo/=1.1; if (hi>0) hi*=1.1; else hi/=1.1; updbw();
 			  } else {
 				 if (lo>0) lo*=1.1; else lo/=1.1; if (hi<0) hi*=1.1; else hi/=1.1; updbw();
 			  }
-			  return cancelEvent(e);  
+			  return cancelEvent(e);
 
       case 90: if (e.shiftKey) wfset(2); else wfset(4); return cancelEvent(e);   // Z
       case 71: document.freqform.frequency.value=""; document.freqform.frequency.focus(); return cancelEvent(e);    // G
       case 66: if (e.shiftKey) setband((band-1+nbands)%nbands);        // B
-               else setband((band+1)%nbands);  
+               else setband((band+1)%nbands);
                return cancelEvent(e);
    }
    return true;
@@ -2273,8 +2285,13 @@ function keydown(e)
 
 window.onkeydown = keydown;
 
-//----------------------------------------------------------------------------------------
-// functions that create part of the HTML GUI
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 25. Построение GUI динамически
+// ---------------------------------------------------------------------------
+// visit/newid/document_username — подстановка гео-имени в поле ввода имени.
+// document_bandbuttons — кнопки бэндов; document_waterfalls — контейнеры
+// водопадов; document_soundapplet — звуковой апплет; stretch_waterfalls —
+// растяжение водопада на всю ширину.
 
 function visit(tmpid) {
   if ( document.getElementById(tmpid).value == '') {
@@ -2291,34 +2308,30 @@ function visit(tmpid) {
   }
 }
 
-
 function newid(tmpid) {
   document.getElementById(tmpid).value = document.getElementById(tmpid).value + " " + geo;
   document.usernameform.username.value = document.getElementById(tmpid).value;
 }
 
-
 function document_username()
 {
   var x= readCookie('name');
-  
+
   if (x) {
-    document.write('<span id="please">Please log in by typing your name or callsign here (it will be saved for later visits in a cookie): ');
+    document.write('<span id="please">Пожалуйста, введите имя или позывной (сохраняется в куки): ');
     document.write('<input type="text" id="visited" name="name" value="" ondragstart="return false" ondrop="return false" ondrag="return false" onpaste="return false" maxlength="6" onblur="visit(this.id); setusernamecookie();" onclick=""></span>');
-   document.write('<span id="please4">         ' ); 
+   document.write('<span id="please4">         ' );
 
     if (x.length > 6 || /\s+/.test(document.usernameform.username.value))
     {
       ip2geo('visited');
       x="";
     }
-    
+
     document.usernameform.username.value=x;
   } else {
-    document.write('<span id="please"><span id="please1"><b><i>Please enter your name or callsign :<\/i><\/b></span> ');
+    document.write('<span id="please"><span id="please1"><b><i>Пожалуйста, введите имя или позывной :<\/i><\/b></span> ');
     document.write('<input type="text" id="time" name="username" value="" ondragstart="return false" ondrop="return false" ondrag="return false" onpaste="return false" maxlength="6" onfocus=this.value="" onblur="visit(this.id); setusernamecookie();" onclick=""></span>');
-
-
 
     ip2geo('time');
   }
@@ -2327,15 +2340,15 @@ function document_username()
 function document_bandbuttons() {
    var bb=document.getElementById('bandbuttons');
    if (!bb) return;
-   /* bodyonload now runs once (window.onload from <body onload>); the
-    * $(document).ready(bodyonload) hook in websdr-head.html was removed
-    * because it raced the async websdr-waterfall.js/websdr-sound.js load and
-    * broke init. Keep the guard anyway: setview() re-runs this on view
-    * switches, and rebuilding innerHTML would wipe the .btn-selected
-    * highlight applied by setfreqif/setband during the first pass. */
+   /* bodyonload теперь вызывается один раз (window.onload из <body onload>);
+    *  хук $(document).ready(bodyonload) в websdr-head.html был удалён, потому
+    *  что гонялся с асинхронной загрузкой websdr-waterfall.js/websdr-sound.js
+    *  и ломал init. Защита оставлена: setview() перезапускает это на смене
+    *  видов, и пересборка innerHTML стёрла бы подсветку .btn-selected,
+    *  применённую setfreqif/setband во время первого прохода. */
    if (bb.children.length > 0) return;
-   /* Band button labels: the config band name is ASCII (bandinfo `name`),
-    * but the 4625 kHz buzzer band is displayed as «УВБ» on the button. */
+   /* Подпись кнопки бэнда: имя конфигурации ASCII (bandinfo `name`),
+    *  но бэнд-зуммер 4625 кГц отображается на кнопке как «УВБ». */
    var bandlabel=function(n){ return n=='UVB' ? 'УВБ' : n; };
    var s='';
    for (var i=0;i<nbands;i++) {
@@ -2346,11 +2359,11 @@ function document_bandbuttons() {
    bb.innerHTML=s;
 }
 
-function document_waterfalls() 
+function document_waterfalls()
 {
   if (view==Views.allbands || view==Views.othersslow) nwaterfalls=nvbands;
   else if (view==Views.oneband) nwaterfalls=1;
-  else { 
+  else {
      nwaterfalls=0;
      document.getElementById('waterfalls').innerHTML="";
      return;
@@ -2378,25 +2391,18 @@ function document_waterfalls()
      waterfallapplet[i].maxzoom=bi[b].maxzoom;
   }
 
-  waitingforwaterfalls=nwaterfalls;     // this must be before the next line, to prevent a race
+  waitingforwaterfalls=nwaterfalls;     // это должно быть ДО следующей строки, чтобы избежать гонки
   document.getElementById('waterfalls').innerHTML=s;
 
-  if (usejavawaterfall) {
-     if (typeof prep_javawaterfalls =="function") prep_javawaterfalls();
-     else {
-       script = document.createElement('script');
-       script.src = 'websdr-javawaterfall.js';
-       script.type = 'text/javascript';
-       document.body.appendChild(script);
-     }
-  } else {
-     if (typeof prep_html5waterfalls =="function") prep_html5waterfalls();
-     else {
-       script = document.createElement('script');
-       script.src = 'websdr-waterfall.js';
-       script.type = 'text/javascript';
-       document.body.appendChild(script);
-     }
+  // HTML5-водопад всегда (Java-апплеты давно не поддерживаются браузерами;
+  // выбор «Java» в меню html5orjavamenu оставлен только для совместимости
+  // с разметкой, но фактически грузим HTML5-реализацию rx-waterfall.js).
+  if (typeof prep_html5waterfalls =="function") prep_html5waterfalls();
+  else {
+     script = document.createElement('script');
+     script.src = 'rx-waterfall.js';
+     script.type = 'text/javascript';
+     document.body.appendChild(script);
   }
 
   for (i=0;i<nwaterfalls;i++) {
@@ -2408,40 +2414,34 @@ function document_waterfalls()
        registerTouchEvents('blackbar'+i, imgtouch, touchXY);
     }
   }
-
 }
 
 function document_soundapplet() {
-  if (usejavasound) {
-     if (typeof prep_javasound =="function") prep_javasound();
-     else {
-       script = document.createElement('script');
-       script.src = 'websdr-javasound.js';
-       script.type = 'text/javascript';
-       document.body.appendChild(script);
-     }
-  } else {
-     if (typeof prep_html5sound =="function") prep_html5sound();
-     else {
-       script = document.createElement('script');
-       script.src = 'websdr-sound.js';
-       script.type = 'text/javascript';
-       document.body.appendChild(script);
-     }
+  // HTML5-звук всегда (см. комментарий про Java в document_waterfalls).
+  if (typeof prep_html5sound =="function") prep_html5sound();
+  else {
+     script = document.createElement('script');
+     script.src = 'websdr-sound.js';
+     script.type = 'text/javascript';
+     document.body.appendChild(script);
   }
 }
 
 function stretch_waterfalls()
 {
-   setTimeout('stretch_waterfalls_do()',1);  
+   setTimeout('stretch_waterfalls_do()',1);
 }
 
 function stretch_waterfalls_do()
 {
   var wfc=document.getElementById('wfcontainer');
   var wfcc=document.getElementById('wfccontainer');
-  
-  if (!document.getElementById('wfwidecheckbox').checked || usejavawaterfall) {
+  // флажок «широкий водопад» может ещё не существовать при первом resize
+  // (страница в процессе отрисовки) — пропускаем такой вызов
+  var wfwide=document.getElementById('wfwidecheckbox');
+  if (!wfwide) return;
+
+  if (!wfwide.checked || usejavawaterfall) {
     wfc.style.transform="";
     wfc.style.left="0px";
     wfc.style.width="";
@@ -2466,8 +2466,9 @@ function stretch_waterfalls_do()
 
 window.addEventListener('resize', stretch_waterfalls, false);
 
-
-
+// ---------------------------------------------------------------------------
+// РАЗДЕЛ 26. Запись, чат, журнал, гео, фон, прелоадер
+// ---------------------------------------------------------------------------
 var rec_showtimer;
 var rec_downloadurl;
 
@@ -2476,11 +2477,11 @@ function record_show()
    document.getElementById('reccontrol').innerHTML=Math.round(soundapplet.rec_length_kB())+" kB";
 }
 
-function record_start() { 
+function record_start() {
    document.getElementById('reccontrol').innerHTML=0+" kB";
    if (rec_downloadurl) { URL.revokeObjectURL(rec_downloadurl); rec_downloadurl=null; }
    rec_showtimer=setInterval('record_show()',250);
-   soundapplet.rec_start(); 
+   soundapplet.rec_start();
 }
 
 function record_stop()
@@ -2492,19 +2493,19 @@ function record_stop()
    var dv=new DataView(wavhead);
    var i=0;
    var sr=Math.round(res.sr);
-   dv.setUint8(i++,82);  dv.setUint8(i++,73); dv.setUint8(i++,70); dv.setUint8(i++,70); // RIFF  (is there really no less verbose way to initialize this thing?)
-   dv.setUint32(i,res.len+44,true); i+=4;  // total length; WAV files are little-endian
+   dv.setUint8(i++,82);  dv.setUint8(i++,73); dv.setUint8(i++,70); dv.setUint8(i++,70); // RIFF
+   dv.setUint32(i,res.len+44,true); i+=4;  // общая длина; WAV little-endian
    dv.setUint8(i++,87);  dv.setUint8(i++,65); dv.setUint8(i++,86); dv.setUint8(i++,69); // WAVE
    dv.setUint8(i++,102);  dv.setUint8(i++,109); dv.setUint8(i++,116); dv.setUint8(i++,32); // fmt
-     dv.setUint32(i,16,true);   i+=4;   // length of fmt
+     dv.setUint32(i,16,true);   i+=4;   // длина fmt
      dv.setUint16(i,1,true);    i+=2;   // PCM
      dv.setUint16(i,1,true);    i+=2;   // mono
      dv.setUint32(i,sr,true);   i+=4;   // samplerate
      dv.setUint32(i,2*sr,true); i+=4;   // 2*samplerate
-     dv.setUint16(i,2,true);    i+=2;   // bytes per sample
-     dv.setUint16(i,16,true);   i+=2;   // bits per sample
+     dv.setUint16(i,2,true);    i+=2;   // байт на сэмпл
+     dv.setUint16(i,16,true);   i+=2;   // бит на сэмпл
    dv.setUint8(i++,100);  dv.setUint8(i++,97); dv.setUint8(i++,116); dv.setUint8(i++,97); // data
-     dv.setUint32(i,res.len,true);  // length of data
+     dv.setUint32(i,res.len,true);  // длина data
 
    var wavdata = res.wavdata;
    wavdata.unshift(wavhead);
@@ -2533,8 +2534,6 @@ function record_click()
       record_start();
    }
 }
-
-
 
 function sendchat()
 {
@@ -2603,12 +2602,10 @@ function sendlog()
   return false;
 }
 
-
 function ip2geo(id)
 {
   var xhttp = new XMLHttpRequest();
-  
-  
+
   xhttp.open("GET","http://ip-api.com/csv?fields=countryCode,city", true);
   xhttp.send();
   xhttp.onreadystatechange = function()
@@ -2630,7 +2627,7 @@ function debug(a)
    console.log(a);
 }
 
-function  toggle_info (info_type, info_mode='LSB')
+function toggle_info (info_type, info_mode='LSB')
 {
 	e = document.getElementById(info_type+"_info");
 	if  (info_type=='mode') {
@@ -2648,10 +2645,9 @@ function  toggle_info (info_type, info_mode='LSB')
 		}
 	}
 	else {
-		// info_mode doubles as the desired ON/OFF state for mobile-toggle checkboxes.
-		// When a boolean is passed, set the indicator to match exactly (no blind flip),
-		// so it can never become desynced from the checkbox. Otherwise preserve the
-		// original toggling behaviour.
+		// info_mode дублирует желаемое состояние ON/OFF для mobile-toggle чекбоксов.
+		// Когда передаётся boolean — устанавливаем индикатор точно (без слепого
+		// переключения), чтобы он никогда не рассинхронизировался с чекбоксом.
 		var on = (typeof info_mode === 'boolean') ? info_mode
 		                                        : !e.className.includes('is_on');
 		if (on) {
@@ -2669,10 +2665,10 @@ function background_load()
 	if (on) {
 		document.body.style.background = 'url(bg6.jpg) no-repeat center center fixed';
 		document.body.style.backgroundSize= 'cover';
-	} 
+	}
 	else {
 		document.body.style.background ='#bedcd7'
-	} 
+	}
 	settings_store();
 }
 
@@ -2688,4 +2684,3 @@ function preloader () {
 	window.setTimeout(preloader, 500)
   }
  );
-

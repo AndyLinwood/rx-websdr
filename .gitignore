@@ -9,3 +9,4 @@ websdr-server
 __pycache__/
 .DS_Store
 cfg/synth.cfg
+rx-websdr-test/
