@@ -78,6 +78,10 @@ int config_load(const char *filename, struct websdr_config *config) {
                 config->waterfallformat = atoi(p);
             else if (strcmp(key, "audioformat") == 0 && p)
                 config->audioformat = atoi(p);
+            else if (strcmp(key, "fftplaneffort") == 0 && p) {
+                int e = atoi(p);
+                config->fftplaneffort = (e < 0 ? 0 : (e > 3 ? 3 : e));
+            }
             else if (strcmp(key, "initial") == 0 && p) {
                 char *freq = strsep(&p, " \t");
                 if (freq) config->ini_freq = atof(freq);
@@ -121,6 +125,7 @@ fprintf(stderr, "[CONFIG] %s freqoffset=%.2f center=%.1f eff=%.3f\n",
     if (config->idletimeout == 0) config->idletimeout = 900 * 1000;
     if (config->waterfallformat == 0) config->waterfallformat = 9;
     if (config->chatfile[0] == 0) strcpy(config->chatfile, "chat.log");
+    if (config->fftplaneffort == 0) config->fftplaneffort = 0; /* 0 = FFTW_ESTIMATE */
 
     return 0;
 }

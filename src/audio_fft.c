@@ -33,6 +33,23 @@
 
 #include "filter_table.h"
 
+extern struct websdr_config *g_config;
+
+/* cfg "fftplaneffort N": 0=FFTW_ESTIMATE .. 3=FFTW_EXHAUSTIVE.
+ * Audio FFTs are small (<= 24k points), so MEASURE/PATIENT costs a little
+ * startup time per plan but can cut sustained CPU on every FFT execution.
+ * Falls back to ESTIMATE when no config is available yet. */
+static int af_plan_flags(void)
+{
+    if (!g_config) return FFTW_ESTIMATE;
+    switch (g_config->fftplaneffort) {
+        case 1: return FFTW_MEASURE;
+        case 2: return FFTW_PATIENT;
+        case 3: return FFTW_EXHAUSTIVE;
+        default: return FFTW_ESTIMATE;
+    }
+}
+
 /* FFTW plan construction is NOT thread-safe: band_threads and audio clients
  * create/destroy FFTW plans concurrently at startup, and on this box the
  * planner corrupted its tcache and SIGSEGV'd inside fftwf_plan_dft_1d. All
@@ -70,7 +87,7 @@ int audio_fft_band_init(struct band *b)
 
     pthread_mutex_lock(&fft_plan_lock);
     b->af_plan = fftwf_plan_dft_1d(n, b->af_in, b->af_out,
-                                   FFTW_FORWARD, FFTW_ESTIMATE);
+                                   FFTW_FORWARD, af_plan_flags());
     pthread_mutex_unlock(&fft_plan_lock);
     if (!b->af_plan) {
         audio_fft_band_free(b);
@@ -336,10 +353,10 @@ void audio_fft_client_setup(struct client *cli)
 
     if (am)
         a->af_dplan = fftwf_plan_dft_1d(len, a->af_din, a->af_dout,
-                                        FFTW_BACKWARD, FFTW_ESTIMATE);
+                                        FFTW_BACKWARD, af_plan_flags());
     else
         a->af_dplan = fftwf_plan_dft_c2r_1d(len, a->af_din, a->af_dout_r,
-                                            FFTW_ESTIMATE);
+                                            af_plan_flags());
     pthread_mutex_unlock(&fft_plan_lock);
     if (!a->af_dplan)
         return;

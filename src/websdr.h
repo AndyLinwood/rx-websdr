@@ -123,6 +123,7 @@ struct websdr_config {
     int idletimeout;
     int waterfallformat;
     int audioformat;
+    int fftplaneffort;      /* cfg "fftplaneffort N": FFTW planning (0=ESTIMATE..3=EXHAUSTIVE) */
     int nbands;
     double ini_freq;
     char  ini_mode[16];
