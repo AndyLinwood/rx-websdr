@@ -12,18 +12,18 @@ start_band() {
     pcmrecord -c -r -S "$ssrc" "$data" > "$fifo" &
 }
 
-start_band 29100 "10m-high-pcm.local" /home/radio/fifo/fifo10mHH
-start_band 28350 "10m-low-pcm.local"  /home/radio/fifo/fifo10mLH
-start_band 27400 "11m-pcm.local"      /home/radio/fifo/fifo11mH
-start_band 24940 "12m-pcm.local"      /home/radio/fifo/fifo12mH
-start_band 21225 "15m-pcm.local"      /home/radio/fifo/fifo15mL
-start_band 18118 "17m-pcm.local"      /home/radio/fifo/fifo17mL
-start_band 14175 "20m-pcm.local"      /home/radio/fifo/fifo20mL
-start_band 10150 "30m-pcm.local"      /home/radio/fifo/fifo30mL
-start_band 7100  "40m-pcm.local"      /home/radio/fifo/fifo40mL
+start_band 29100 "10m-high-pcm.local" /home/radio/fifo/fifo10mH
+start_band 28350 "10m-low-pcm.local"  /home/radio/fifo/fifo10mL
+start_band 27400 "11m-pcm.local"      /home/radio/fifo/fifo11m
+start_band 24940 "12m-pcm.local"      /home/radio/fifo/fifo12m
+start_band 21225 "15m-pcm.local"      /home/radio/fifo/fifo15m
+start_band 18118 "17m-pcm.local"      /home/radio/fifo/fifo17m
+start_band 14175 "20m-pcm.local"      /home/radio/fifo/fifo20m
+start_band 10150 "30m-pcm.local"      /home/radio/fifo/fifo30m
+start_band 7100  "40m-pcm.local"      /home/radio/fifo/fifo40m
 start_band 4625  "uvb-pcm.local"      /home/radio/fifo/fifoUVB
-start_band 3660  "80m-pcm.local"      /home/radio/fifo/fifo80mL
-start_band 1895  "160m-pcm.local"     /home/radio/fifo/fifo160mL
+start_band 3660  "80m-pcm.local"      /home/radio/fifo/fifo80m
+start_band 1895  "160m-pcm.local"     /home/radio/fifo/fifo160m
 
 # Wait for ALL writers, not just the first one to exit. With `wait -n` a single
 # pcmrecord dying (e.g. EPIPE when websdr.service restarts and briefly closes a
