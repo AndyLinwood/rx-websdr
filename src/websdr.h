@@ -138,7 +138,7 @@ struct websdr_config {
  * 256 ms at 8 kHz: bounds the worst-case server-side audio delay while still
  * leaving headroom for the largest FIFO read clump (~170 ms on 192 kHz bands)
  * before the overflow guard resets the queue. */
-#define AUDIO_BUFSZ 2048
+#define AUDIO_BUFSZ 8192
 
 struct audio_state {
     double nco_phase;

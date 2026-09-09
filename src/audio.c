@@ -359,18 +359,19 @@ void audio_flush_pcm(struct client *cli) {
         a->pace_budget = 0;
     }
 
-    /* Emit whole blocks while wall-clock has earned the samples. At most ONE
-     * block per 16 ms pacer tick (128 samples == exactly 8000/s): radiod writes
-     * the FIFO in 40-60 ms clumps, so the FFT produces blocks in bursts. If we
-     * dumped the whole earned backlog at once, the client would receive a clump
-     * then a gap, and its drift corrector (±0.2%) would wobble the pitch on
-     * every burst. One block per tick stretches a burst evenly over time. */
-    int emitted = 0;
-    while (emitted < 1 && a->pace_budget >= a->af_audiolen
+    /* Emit whole blocks while wall-clock has earned the samples. The feed
+     * (radiod -> fifo -> audio FFT) produces blocks in bursts, but production
+     * is up to ~16000 samples/s while the wall-clock earns 8000/s, so the
+     * af_obuf queue fills and the producer DROPS whole blocks (audio_fft.c
+     * af_on + out_samples > AUDIO_BUFSZ) — an audible dropout every time the
+     * backlog catches up. Emitting everything the budget has earned (instead
+     * of capping at ONE block per tick) lets the queue drain at the declared
+     * rate; with AUDIO_BUFSZ=8192 the drop path never fires in practice. The
+     * client's 125 ms cushion absorbs the bursty-but-bounded delivery. */
+    while (a->pace_budget >= a->af_audiolen
            && a->af_on >= a->af_audiolen) {
         audio_codec_send(cli, 1.0f, audio_compute_smeter(cli));
         a->pace_budget -= (double)a->af_audiolen;
-        emitted++;
     }
     if (a->pace_budget < 0) a->pace_budget = 0;
     pthread_mutex_unlock(&cli->audio_mutex);
