@@ -8,7 +8,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <getopt.h>
-
+#include "registry.h"
 #include "websdr.h"
 
 struct websdr_config *g_config = NULL;
@@ -55,6 +55,9 @@ int main(int argc, char **argv) {
     stationinfo_load("cfg/stationinfo.txt", &config);
     if (port > 0) config.tcpport = port;
 
+registry_init(&config, config_file);   // ← НОВОЕ
+registry_start();                       // ← НОВОЕ
+
     fprintf(stderr, "WebSDR Server starting on port %d\n", config.tcpport);
     fprintf(stderr, "Bands configured: %d\n", config.nbands);
 
@@ -76,6 +79,8 @@ int main(int argc, char **argv) {
 
     server_start(&config);
     fprintf(stderr, "server_start returned\n");
+
+ registry_stop();  
 
     for (int i = 0; i < config.nbands; i++) {
         config.bands[i].running = 0;
