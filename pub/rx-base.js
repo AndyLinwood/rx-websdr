@@ -80,6 +80,7 @@ var scaleheight=14;
 // ---- таймеры ----
 var interval_updatesmeter;
 var interval_ajax3;
+var chseq=0;   // порядковый номер последней полученной порции статистики/чата (обновляется сервером)
 var timeout_idle;
 var setfreqif_fut_timer;  // таймер для ввода частоты с клавиатуры
 

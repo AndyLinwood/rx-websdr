@@ -101,7 +101,7 @@ if [ "$writers" -lt "$N_BANDS" ]; then
 fi
 
 # 4) wait for websdr to be reachable AND to actually open all fifos.
-echo ">> waiting for websdr.service to be reachable on :8095 and open fifos..."
+echo ">> waiting for websdr.service to be reachable on :80 and open fifos..."
 ok=0
 for i in $(seq 1 $WAIT_FIFO_MAX); do
     if systemctl is-active --quiet websdr.service && \
