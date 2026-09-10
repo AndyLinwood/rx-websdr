@@ -1958,19 +1958,23 @@ function registerTouchEvents(id, touchStart, touchMove) {
 }
 
 function setusernamecookie() {
+   var v = document.usernameform.username.value;
 
-   if (document.usernameform.username.value.length > 3 || /\s+/.test(document.usernameform.username.value))
-   {
+   /* Пустое поле: показываем гео-имя (фолбэк) и не сохраняем ничего.
+    * Непустое поле: сохраняем ровно то, что ввёл пользователь —
+    * позывные/имена длиннее 3 символов НЕ стираем и НЕ заменяем гео. */
+   if (v.length > 0 && (v.length < 3 || /\s+/.test(v))) {
      ip2geo('visited');
-     document.usernameform.username.value="";
+     return false;
    }
 
-   createCookie('username',document.usernameform.username.value,365*5);
+   createCookie('username', v, 365*5);
    var p=document.getElementById("please1");
    if (p) p.innerHTML="Пожалуйста, введите имя или позывной (сохраняется в куки): ";
    p=document.getElementById("please2");
    if (p) p.innerHTML="";
    send_soundsettings_to_server();
+   return false;   /* block form submit (Enter) from reloading the page */
 }
 
 var dragging=false;
@@ -2295,17 +2299,16 @@ window.onkeydown = keydown;
 // растяжение водопада на всю ширину.
 
 function visit(tmpid) {
-  if ( document.getElementById(tmpid).value == '') {
-    document.getElementById(tmpid).value = document.getElementById(tmpid).value + " " + geo;
+  var v = document.getElementById(tmpid).value;
+
+  /* Пустое поле — подставляем гео (фолбэк).
+   * Непустое — оставляем как ввёл пользователь, ничего не перезаписываем. */
+  if (v == '') {
+    document.getElementById(tmpid).value = geo;
     document.usernameform.username.value = document.getElementById(tmpid).value;
   } else {
-    document.getElementById(tmpid).value = document.getElementById(tmpid).value;
-    if (document.getElementById(tmpid).value.length > 10 || /\s+/.test(document.getElementById(tmpid).value))
-    {
-      ip2geo('visited');
-      document.getElementById(tmpid).value = document.getElementById(tmpid).value + " " + geo;
-    }
-    document.usernameform.username.value = document.getElementById(tmpid).value;
+    document.getElementById(tmpid).value = v;
+    document.usernameform.username.value = v;
   }
 }
 
@@ -2316,11 +2319,11 @@ function newid(tmpid) {
 
 function document_username()
 {
-  var x= readCookie('name');
+  var x= readCookie('username');
 
   if (x) {
     document.write('<span id="please">Пожалуйста, введите имя или позывной (сохраняется в куки): ');
-    document.write('<input type="text" id="visited" name="name" value="" ondragstart="return false" ondrop="return false" ondrag="return false" onpaste="return false" maxlength="6" onblur="visit(this.id); setusernamecookie();" onclick=""></span>');
+    document.write('<input type="text" id="visited" name="username" value="" ondragstart="return false" ondrop="return false" ondrag="return false" onpaste="return false" maxlength="6" onblur="visit(this.id); setusernamecookie();" onclick=""></span>');
    document.write('<span id="please4">         ' );
 
     if (x.length > 6 || /\s+/.test(document.usernameform.username.value))

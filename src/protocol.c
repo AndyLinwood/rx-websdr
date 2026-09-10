@@ -5,10 +5,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <sys/stat.h>
+
+#include <libwebsockets.h>
 
 #include "websdr.h"
 
 extern struct websdr_config *g_config;
+
+static void visitor_log(struct client *cli, const char *bandname);
 
 static void handle_waterparam(struct client *cli, const char *params) {
     char *band_name = NULL;
@@ -79,6 +85,7 @@ static void handle_waterparam(struct client *cli, const char *params) {
             if (start_seen) cli->start = start;
             cli->waterfall_active = true;
             client_add_to_band(cli, b);
+            visitor_log(cli, b->name);
             /* each client's format-9 delta baseline is per-client (they can be
              * on different zoom/start), so reset it on band/zoom/start change */
             memset(cli->prev_line, 0, WATERFALL_WIDTH);
@@ -122,6 +129,7 @@ static void handle_soundparam(struct client *cli, const char *params) {
     if (name_s) {
         char *d = cli->username;
         int di = 0;
+        int first_seen = (d[0] == 0);
         for (char *s = name_s; *s && di < (int)sizeof(cli->username) - 1; s++) {
             if (*s == '%' && s[1] && s[2]) {
                 int hexv = 0;
@@ -138,6 +146,8 @@ static void handle_soundparam(struct client *cli, const char *params) {
             d[di++] = (*s == '+') ? ' ' : *s;
         }
         d[di] = 0;
+            if (first_seen && di > 0)
+                visitor_log(cli, cli->band ? cli->band->name : NULL);
     }
 
     /* mute may come alone (toggle) — apply it even without a band change */
@@ -179,6 +189,7 @@ static void handle_soundparam(struct client *cli, const char *params) {
             if (!cli->audio.fir)
                 audio_init(cli, b->samplerate);
             audio_reconfigure(cli, b->samplerate, band_eff_center(b));
+            visitor_log(cli, b->name);
             fprintf(stderr, "[audio] client band=%s f=%.1f mode=%d lo=%d hi=%d\n",
                     b->name, cli->freq, cli->mode, cli->lo_filter, cli->hi_filter);
         }
@@ -188,6 +199,63 @@ static void handle_soundparam(struct client *cli, const char *params) {
     free(mute_s);
     free(name_s);
     free(tmp);
+}
+
+/* Visitor log: one line per interesting event:  date|ip|name|band
+ * Format: YYYY-MM-DD HH:MM:SS|IP|NAME|BAND
+ * Rotates (rename to .1) once the file exceeds g_config->visitorsmax. */
+static void visitor_log(struct client *cli, const char *bandname) {
+    if (!g_config || !g_config->visitors) return;
+    if (!cli) return;
+
+    char ip[64] = "?";
+    if (cli->wsi)
+        lws_get_peer_simple(cli->wsi, ip, sizeof(ip));
+
+    char name[64] = "";
+    {
+        int i, j = 0;
+        for (i = 0; cli->username[i] && j < (int)sizeof(name) - 1; i++) {
+            char c = cli->username[i];
+            if (c == '|' || c == '\n' || c == '\r') c = (char)32;
+            name[j++] = c;
+        }
+        name[j] = 0;
+    }
+
+    const char *bn = bandname ? bandname : (cli->band ? cli->band->name : "-");
+    if (bn[0] == 0) bn = "-";
+
+    /* Dedup: log only the first appearance (IP+name+band) and changes.
+     * Repeated identical facts (every ~~param / waterparam tick) are skipped. */
+    if (strcmp(cli->vis_ip, ip) == 0 &&
+        strcmp(cli->vis_name, name) == 0 &&
+        strcmp(cli->vis_band, bn) == 0)
+        return;
+
+    strncpy(cli->vis_ip, ip, sizeof(cli->vis_ip) - 1);
+    strncpy(cli->vis_name, name, sizeof(cli->vis_name) - 1);
+    strncpy(cli->vis_band, bn, sizeof(cli->vis_band) - 1);
+
+    char ts[32];
+    time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", tm);
+
+    const char *path = g_config->visitorsfile;
+    long max = g_config->visitorsmax > 0 ? g_config->visitorsmax : 2L*1024*1024;
+
+    struct stat st;
+    if (stat(path, &st) == 0 && st.st_size > max) {
+        char bak[512];
+        snprintf(bak, sizeof(bak), "%s.1", path);
+        rename(path, bak);
+    }
+
+    FILE *fp = fopen(path, "a");
+    if (!fp) return;
+    fprintf(fp, "%s|%s|%s|%s\n", ts, ip, name, bn);
+    fclose(fp);
 }
 
 void protocol_handle_message(struct client *cli, const uint8_t *data, size_t len) {

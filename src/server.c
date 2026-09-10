@@ -520,7 +520,7 @@ fail:
 }
 
 /* forward declarations (chat handlers defined below serve_othersjj) */
-static int chat_emit(struct lws *wsi, unsigned client_chseq,
+static int chat_emit(struct lws *wsi, struct client *cli,
                      char *body, int n, int cap);
 static void chat_append(struct lws *wsi, const char *name, const char *msg);
 
@@ -539,7 +539,7 @@ static void chat_append(struct lws *wsi, const char *name, const char *msg);
  * so a user's label keeps its colour/position; all callbacks run in the lws
  * service thread, so no locking is needed. */
 
-static int serve_othersjj(struct lws *wsi) {
+static int serve_othersjj(struct lws *wsi, struct client *cli) {
     static char body[65536];
     int n = 0;
 
@@ -597,7 +597,7 @@ static int serve_othersjj(struct lws *wsi) {
 
     /* Append new chat lines (if enabled) — see chat_emit() below. */
     if (g_config && g_config->chat)
-        n = chat_emit(wsi, client_chseq, body, n, (int)sizeof(body));
+        n = chat_emit(wsi, cli, body, n, (int)sizeof(body));
 
     return serve_mem(wsi, body, (size_t)n, "text/javascript");
 }
@@ -674,11 +674,11 @@ static void chat_append(struct lws *wsi, const char *name, const char *msg) {
 
 /* Render chatnewline('...'); statements for lines this client hasn't seen.
  * Returns the new total body length. */
-static int chat_emit(struct lws *wsi, unsigned client_chseq,
+static int chat_emit(struct lws *wsi, struct client *cli,
                      char *body, int n, int cap) {
     if (!g_config || !g_config->chat) return n;
     chat_init_rows();
-    if (client_chseq >= g_chat_rows) return n;   /* nothing new for this client */
+    if (cli->chat_seen >= g_chat_rows) return n;   /* nothing new for this client */
 
     FILE *fp = fopen(g_config->chatfile, "r");
     if (!fp) return n;
@@ -687,7 +687,7 @@ static int chat_emit(struct lws *wsi, unsigned client_chseq,
     unsigned lineno = 0;
     while (fgets(line, sizeof(line), fp)) {
         lineno++;
-        if (lineno <= client_chseq) continue;   /* already seen */
+        if (lineno <= cli->chat_seen) continue;   /* already seen */
 
         /* line: <epoch>\t<name>\t<message>\n  (message may not contain \t) */
         char *t1 = strchr(line, '\t');
@@ -779,7 +779,7 @@ static int ws_handler(struct lws *wsi, enum lws_callback_reasons reason,
             return serve_mem(wsi, g_bandinfo, (size_t)g_bandinfo_len,
                              "application/javascript");
         if (strncmp(uri, "/~~othersjj", 11) == 0)
-            return serve_othersjj(wsi);
+            return serve_othersjj(wsi, cli);
         if (strncmp(uri, "/~~chat", 6) == 0) {
             /* GET /~~chat?name=<callsign>&msg=<message> — append to chat file.
              * The real websdr also returns a 200 with empty JS body. */
