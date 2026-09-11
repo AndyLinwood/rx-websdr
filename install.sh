@@ -19,7 +19,7 @@ set -e
 
 PREFIX="${PREFIX:-$(pwd)}"
 FIFO_DIR="${FIFO_DIR:-$PREFIX/fifo}"
-PORT="${PORT:-8095}"
+PORT="${PORT:-80}"
 USER_RADIO="radio"          # владелец FIFO/каталогов (создаётся при необходимости)
 
 echo "== rx-websdr: установка в $PREFIX (fifo: $FIFO_DIR, порт: $PORT) =="
@@ -30,7 +30,7 @@ echo ">> [1/5] зависимости сборки..."
 apt-get update -y
 apt-get install -y git build-essential pkg-config \
     libwebsockets-dev libfftw3-single3 libfftw3-dev \
-    libbsd-dev libiniparser-dev \
+    libbsd-dev libiniparser-dev libcurl4-openssl-dev \
     avahi-daemon
 
 # ---------- 2) сборка ----------
@@ -117,7 +117,11 @@ cat <<EOF
      публиковал потоки <band>-pcm.local.
   2. Правьте $PREFIX/cfg/websdr.cfg: tcpport $PORT, device-пути
      ($FIFO_DIR/fifo<band>), freqoffset при необходимости.
-  3. Правьте $PREFIX/start-receiver.sh под ваши бэнды.
-  4. Запустите:  $PREFIX/start.sh
+  3. (Опционально) Глобальный мониторинг: заполните секцию
+     "=== Registry" в cfg/websdr.cfg (registry_enabled yes, эндпоинт
+     srr-76.ru, координаты, позывной) — сервер начнёт публиковаться
+     в списке на https://srr-76.ru/listsdr.html.
+  4. Правьте $PREFIX/start-receiver.sh под ваши бэнды.
+  5. Запустите:  $PREFIX/start.sh
      Проверка:    curl -sf http://127.0.0.1:$PORT/
 EOF
