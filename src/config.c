@@ -98,6 +98,30 @@ int config_load(const char *filename, struct websdr_config *config) {
                 strncpy(config->visitorsfile, trim(p), sizeof(config->visitorsfile)-1);
             else if (strcmp(key, "visitorsmax") == 0 && p)
                 config->visitorsmax = atol(p) ? atol(p) : 2*1024*1024;
+            else if (strcmp(key, "buttonlink") == 0 && p) {
+                /* Диапазонная кнопка-ссылка: "buttonlink <метка>|<URL>".
+                 * Разделитель '|' — URL может содержать пробелы/спецсимволы. */
+                if (config->nbuttonlinks >= MAX_BUTTONLINKS) {
+                    fprintf(stderr, "Too many buttonlinks (max %d)\n", MAX_BUTTONLINKS);
+                    continue;
+                }
+                char *arg = strdup(trim(p));
+                char *sep = strchr(arg, '|');
+                if (!sep || sep == arg) {
+                    fprintf(stderr, "buttonlink: expected '<label>|<url>', got: %s\n", arg);
+                    free(arg);
+                    continue;
+                }
+                struct buttonlink *bl = &config->buttonlinks[config->nbuttonlinks];
+                /* label — часть ДО '|' (не весь arg) */
+                int llen = (int)(sep - arg);
+                if (llen > (int)sizeof(bl->label)-1) llen = sizeof(bl->label)-1;
+                memcpy(bl->label, arg, llen);
+                bl->label[llen] = 0;
+                strncpy(bl->url, sep + 1, sizeof(bl->url)-1);
+                free(arg);
+                config->nbuttonlinks++;
+            }
         }
     }
     
@@ -136,5 +160,83 @@ fprintf(stderr, "[CONFIG] %s freqoffset=%.2f center=%.1f eff=%.3f\n",
     if (config->visitorsmax <= 0) config->visitorsmax = 2*1024*1024;
     if (config->fftplaneffort == 0) config->fftplaneffort = 0; /* 0 = FFTW_ESTIMATE */
 
+    return 0;
+}
+
+/* Горячий перезапуск конфигурации (SIGHUP): перечитывает cfg/websdr.cfg и
+ * применяет на лету БЕЗ опасных для клиентов параметров.
+ *
+ * Безопасно обновляются (не требуют рестарта):
+ *   chat, chatfile, visitors, visitorsfile, visitorsmax, gain (per-band),
+ *   tcpport/прочее — НЕ трогаем (клиенты уже подключены).
+ *
+ * Структурные изменения (кол-во бэндов, имена, samplerate, centerfreq,
+ * device, freqoffset, maxzoom) требуют полного ./start.sh — при их
+ * обнаружении печатаем предупреждение и НЕ применяем.
+ *
+ * Вызывается ТОЛЬКО из главного lws-потока (server_start), не из обработчика
+ * сигнала. Возвращает 0 при успехе, -1 при ошибке чтения конфига. */
+int config_reload_hot(struct websdr_config *live) {
+    if (!live) return -1;
+
+    /* НЕ на стеке: struct websdr_config огромна (32 band * fft_input/output
+     * 32768*2 float * 2 ≈ десятки МБ) — main держит её как static, здесь
+     * используем heap, иначе stack overflow -> SEGV. */
+    struct websdr_config *tmp = calloc(1, sizeof(struct websdr_config));
+    if (!tmp) { fprintf(stderr, "[reload] OOM\n"); return -1; }
+
+    if (config_load(g_config_file != NULL ? g_config_file : "cfg/websdr.cfg", tmp) != 0) {
+        fprintf(stderr, "[reload] FAILED to re-read %s — keeping live config\n",
+                g_config_file ? g_config_file : "cfg/websdr.cfg");
+        free(tmp);
+        return -1;
+    }
+    fprintf(stderr, "[reload] config_load done, nbands=%d\n", tmp->nbands);
+
+    /* Структурная сверка: любые изменения тут требуют рестарта, а не релоада. */
+    if (tmp->nbands != live->nbands) {
+        fprintf(stderr, "[reload] band count changed (%d -> %d): full restart (./start.sh) required, skipping\n",
+                live->nbands, tmp->nbands);
+        free(tmp);
+        return -1;
+    }
+    for (int i = 0; i < live->nbands; i++) {
+        struct band *a = &live->bands[i];
+        struct band *b = &tmp->bands[i];
+        if (strcmp(a->name, b->name) != 0 ||
+            a->samplerate != b->samplerate ||
+            a->centerfreq != b->centerfreq ||
+            a->maxzoom != b->maxzoom ||
+            strcmp(a->device, b->device) != 0) {
+            fprintf(stderr, "[reload] band %d '%s' changed structurally: full restart (./start.sh) required, skipping\n",
+                    i, a->name);
+            free(tmp);
+            return -1;
+        }
+    }
+
+    /* Безопасные поля — применять на лету. */
+    live->chat      = tmp->chat;
+    strncpy(live->chatfile, tmp->chatfile, sizeof(live->chatfile)-1);
+    live->visitors  = tmp->visitors;
+    strncpy(live->visitorsfile, tmp->visitorsfile, sizeof(live->visitorsfile)-1);
+    live->visitorsmax = tmp->visitorsmax;
+
+    /* gain применяется при рендере строки водопада — достаточно обновить поле. */
+    for (int i = 0; i < live->nbands; i++) {
+        if (live->bands[i].gain != tmp->bands[i].gain) {
+            fprintf(stderr, "[reload] band %s gain %.1f -> %.1f\n",
+                    live->bands[i].name, live->bands[i].gain, tmp->bands[i].gain);
+            live->bands[i].gain = tmp->bands[i].gain;
+        }
+    }
+
+    /* buttonlinks можно обновлять целиком (простой массив, рендерится на лету). */
+    live->nbuttonlinks = tmp->nbuttonlinks;
+    memcpy(live->buttonlinks, tmp->buttonlinks, sizeof(tmp->buttonlinks));
+
+    free(tmp);
+    fprintf(stderr, "[reload] config re-read OK (chat=%d visitors=%d, bands unchanged)\n",
+            live->chat, live->visitors);
     return 0;
 }

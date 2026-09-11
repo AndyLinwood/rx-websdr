@@ -8,11 +8,15 @@
 #include <fftw3.h>
 
 #define MAX_BANDS 32
+#define MAX_BUTTONLINKS 16
 #define MAX_CLIENTS 256
 #define WATERFALL_WIDTH 1024
 #define FFT_SIZE 32768
 
 #define ZOOM_FFT_MIN_ZOOM 99
+
+/* Глобальное имя конфиг-файла (передаётся из main для SIGHUP-hot-reload). */
+extern const char *g_config_file;
 int server_get_total_clients(void);
 struct zoom_fft_state {
     int zoom;           /* zoom level (3,4,5,...) */
@@ -57,6 +61,14 @@ struct zoom_fft_state {
 #define AUDIO_USE_CODEC 1
 
 struct client;
+
+/* Диапазонная кнопка-ссылка (cfg "buttonlink <метка>|<URL>"): дополнительная
+ * кнопка в ряду бэндов, ведущая на внешний rx-WebSDR сервер (не бэнд этого
+ * приёмника). Кнопка открывает URL в новой вкладке. */
+struct buttonlink {
+    char label[32];
+    char url[512];
+};
 
 struct band {
     char name[64];
@@ -133,6 +145,8 @@ struct websdr_config {
     int   visitors;         /* 1 = visitor logging enabled (default 1) */
     char  visitorsfile[256];/* visitor log path (default "<cwd>/visitors.log") */
     long  visitorsmax;      /* rotate once log exceeds this many bytes (default 2 MB) */
+    int   nbuttonlinks;     /* count of buttonlink entries */
+    struct buttonlink buttonlinks[MAX_BUTTONLINKS];
     struct band bands[MAX_BANDS];
 };
 
@@ -275,6 +289,8 @@ struct client {
 
 
 int config_load(const char *filename, struct websdr_config *config);
+/* Горячий перезапуск конфигурации (SIGHUP): безопасные поля на лету. */
+int config_reload_hot(struct websdr_config *live);
 int bandinfo_build(char *buf, size_t cap, struct websdr_config *config, const char *ts);
 int scale_generate_all(const char *pubdir, const char *ts, struct websdr_config *config);
 void *band_thread(void *arg);

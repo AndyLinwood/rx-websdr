@@ -77,5 +77,15 @@ int bandinfo_build(char *buf, size_t cap, struct websdr_config *cfg, const char 
     if (append(buf, cap, &o, "];\nvar dxinfoavailable=1;\n")) return -1;
     if (append(buf, cap, &o, "var idletimeout=%d;\n", cfg->idletimeout)) return -1;
     if (append(buf, cap, &o, "var has_mobile=0;\n")) return -1;
+
+    /* Диапазонные кнопки-ссылки (cfg buttonlink): отдельный массив, не бэнды. */
+    if (append(buf, cap, &o, "var buttonlinks= [\n")) return -1;
+    for (int i = 0; i < cfg->nbuttonlinks; i++) {
+        struct buttonlink *bl = &cfg->buttonlinks[i];
+        if (append(buf, cap, &o, "  {label:'%s', url:'%s'}%s\n",
+                   bl->label, bl->url,
+                   i < cfg->nbuttonlinks - 1 ? "," : "")) return -1;
+    }
+    if (append(buf, cap, &o, "];\n")) return -1;
     return (int)o;
 }

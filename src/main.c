@@ -13,9 +13,15 @@
 
 struct websdr_config *g_config = NULL;
 volatile int g_running = 1;
+volatile int g_reload = 0;   /* SIGHUP -> перечитать cfg на лету (главный поток) */
+const char *g_config_file = "cfg/websdr.cfg";
 
 static void signal_handler(int sig) {
     fprintf(stderr, "signal %d received\n", sig);
+    if (sig == SIGHUP) {
+        g_reload = 1;              /* горячий релоад cfg — обработка в главном потоке */
+        return;
+    }
     g_running = 0;
 }
 
@@ -43,6 +49,8 @@ int main(int argc, char **argv) {
 
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
+    signal(SIGHUP, signal_handler);
+    g_config_file = config_file;
 
     static struct websdr_config config;
     memset(&config, 0, sizeof(config));

@@ -13,8 +13,8 @@
 //
 // ЧТО СДЕЛАНО В ЭТОМ ФАЙЛЕ ОТЛИЧНОГО ОТ ОРИГИНАЛА:
 //   - код разбит на разделы с поясняющими комментариями (для читаемости);
-//   - удалены мёртвые ветки Java-апплетов (usejavawaterfall/usejavasound автовыбор
-//     и загрузка .jar редко нужны; оставлены только HTML5-реализации);
+//   - удалены мёртвые ветки Java-апплетов (radio-кнопки Waterfall/Sound
+//     Java|HTML5, javatest, html5orjavamenu — всегда HTML5);
 //   - удалены хеши для IE8 (document.write, dummyforie и пр.);
 //   - дубликаты функций (setstep/setfreqb/setfreqif/timeout_idle_*) схлопнуты;
 //   - загрузка водопада переведена на rx-waterfall.js (наш HTML5-клиент);
@@ -166,7 +166,11 @@ function bodyonload()
      }
    }
    var s;
-   html5orjavamenu();       // построить меню выбора HTML5/Java (см. РАЗДЕЛ 11)
+   // HTML5-клиент всегда: Java-апплеты не поддерживаются современными
+   // браузерами. Раньше здесь вызывалась html5orjavamenu(), строившая
+   // радио-кнопки Waterfall/Sound Java|HTML5 — рудимент удалён.
+   usejavawaterfall=false;
+   usejavasound=false;
 
    view= readCookie('view');
    if (view==null) view=Views.oneband;
@@ -245,8 +249,6 @@ function bodyonload()
    document.freqform.frequency.value=freq;
    if (nbands>1) document.freqform.group0[0].checked=true;
 
-   html5javawarn();
-
    chatboxobj = document.getElementById('chatbox');
 
    statsobj = document.getElementById('stats');
@@ -268,8 +270,6 @@ function bodyonload()
    document_soundapplet();
 
    interval_ajax3 = setTimeout('ajaxFunction3()',1000);
-
-   setTimeout('javatest()',2000);
 
    interval_updatesmeter = setInterval('updatesmeter()',100);
 
@@ -1602,29 +1602,9 @@ function ajaxFunction3()
 }
 
 // ---------------------------------------------------------------------------
-// РАЗДЕЛ 18. Проверка Java-апплетов и занятости сервера
+// РАЗДЕЛ 18. Проверка занятости сервера
 // ---------------------------------------------------------------------------
-// Java-апплеты давно не используются (браузеры не поддерживают), но вызовы
-// оставлены для совместимости: html5orjavamenu() строит радиокнопки, javatest()
-// проверяет через soundapplet.javaversion() доступность.
-
-function javatest()
-{
-   var javaversion;
-   try {
-      javaversion = soundapplet.javaversion();
-   } catch(err) {
-      javaerr=1;
-      if (!usejavasound) return;
-      document.getElementById("javawarning").style.display= "block";
-      javaversion="999";
-      setTimeout('javatest()',1000);
-   }
-   if (javaversion<"1.4.2") {
-      document.getElementById("javawarning").innerHTML='Your Java version is '+javaversion+', which is too old for the WebSDR. Please install version 1.4.2 or newer, e.g. from <a href="http://www.java.com">http://www.java.com</a> if you hear no sound.';
-      document.getElementById("javawarning").style.display= "block";
-   }
-}
+// (Java-апплеты давно не используются — пометка html5javawarn/javatest удалена.)
 
 function test_serverbusy()
 {
@@ -1760,10 +1740,6 @@ function waterfallmode(m)
 
 function soundappletstarted()
 {
-   if (usejavasound && javaerr) {
-      javaerr=0;
-      document.getElementById("javawarning").style.display= "none";
-   }
    setTimeout('soundappletstarted2()',100);
 }
 
@@ -1855,96 +1831,6 @@ function allwaterfallappletsstarted()
    }
    draw_passband();
    for (var i=0;i<nwaterfalls;i++) if (!hidedx) showdx(id2band(i));
-}
-
-// ---------------------------------------------------------------------------
-// РАЗДЕЛ 22. Определение поддержки браузера и выбор HTML5/Java
-// ---------------------------------------------------------------------------
-var sup_socket = !!window.WebSocket && !!WebSocket.CLOSING;
-var sup_canvas = !!window.CanvasRenderingContext2D;
-var sup_webaudio = window.AudioContext || window.webkitAudioContext;
-var sup_mozaudio = false;
-try { if (typeof(Audio)==='function' && typeof(new Audio().mozSetup)=='function') sup_mozaudio = true; } catch (e) {};
-
-function html5javawarn()
-{
-   // показать предупреждение о поддержке HTML5/Java, если нужно
-   document.getElementById("javawarning").style.display= (usejavasound && javaerr) ? "block" : "none";
-   document.getElementById("html5warning").style.display= (!usejavasound && !sup_webaudio && !sup_mozaudio) ? "block" : "none";
-}
-
-function html5orjava(item,usejava)
-{
-   if (item==0) {
-      if (usejavawaterfall==usejava) return;
-      usejavawaterfall=usejava;
-      var s=(usejavawaterfall?"y":"n")+(usejavasound?"y":"n");
-      createCookie("usejava",s,3652);
-      var i;
-      try { for (i=0;i<nwaterfalls;i++) waterfallapplet[i].destroy(); } catch (e) {} ;
-      document_waterfalls();
-   }
-   if (item==1) {
-      if (usejavasound==usejava) return;
-      usejavasound=usejava;
-      var s=(usejavawaterfall?"y":"n")+(usejavasound?"y":"n");
-      createCookie("usejava",s,3652);
-      try { soundapplet.destroy(); } catch (e) {};
-      document_soundapplet();
-      document.getElementById('record_span').style.display= usejavasound ? "none": "inline";
-      html5javawarn();
-   }
-}
-
-function checkjava()
-{
-   try {
-      if (navigator.javaEnabled && navigator.javaEnabled()) return "green";
-   } catch(e) {};
-   try {
-      var m=navigator.mimeTypes;
-      for (i=0;i<m.length;i++)
-         if (m[i].type.match(/^application\/x-java-applet/)) return "green";
-      return "red";
-   } catch(e) {};
-   return "black";
-}
-
-function html5orjavamenu()
-{
-   var s;
-   if (sup_webaudio) {
-      if (sup_webaudio) {
-         if (!document['ct']) document['ct']= new sup_webaudio;
-         try {
-            var cc=document['ct'].createConvolver;
-         } catch (e) {
-            document['ct']=null; // firefox 23 поддерживает webaudio, но не createConvolver() — бесполезно
-            sup_webaudio=false;
-         };
-      }
-   }
-   var usecookie= readCookie('usejava');
-   if (!usecookie) {
-      if (sup_socket && sup_canvas) usecookie="n"; else usecookie="y";
-      if (sup_socket && (sup_webaudio || sup_mozaudio)) usecookie+="n"; else usecookie+="y";
-   }
-   usejavawaterfall=(usecookie.substring(0,1)=='y');
-   usejavasound=(usecookie.substring(1,2)=='y');
-
-   var javacolor=checkjava();
-   s='<b>Waterfall:</b>';
-   s+='<span style="color: '+javacolor+'"><input type="radio" name="groupw" value="Java" onclick="html5orjava(0,1);"'+(usejavawaterfall?" checked":"")+'>Java</span>';
-   if (sup_socket && sup_canvas) s+='<span style="color:green">'; else s+='<span style="color:red">';
-   s+='<input type="radio" name="groupw" value="HTML5" onclick="html5orjava(0,0);"'+(!usejavawaterfall?" checked":"")+'>HTML5</span>';
-   s+='&nbsp;&nbsp;&nbsp;<b>Audio:</b>';
-   s+='<span style="color: '+javacolor+'"><input type="radio" name="groupa" value="Java" onclick="html5orjava(1,1);"'+(usejavasound?" checked":"")+'>Java</span>';
-   if (sup_socket && sup_webaudio) s+='<span style="color: green">';
-   else if (sup_socket && sup_mozaudio) s+='<span style="color: blue">';
-   else s+='<span style="color: red">';
-   s+='<input type="radio" name="groupa" value="HTML5" onclick="html5orjava(1,0);"'+(!usejavasound?" checked":"")+'>HTML5</span>';
-   document.getElementById('html5choice').innerHTML = s;
-   document.getElementById('record_span').style.display = usejavasound ? "none" : "inline";
 }
 
 // ---------------------------------------------------------------------------
@@ -2357,6 +2243,18 @@ function document_bandbuttons() {
       s+='<button type="button" name="group0" id="btnB-'+i+'" class="btnBand" onclick="setband('+i+');">'+bandlabel(b.name)+'</button>';
       if ((i+1)%4==0) s+='<br />';
    }
+   /* Диапазонные кнопки-ссылки (cfg "buttonlink <метка>|<URL>") — ведут на
+    * внешние rx-WebSDR серверы (не бэнды этого приёмника), открываются в
+    * новой вкладке. Массив buttonlinks приходит в bandinfo.js от сервера.
+    * Кнопка (а не <a>): .btnBand задан под <button> (display:inline-block),
+    * у <a> width/height не применяются и элемент вырождается в «кружок». */
+   if (typeof buttonlinks != 'undefined') {
+      for (var li=0; li<buttonlinks.length; li++) {
+         var bl=buttonlinks[li];
+         s+='<button type="button" class="btnBand" onclick="window.open(\''+bl.url+'\',\'_blank\')" title="'+bl.label+'">'+bl.label+'</button>';
+         if ((nbands+li+1)%4==0) s+='<br />';
+      }
+   }
    bb.innerHTML=s;
 }
 
@@ -2395,9 +2293,8 @@ function document_waterfalls()
   waitingforwaterfalls=nwaterfalls;     // это должно быть ДО следующей строки, чтобы избежать гонки
   document.getElementById('waterfalls').innerHTML=s;
 
-  // HTML5-водопад всегда (Java-апплеты давно не поддерживаются браузерами;
-  // выбор «Java» в меню html5orjavamenu оставлен только для совместимости
-  // с разметкой, но фактически грузим HTML5-реализацию rx-waterfall.js).
+  // HTML5-водопад всегда (Java-апплеты не поддерживаются браузерами;
+  // выбор «Java» в меню html5orjavamenu удалён как рудимент).
   if (typeof prep_html5waterfalls =="function") prep_html5waterfalls();
   else {
      script = document.createElement('script');

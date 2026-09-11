@@ -121,6 +121,8 @@ cat <<EOF
      "=== Registry" в cfg/websdr.cfg (registry_enabled yes, эндпоинт
      srr-76.ru, координаты, позывной) — сервер начнёт публиковаться
      в списке на https://srr-76.ru/listsdr.html.
+  3a. (Опционально) Кнопки-ссылки на внешние серверы: добавьте в
+     cfg/websdr.cfg строки "buttonlink <метка>|<URL>" (напр. 2m-кнопку).
   4. Правьте $PREFIX/start-receiver.sh под ваши бэнды.
   5. Запустите:  $PREFIX/start.sh
      Проверка:    curl -sf http://127.0.0.1:$PORT/

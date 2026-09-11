@@ -17,10 +17,12 @@
 #include <libwebsockets.h>
 
 #include "websdr.h"
+#include "registry.h"
 
 extern struct websdr_config *g_config;
 
 extern volatile int g_running;
+extern volatile int g_reload;
 
 /* Stable per-connection slot for the /~~othersjj users list, and the
  * per-poll sequence counter (client starts from undefined -> first request
@@ -959,8 +961,21 @@ int server_start(struct websdr_config *config) {
 
     /* Small poll timeout keeps audio/waterfall queued by the band thread
      * delivered promptly with minimal latency/jitter. */
-    while (g_running)
+    while (g_running) {
         lws_service(ctx, 20);
+        if (g_reload) {
+            g_reload = 0;
+            fprintf(stderr, "[reload] SIGHUP received, hot-reloading cfg...\n");
+            if (config_reload_hot(g_config) == 0) {
+                /* Registry перечитывается отдельно (registry_init сам читает
+                 * cfg/websdr.cfg) — перезапускаем тред heartbeat. */
+                registry_stop();
+                registry_init(g_config, g_config_file);
+                registry_start();
+                fprintf(stderr, "[reload] done\n");
+            }
+        }
+    }
 
     pthread_cancel(pacer);
     pthread_join(pacer, NULL);
