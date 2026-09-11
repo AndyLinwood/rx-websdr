@@ -701,11 +701,28 @@ static int chat_emit(struct lws *wsi, unsigned client_chseq,
         char *e = msg + strlen(msg);
         while (e > msg && (e[-1] == '\n' || e[-1] == '\r')) *--e = 0;
 
+        /* Chat line time stamp: epoch was the first tab-separated field.
+         * Render as [HH:MM] in local server time (the client only gets the
+         * formatted string, no JS changes needed). */
+        char ts[8];
+        long epoch = atol(line);
+        if (epoch > 0) {
+            struct tm tmv;
+            localtime_r(&epoch, &tmv);
+            strftime(ts, sizeof(ts), "%H:%M", &tmv);
+        } else {
+            strncpy(ts, "??:??", sizeof(ts) - 1);
+            ts[sizeof(ts) - 1] = 0;
+        }
+
         if (n + 96 >= cap) break;   /* body full — give what we have */
 
         /* HTML-escape for the JS string + single quotes for the JS literal */
         char esc[560];
         int j = 0;
+        esc[j++] = '['; esc[j++] = ts[0]; esc[j++] = ts[1];
+        esc[j++] = ':'; esc[j++] = ts[3]; esc[j++] = ts[4];
+        esc[j++] = ']'; esc[j++] = ' ';
         for (int k = 0; name[k] && j < (int)sizeof(esc) - 4; k++) {
             char c = name[k];
             if (c == '\'') { esc[j++]='\\'; esc[j++]='\''; continue; }
