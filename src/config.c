@@ -92,6 +92,12 @@ int config_load(const char *filename, struct websdr_config *config) {
                 config->chat = atoi(p) ? 1 : 0;
             else if (strcmp(key, "chatfile") == 0 && p)
                 strncpy(config->chatfile, trim(p), sizeof(config->chatfile)-1);
+            else if (strcmp(key, "visitors") == 0 && p)
+                config->visitors = atoi(p) ? 1 : 0;
+            else if (strcmp(key, "visitorsfile") == 0 && p)
+                strncpy(config->visitorsfile, trim(p), sizeof(config->visitorsfile)-1);
+            else if (strcmp(key, "visitorsmax") == 0 && p)
+                config->visitorsmax = atol(p) ? atol(p) : 2*1024*1024;
         }
     }
     
@@ -125,6 +131,9 @@ fprintf(stderr, "[CONFIG] %s freqoffset=%.2f center=%.1f eff=%.3f\n",
     if (config->idletimeout == 0) config->idletimeout = 900 * 1000;
     if (config->waterfallformat == 0) config->waterfallformat = 9;
     if (config->chatfile[0] == 0) strcpy(config->chatfile, "chat.log");
+    config->visitors = 1;
+    if (config->visitorsfile[0] == 0) strcpy(config->visitorsfile, "visitors.log");
+    if (config->visitorsmax <= 0) config->visitorsmax = 2*1024*1024;
     if (config->fftplaneffort == 0) config->fftplaneffort = 0; /* 0 = FFTW_ESTIMATE */
 
     return 0;

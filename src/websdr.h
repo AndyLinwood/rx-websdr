@@ -130,6 +130,9 @@ struct websdr_config {
     int   chseq;
     int   chat;             /* 1 = chat enabled (default 0) */
     char  chatfile[256];    /* chat log path (default "<cwd>/chat.log") */
+    int   visitors;         /* 1 = visitor logging enabled (default 1) */
+    char  visitorsfile[256];/* visitor log path (default "<cwd>/visitors.log") */
+    long  visitorsmax;      /* rotate once log exceeds this many bytes (default 2 MB) */
     struct band bands[MAX_BANDS];
 };
 
@@ -249,6 +252,9 @@ struct client {
     int hi_filter;
     char username[64];        /* callsign/name from ~~param (for the users list) */
     int uu_index;             /* stable slot index for the /~~othersjj users list */
+    char vis_ip[64];          /* last visitor-logged IP   (dedup) */
+    char vis_name[64];        /* last visitor-logged name (dedup) */
+    char vis_band[64];        /* last visitor-logged band (dedup) */
     struct audio_state audio;
     bool audio_stream;
     /* Serializes access to `audio` (and the audio FIR state) between the
