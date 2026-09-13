@@ -242,12 +242,12 @@ static void visitor_log(struct client *cli, const char *bandname) {
     const char *path = g_config->visitorsfile;
     long max = g_config->visitorsmax > 0 ? g_config->visitorsmax : 2L*1024*1024;
 
+    /* Лимит размера: при превышении visitorsmax файл УСЕКАЕТСЯ (truncate)
+     * и начинает писаться заново — вместо переименования в .1. Так всегда
+     * один файл ограниченного размера, не копятся архивы. */
     struct stat st;
-    if (stat(path, &st) == 0 && st.st_size > max) {
-        char bak[512];
-        snprintf(bak, sizeof(bak), "%s.1", path);
-        rename(path, bak);
-    }
+    if (stat(path, &st) == 0 && st.st_size > max)
+        fclose(fopen(path, "w"));
 
     FILE *fp = fopen(path, "a");
     if (!fp) return;
