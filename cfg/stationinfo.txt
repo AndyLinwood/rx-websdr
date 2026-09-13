@@ -59,7 +59,6 @@
 135.6cw HGA22
 135.7lsb Begin 2200m 
 135.8cw SXV
-136.0usb WSPR & OPERA Op32
 137.8lsb End 2200m
 139cw DCF39
 140.22usb DCF60
@@ -74,9 +73,9 @@
 277amv CHT NDB
 472lsb Begin 630m
 479lsb End 630m
+490cw Navtex<br> Local languages
 501cw Begin 600m
 504cm End 600m
-490cw Navtex<br> Local languages
 518cw Navtex<br> English
 531am Jill
 540am Kossuth<br>Onda Cero
@@ -102,9 +101,9 @@
 711am România Actualităţi (night)
 720am România Actualităţi (night)
 729am Espania RNE
+738am Espania RNE
 747am R4Brainport
 756am România Actualităţi
-738am Espania RNE
 774am Espania RNE
 783am COPE
 801am Espania RNE
@@ -112,9 +111,9 @@
 819am ERTU Al-Barnameg al-Aam (night)
 828am R4Brainport<br>Daytime Nederwetten
 837am Cope Sevilla
-873am Zaragoza,MR4
 855am Espania RNE
 864am ERTU Al-Quran al-Karim (night)
+873am Zaragoza,MR4
 882am BBC Wales
 891am euRegioRadio 75W
 900am RAIint
@@ -156,35 +155,42 @@
 1521am Радио  Китая
 1557am Радио Лента 
 1810lsb 160m>
+1836.6usb WSPR
+1840usb FT8
 1854cw beacon OKM1 ex OK0EV
+1999.5cwn SM6AAL-beacon500mW
 2000lsb <160m
 2130fm РЖД
 2182usb Int Rescue
 2869usb RUS Volmet
 2920usb Вольные операторы
 3500lsb 80m>
+3568.6usb WSPR
+3573usb FT8
 3800lsb <80m
 3920am Pirate Radio<br>Europe
 3950lsb Hurricane Watch
 3955am Channel292
 3985am MiAmigo<br>19-20CET
 4625usb Bazzer UVB76
-4996cw Сигнналы<br>точного времени и частоты
 4930usb The Air Horn
+4996cw Сигнналы<br>точного времени и частоты
 5279usb RAOTA
 5351.5lsb 60m>
+5357usb FT8
 5363usb Dutch
+5364.6usb WSPR
 5366.5lsb <60m
-5583usb Air Shanwick
 5450usb Volmet<br>EUR RAF Military1
 5475usb Volmet<br>SAM Agentina
-5499usb Volmet<br>AFI Africa
 5493usb Air Traffic<br>Africa 4 route
+5499usb Volmet<br>AFI Africa
 5505usb Volmet<br>Europe
 5520usb Air Traffic<br>Caribbean B route
 5547usb Air Traffic<br>Central E-Pacific 1&2 route
 5550usb Air Traffic<br>Caribbean A route
 5574usb Air Traffic<br>Central E-Pacific 1&2 route
+5583usb Air Shanwick
 5598usb Air Traffic<br>N-Atlantic A route
 5601usb Volmet<br>SAM S-America
 5616usb Air Traffic<br>N-Altantic B route
@@ -207,18 +213,22 @@
 5990am Senado
 5995am Gazeta
 6000am Religious
-6604usb Volmet<br>NAT N-Atlantic
 6040am Romania Int<br>Brazil2
-6305am Alice
 6070am Channel292
-6215am Maritime Rescue 
 6160am VoA
+6215am Maritime Rescue 
+6305am Alice
+6604usb Volmet<br>NAT N-Atlantic
 6685usb Air Traffic<br>Russia
 7000lsb 40m>
+7038.6usb WSPR
+7074usb FT8
 7200lsb <40m
 7340am China
 9490am Radio Romania
 10100cw 30m>
+10136usb FT8
+10140.1usb WSPR
 10150cw <30m
 10460usb Радиохулиганы!!
 13261usb Air Traffic<br>E-Pacific 1&2 route
@@ -245,46 +255,57 @@
 13670am China
 13750am Romania Int.
 13845am WWCR Nashville
-18068usb 17m>
-18168usb <17m
-24890cw 12m>
-24990usb <12m
 14000usb 20m>
+14074usb FT8
+14097.1usb WSPR
 14350usb <20m
 15200am Deutsche Welle
+18068usb 17m>
+18100usb FT8
+18104.6usb WSPR
+18168usb <17m
 21000usb 15m>
-21435usb NassiBal
+21074usb FT8
+21096.1usb WSPR
 21450usb <15m
-27135am Дальнобои
+24890usb 12m>
+24915usb FT8
+24924.6usb WSPR
+24990usb <12m
+25900am Radio MTUCI
+26960fm 11m>
+27135am 15Ch
+27190usb 19Ch
+27200fm 20Ch
+27555usb 12Ch
+27850fm <11m
 28000usb 10m>
+28074usb FT8
+28124.6usb WSPR
 29700usb <10m
+120300am Yaroslavl tower
+127200am Moscow Approach
+127350am Yaroslavl ATIS
+127500am Moscow Control MW
+128000am Moscow Approach South
 144000fm >2m
 144430cw Beacon UA3MRS/b
 145300fm RM3MM-L
 145350fm RO3M-L
 145425fm EchoLink
+145700fm RR3N
 145800fm ISS Down
 146000fm <2m
 430000fm 70cm>
-437750fm МЧС
-437900fm МЧС
-437800fm ISS FM Down
-438150fm DMR RO3M
 433075fm >LPD
 433125fm LPD3
+433400fm CHOP TC RIO
 433875fm LPD33
 433950fm LPD36
 433975fm LPD37
 434750fm <LPD
+437750fm MCHS
+437800fm ISS FM Down
+437900fm MCHS
+438150fm DMR RO3M
 440000fm <70cm
-1999.5cwn SM6AAL-beacon500mW
-127500am Москва Контроль СВ
-127200am Москва Подход
-128000am Москва Подход Юг
-127350am Ярославль АТИС
-120300am Ярославль вышка
-433400fm ЧОП ТЦ РИО
-145700fm RR3N
-25900am Радио МТУСИ
-26960fm 11m>
-27850fm <11m
