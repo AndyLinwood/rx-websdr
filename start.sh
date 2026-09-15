@@ -17,14 +17,19 @@
 #      websdr finds no writer for each fifo and stays with 0 fifos open.
 #   Fix: count REAL pcmrecord (`pgrep -x pcmrecord`), and AFTER restarting
 #   websdr ALSO restart receiver so the writers reconnect to the new reader,
-#   then wait for 12 writers AND 12 fifo fds before declaring success.
+#   then wait for N writers AND N fifo fds (N = number of bands in cfg)
+#   before declaring success.
 #
 # Usage:  ./start.sh
 #   - requires passwordless sudo (or will prompt)
 #   - exit code 0 on success, non-zero on failure
 set -e
 
-N_BANDS=12            # number of bands in cfg/websdr.cfg (fifo pairs expected)
+# N_BANDS = количество диапазонов в cfg/websdr.cfg (динамически, чтобы
+# добавление/удаление бэндов не требовало правки этого скрипта).
+N_BANDS=$(grep -c "^band " cfg/websdr.cfg)
+TCPPORT=$(grep -m1 "^tcpport" cfg/websdr.cfg | awk '{print $2}')
+[ -z "$TCPPORT" ] && TCPPORT=80
 WAIT_WRITERS_MAX=20   # seconds to wait for real pcmrecord writers
 WAIT_FIFO_MAX=25      # seconds to wait for websdr to open all fifos
 
@@ -105,7 +110,7 @@ echo ">> waiting for websdr.service to be reachable on :80 and open fifos..."
 ok=0
 for i in $(seq 1 $WAIT_FIFO_MAX); do
     if systemctl is-active --quiet websdr.service && \
-       curl -sf -o /dev/null "http://127.0.0.1:8095/" 2>/dev/null; then
+       curl -sf -o /dev/null "http://127.0.0.1:$TCPPORT/" 2>/dev/null; then
         # count fifos by the CURRENT websdr process (fresh pgrep), not MainPID
         # cached at loop start — the fd set grows a couple of seconds after
         # the HTTP listener is up.

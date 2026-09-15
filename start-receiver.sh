@@ -21,9 +21,9 @@ start_band 18118 "17m-pcm.local"      /home/radio/fifo/fifo17m
 start_band 14175 "20m-pcm.local"      /home/radio/fifo/fifo20m
 start_band 10150 "30m-pcm.local"      /home/radio/fifo/fifo30m
 start_band 7100  "40m-pcm.local"      /home/radio/fifo/fifo40m
-start_band 4625  "uvb-pcm.local"      /home/radio/fifo/fifoUVB
+#start_band 4625  "uvb-pcm.local"      /home/radio/fifo/fifoUVB
 start_band 3660  "80m-pcm.local"      /home/radio/fifo/fifo80m
-start_band 5360  "60m-pcm.local"      /home/radio/fifo/fifo60m
+#start_band 5360  "60m-pcm.local"      /home/radio/fifo/fifo60m
 start_band 1895  "160m-pcm.local"     /home/radio/fifo/fifo160m
 
 # Wait for ALL writers, not just the first one to exit. With `wait -n` a single
