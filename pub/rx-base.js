@@ -49,7 +49,6 @@ var lo=-2.76,hi=-0.15;   // границы полосы пропускания, 
 var mode="LSB";           // режим: "LSB"/"USB"/"AM"/"FM"/"CW"
 var band=0;               // id бэнда, который слушаем
 var freq=freq=bandinfo[0].vfo;  // частота (несущей) в кГц
-var memories = [ ];       // сохранённые частоты (в localStorage)
 
 // ---- второй "VFO" (переключатель A/B) ----
 var ab_lo=lo;
@@ -65,8 +64,6 @@ var squelch_hang_timer = null; // таймер задержки закрытия
 var SQL_HYSTERESIS_DB = 1.5;   // гистерезис в дБ
 var SQL_HANG_MS = 200;         // время удержания после пропадания сигнала, мс
 
-var mem_hilite=-1;
-var ab_mem_hilite=-1;
 
 // ---- что видит пользователь ----
 var Views={ allbands:0, othersslow:1, oneband:2, blind:3 };
@@ -196,26 +193,6 @@ function bodyonload()
    document.getElementById("gainlevelcheckbox").checked=false;
    document.getElementById("autonotchcheckbox").checked=false;
 
-   // ---- пресеты (память частот) из localStorage ----
-   try { memories=JSON.parse(localStorage.getItem('memories')); } catch (e) {};
-   if (!memories) memories=[];
-   else {
-       // конвертация из старого формата данных (можно удалить позже)
-       var rew=false;
-       for (i=0;i<memories.length;i++) {
-          if (memories[i].mode==1) { memories[i].mode="AM"; rew=true; }
-          if (memories[i].mode==4) { memories[i].mode="FM"; rew=true; }
-          if (memories[i].mode==0) {
-             rew=true;
-             if (memories[i].hi-memories[i].lo<1) memories[i].mode="CW";
-             else if (memories[i].hi+memories[i].lo>0) memories[i].mode="USB";
-             else memories[i].mode="LSB";
-          }
-          if (!memories[i].nomfreq) memories[i].nomfreq=memories[i].freq + (memories[i].mode=="CW"?0.75:0);
-       }
-       if (rew) try { localStorage.setItem('memories',JSON.stringify(memories)); } catch (e) {};
-   }
-   mem_show();
    passbandobj =document.getElementById('yellowbar');
    edgeupperobj = document.getElementById('edgeupper');
    edgelowerobj = document.getElementById('edgelower');
@@ -695,9 +672,6 @@ function showdx(b)
 {
    var s='';
    if (!hidedx) {
-      var mems=memories.slice();
-      for (i=0;i<mems.length;i++) mems[i].nr=i;
-      mems.sort(function(a,b){return a.nomfreq-b.nomfreq});
       for (i=0;i<dxs.length;i++) {
          var x = freq2x(dxs[i].freq,b);
          var nextx;
@@ -711,22 +685,6 @@ function showdx(b)
          s+='<div title="" class="statinfo2" style="max-width:'+(nextx-x)+'px;left:'+(x-6)+'px;top:'+(44-scaleheight)+'px;">';
          s+='<div class="statinfo1"><div class="statinfo0" onclick="setfreqm(b,'+fr+','+"'"+mo+"'"+');">'+dxs[i].text+'<\/div><\/div><\/div>';
          s+='<div title="" class="statinfol" style="width:1px;height:44px;position:absolute;left:'+x+'px;top:-'+scaleheight+'px;"><\/div>';
-      }
-      for (i=0;i<mems.length;i++) if (mems[i].band==b) {
-         var x=freq2x(mems[i].nomfreq,b);
-         var nextx;
-         if (x>1024) break;
-         if (i<mems.length-1) nextx=freq2x(mems[i+1].nomfreq,b);
-         else nextx=1024;
-         if (nextx>=1024) nextx=1280;
-         if (x<0) continue;
-         var fr=mems[i].freq;
-         var mo=mems[i].mode;
-         s+='<div title="" class="statinfo2l" style="max-width:'+(nextx-x)+'px;left:'+(x-6)+'px;top:'+(64-scaleheight)+'px;">';
-         var l=mems[i].label;
-         if (!l || l=='') l='mem '+mems[i].nr;
-         s+='<div class="statinfo1l"><div class="statinfo0l" onclick="setfreqm(b,'+fr+','+"'"+mo+"'"+');">'+l+'<\/div><\/div><\/div>';
-         s+='<div title="" class="statinfoll" style="width:1px;height:64px;position:absolute;left:'+x+'px;top:-'+scaleheight+'px;"><\/div>';
       }
    }
    // Маркеры станций из stationinfo.txt
@@ -766,7 +724,7 @@ function fetchdx(b)
     if(xmlHttp.readyState==4)
       {
         if (xmlHttp.status==404) { dxserverdead=true; showdx(b); return; }
-        if (xmlHttp.responseText!=""||memories.slice()) {
+        if (xmlHttp.responseText!="") {
           // fetchdx отдаёт JS-код с вызовами dx(); если сервер отвечает 404
           // (HTML), eval упадёт с SyntaxError — игнорируем такой ответ. Метки
           // станций из bi[b].stations (stationinfo) всё равно рисует showdx().
@@ -1004,112 +962,6 @@ function freq_step(i)
   if (i=="-1") {udkflag=1; tune_old=tune_step; tune_step=0; freqstep(-1); tune_step=tune_old; setstep();}
   if (i=="9") {tune_step=0; freqstep(9); setstep();}
   if (i=="+1") {udkflag=1; tune_old=tune_step; tune_step=0; freqstep(+1); tune_step=tune_old; setstep();}
-}
-
-// ---------------------------------------------------------------------------
-// РАЗДЕЛ 12. Память частот
-// ---------------------------------------------------------------------------
-function mem_recall(i)
-{
-   setband(memories[i].band);
-   mode=memories[i].mode;
-   lo=memories[i].lo;
-   hi=memories[i].hi;
-   showhides();
-   updbw();
-   setfreq(memories[i].freq);
-   setwaterfall(band,memories[i].freq);
-   toggle_info('mode', mode=mode);
-}
-
-function mem_erase(i)
-{
-   var b=memories[i].band;
-   memories.splice(i,1);
-   mem_show();
-   showdx(b);
-   try { localStorage.setItem('memories',JSON.stringify(memories)); } catch (e) {};
-}
-
-function mem_store(i)
-{
-   var nomf=nominalfreq();
-   var l;
-   try { l=memories[i].label;} catch(e){ l=''; };
-   memories[i]={freq:freq, nomfreq:nomf, band:band, mode:mode, lo:lo, hi:hi, label:l };
-   mem_show();
-   showdx(memories[i].band);
-   try { localStorage.setItem('memories',JSON.stringify(memories)); } catch (e) {};
-}
-
-function mem_label(i,nw)
-{
-   memories[i].label=nw;
-   showdx(memories[i].band);
-   try { localStorage.setItem('memories',JSON.stringify(memories)); } catch (e) {};
-}
-
-function mem_show()
-{
-   var i;
-   var s="";
-   for (i=0;i<memories.length;i++) {
-      var m="";
-      m=memories[i].mode;
-      s+='<tr>';
-     // removed class="btnNA" from each line in memory ( <input type="button" class="btnNA" title=")
-      s+='<td><input type="button" class="btnMem" title="Update saved frequency" value="Update" style="border-radius: 40px 0px 0px 40px; vertical-align:text-bottom; width:100%;" onclick="mem_store('+i+')"></td>';
-      s+='<td><input type="button" class="btnMem" title="Delete current memory" value="Erase" style="border-radius: 0px 40px 40px 0px; vertical-align:text-bottom; width:100%;" onclick="mem_erase('+i+')"></td>';
-      s+='<td><center><input type="button" class="btn" style="width: auto; font-weight: bold; font-size: 11px;" title="Listen this frequency" value="'+memories[i].nomfreq.toFixed(2)+'&#13;&#10;KHz '+m+'" onclick="mem_recall('+i+')"></center></td>'; s+='<td><input placeholder="mem '+i+'" title="Label for this memory location" type="text" size=4 onchange="mem_label('+i+',this.value)" value="'+memories[i].label+'"></td>';
-
-      if (memories.length<=2) s+='<td> </td><td> </td>';
-      else {
-        if (i<memories.length-1) {
-          s+='<td><input type="button" class="btn" title="move down" style="font-size: 10px;" value="&#9660;" onclick="mem_down('+i+')"></td>';
-        }
-        else s+='<td><input type="button" class="btn" title="move down" style="font-size: 10px;" value="&#9660;" onclick="mem_down('+i+')" disabled></td>';
-        if (i>0) s+='<td><input type="button" class="btn" title="move up" style="font-size: 10px;" value="&#9650;" onclick="mem_up('+i+')"></td>';
-    else s+='<td><input type="button" class="btn" title="move up" style="font-size: 10px;" value="&#9650;" onclick="mem_up('+i+')" disabled></td>';
-      }
-      s+='</tr>';
-   }
-   s+='<tr>';
-   s+='<td></td>';
-   s+='<td></td>';
-   s+='<td><center><input type="button" class="btnMem" title="Save current frequency to memory" value="SAVE" onclick="mem_store('+i+')"></center></td>';
-   s+='</tr>';
-   document.getElementById('memories').innerHTML='<table>'+s+'</table>';
-}
-
-// переключение A/B VFO
-function vfos_toggle()
-{
-   var tmp;
-   tmp=ab_lo; ab_lo=lo; lo=tmp;
-   tmp=ab_hi; ab_hi=hi; hi=tmp;
-   tmp=ab_mode; ab_mode=mode; mode=tmp;
-   tmp=ab_band; ab_band=band; band=tmp;
-   tmp=ab_freq; ab_freq=freq; freq=tmp;
-   tmp=ab_squelch; ab_squelch=document.getElementById('gainlevelcheckbox').checked; document.getElementById("gainlevelcheckbox").checked=tmp;
-   toggle_squelch(tmp);
-   tmp=ab_mem_hilite; ab_mem_hilite=mem_hilite;
-   setband(band);
-   setfreq(freq);
-   updbw();
-   mem_hilite=tmp;
-   if (mem_hilite>=0) document.getElementById('membutton'+mem_hilite).style.backgroundColor='#ffff80';
-   setwaterfall(band,freq);
-   showhides();
-}
-
-function vfos_equal()
-{
-   ab_lo=lo;
-   ab_hi=hi;
-   ab_mode=mode;
-   ab_band=band;
-   ab_freq=freq;
-   ab_mem_hilite=mem_hilite;
 }
 
 // ---------------------------------------------------------------------------

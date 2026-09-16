@@ -2,6 +2,9 @@
 websdr-server
 *.d
 pub/tmp/
+pub/sdr.xml
+pub/rd3mk.png
+pub/LogoWEBsdr.png
 *.bak
 rx-websdr
 websdr-server

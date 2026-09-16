@@ -21,7 +21,7 @@
     <br />
 
     В настоящий момент этот приёмник работает под управлением ПО современного RX-WEBSDR с открытым программным кодом.
- <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank"> https://github.com/AndyLinwood/rx-websdr</a> <b /> В качестве приёмника используется модифицированый RX888MKII с соответсвенно исправленым драйвером и прошивкой FX3
+ <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank"> https://github.com/AndyLinwood/rx-websdr</a> <br /> В качестве приёмника используется модифицированый RX888MKII с соответсвенно исправленым драйвером и прошивкой FX3
 </span>
 
 </div>
@@ -329,61 +329,8 @@ document_username();
   </tr></tbody></table>
   </center></td></tr></tbody></table>
 </div>
-<div class="d-tr" style="">
-<b style="
-    /* display: inline-block; */
-    /* vertical-align: top; */
-    margin-top: 5px;
-	    font-size: 14px;
-    /* margin-left: 15px; */
-    /* float: left; */
-">Memories</b>
 </div>
 
-<center>
-<table>
-<tbody>
-    <tr>
-    <td>
-    <span title="Download memories as a CSV file, e.g. for Excel"><input type="button" class="btnMem" value="Download" style="border-radius: 40px 0px 0px 40px; vertical-align:text-bottom; width:100%; " onclick="mem_downloadCSV()"></span>
-    </td>
-    
-    <td>
-    <span title="Add memories from CSV file as extra columns"><input type="button" class="btnMem" value="Append" style="vertical-align:text-bottom; width:100%;" onclick="document.getElementById('uploadcsvfilebutton1').click();"></span>
-    </td>
-    
-    <td>
-    <span title="Delete current memories and replace by those from CSV file"><input type="button" class="btnMem" value="Replace" style="border-radius: 0px 40px 40px 0px; vertical-align:text-bottom; width:100%;" onclick="document.getElementById('uploadcsvfilebutton2').click();"></span>
-    </td>
-    </tr>
-    
-    <tr>
-    <td>
-    <span title="Delete all memories!"><input type="button" class="btnMem" value="Delete all" style="border-radius: 40px 0px 0px 40px; vertical-align:text-bottom; width:100%;" onclick="mem_deleteall()"></span>
-    </td>
-    
-    <td>
-    <span title="Undo last upload or delete action"><input type="button" class="btnMem" value="⤺" style="vertical-align:text-bottom; width:100%;" onclick="mem_revert()"></span>
-    </td>
-    
-    <td>
-    <span title="Show or hide user memories list"><input id="btnMemList" type="button" class="btnMem" value="Show/Hide" style="border-radius: 0px 40px 40px 0px; vertical-align:text-bottom; width:100%;" onclick="hide_memory_list()"></span>
-    </td>
-    </tr>
-    </tbody>
-    </table>
-   
-<input type="file" id="uploadcsvfilebutton1" style="height:0px; display:none;" onchange="mem_uploadCSV(1);">
-    <input type="file" id="uploadcsvfilebutton2" style="height:0px; display:none;" onchange="mem_uploadCSV(2);">
-  
-    
-
-<div class="d-tr">
-<div class="d-td" style="width: 350px; margin-left: 6.5px; ">
-<div id="memories" class="memories"><table><tbody><tr><td></td><td></td><td><center><input type="button" class="btnMem" title="Save current frequency to memory" value="SAVE" onclick="mem_store(0)"></center></td></tr></tbody></table></div>
-</div></div></center>
-
-</div>
     
     <div style="
     margin: 12px -7px;
@@ -866,7 +813,7 @@ Max    </span>
 <br>
 <div class='mb'>
 <span  style="font-size:85%;margin: 0px 15px 0px 15px; display: inline-flex;"onclick="var e=document.getElementById(''); e.style.display=(e.style.display=='none')?'block':'none';">
-This rx-SDR is currently being used by <span id=numusers style='margin: 0px 3px;'>?</span> user(s) simultaneously
+Этим RX-SDR сейчас одновременно пользуются <span id=numusers style='margin: 0px 3px;'>?</span> слушателей
 <div class="toggleWrapper" style="
 		display: inline-flex;
 		margin: -2px 0px 0px 30px;
