@@ -20,9 +20,10 @@
 #include <zlib.h>
 
 #include "websdr.h"
+#include "bp_bandplan.h"
 
 #define SCALE_W 1024
-#define SCALE_H 14
+#define SCALE_H 44
 
 /* ------------------------------------------------------------------ */
 /* Minimal indexed-colour PNG writer (zlib for IDAT).                  */
@@ -69,10 +70,15 @@ static int png_write_indexed(const char *path, const uint8_t *idx,
     unsigned char trns[1] = {0};          /* palette index 0 = transparent */
     WCHUNK((const unsigned char *)"tRNS", trns, 1);
 
-    /* palette: index 0 = (0,0,0) transparent, index 1 = draw colour */
-    unsigned char plte[2][3] = {{0, 0, 0}, {255, 255, 255}};
-    memcpy(plte, pal, 6);
-    WCHUNK((const unsigned char *)"PLTE", plte, 6);
+    /* palette: index 0 = (0,0,0) transparent, index 1 = white,
+     * 2=magenta (broadcast), 3=green (amateur), 4=blue (CB), 5=black bg. */
+    unsigned char plte[6][3] = {{0,0,0},{255,255,255},{192,0,192},{0,128,0},{0,0,255},{0,0,0}};
+    for (int i = 0; i < 6; i++) {
+        plte[i][0] = pal[i][0];
+        plte[i][1] = pal[i][1];
+        plte[i][2] = pal[i][2];
+    }
+    WCHUNK((const unsigned char *)"PLTE", plte, 18);
 
     /* IDAT: raw scanlines (filter byte 0 + w index bytes), zlib-compressed.
      * Indexed pixels are a byproduct of reading `pal`: copy idx bytes to raw. */
@@ -162,7 +168,7 @@ static int generate_band_tiles(const char *pubdir, const char *ts,
     int mz = band->maxzoom;
     double centerHz = band_eff_center(band) * 1000.0;
     int sr = band->samplerate;
-    uint8_t pal[2][3] = {{0, 0, 0}, {255, 255, 255}};
+    uint8_t pal[6][3] = {{0,0,0},{255,255,255},{192,0,192},{0,128,0},{0,0,255},{0,0,0}};
     uint8_t *px = (uint8_t *)malloc(SCALE_W * SCALE_H);
     if (!px) return -1;
 
@@ -261,6 +267,9 @@ static int generate_band_tiles(const char *pubdir, const char *ts,
                 }
                 tick_idx++;
             }
+
+            /* band-plan overlay: coloured bar + label under the ruler */
+            bp_overlay(px, tileLower / 1000.0, (tileLower + span) / 1000.0);
 
             snprintf(fname, sizeof(fname), "%s-b%dz%di%d.png", ts, bandidx, z, k);
             snprintf(path, sizeof(path), "%s/tmp/%s", pubdir, fname);

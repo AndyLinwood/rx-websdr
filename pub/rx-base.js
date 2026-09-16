@@ -75,7 +75,7 @@ var nwaterfalls=0;
 var waterslowness=2;
 var waterheight=100;
 var watermode=1;
-var scaleheight=14;
+var scaleheight=44;
 
 // ---- таймеры ----
 var interval_updatesmeter;
@@ -491,7 +491,7 @@ function draw_passband()
    var x=(freq-centerfreq)/khzperpixel+512;
    var maxx = parseInt(scaleobj.style.width);
    if (isTouchDev && x > maxx) x = maxx;
-   var y=scaleobj.offsetTop+15;
+   var y=scaleobj.offsetTop+14;
    passbandobj.style.top=y+"px";
    edgelowerobj.style.top=y+"px";
    edgeupperobj.style.top=y+"px";
@@ -735,8 +735,8 @@ function showdx(b)
          var st = bi[b].stations[si];
          var x = freq2x(st.freq, b);
          if (x<0 || x>=1024) continue;
-         s += '<div style="position:absolute;left:'+x+'px;top:0px;width:1px;height:24px;background-color:#00ff00;"></div>';
-         s += '<div style="position:absolute;left:'+(x-20)+'px;top:24px;width:auto;max-width:80px;height:16px;border:1px solid #888;background:#222;color:#0f0;font-size:10px;text-align:center;line-height:16px;cursor:pointer;white-space:nowrap;overflow:hidden;padding:0 4px;border-radius:2px;" onclick="setfreqm('+b+','+st.freq+',\''+st.mode+'\');">'+st.name+'</div>';
+         s += '<div style="position:absolute;left:'+x+'px;top:-44px;width:1px;height:44px;background-color:#00ff00;"></div>';
+         s += '<div style="position:absolute;left:'+(x-20)+'px;top:0px;width:auto;max-width:80px;height:16px;border:1px solid #888;background:#222;color:#0f0;font-size:10px;text-align:center;line-height:16px;cursor:pointer;white-space:nowrap;overflow:hidden;padding:0 4px;border-radius:2px;" onclick="setfreqm('+b+','+st.freq+',\''+st.mode+'\');">'+st.name+'</div>';
       }
    }
    document.getElementById('blackbar'+band2id(b)).innerHTML=s;
@@ -1716,11 +1716,11 @@ function waterfallheight(si)
       waterfallapplet[i].setSize(1024,si);
    }
 
-   var y=scaleobj.offsetTop+15;
+   var y=scaleobj.offsetTop+14;
    passbandobj.style.top=y+"px";
    edgelowerobj.style.top=y+"px";
    edgeupperobj.style.top=y+"px";
-   carrierobj.style.top=y+"px";
+   carrierobj.style.top=y-15+"px";
 }
 
 function waterfallmode(m)
