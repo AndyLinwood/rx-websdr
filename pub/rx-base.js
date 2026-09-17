@@ -152,16 +152,9 @@ var centerfreq=bandinfo[band].centerfreq;
 
 function bodyonload()
 {
-	// x — кука, указывающая на неверный ввод названия (geo-подстановка)
-	if (x!=null)
-   {
-     console.log(x);
-     if (x.length > 10 || /\s+/.test(document.usernameform.username.value))
-     {
-       ip2geo('visited');
-       x="";
-     }
-   }
+   // Заполнить поле имени (кука или гео) — форма уже в DOM, иначе
+   // первый ~~param ушёл бы с пустым name= и слушатель был бы невидим.
+   try { document_username(); } catch (e) {}
    var s;
    // HTML5-клиент всегда: Java-апплеты не поддерживаются современными
    // браузерами. Раньше здесь вызывалась html5orjavamenu(), строившая
@@ -381,6 +374,7 @@ function send_soundsettings_to_server()
   else if (m=="AM") m=1;
   else if (m=="FM") m=4;
   try {
+     if (!soundapplet) document_soundapplet();
      soundapplet.setparam(
          "f="+freq
         +"&band="+band
@@ -1396,12 +1390,12 @@ function douu()
       if (!uu_compactview) {
          s+="<p><div  style='width:1024px; background-color:black;border-radius: 4px;box-shadow: 4px 4px 15px 0px rgba(0,0,0);margin: 0px 5px 0px 5px;margin-left: auto;margin-right: auto;'><div class=others>";
          for (i=0;i<uu_names.length;i++) if (uu_bands[i]==b && uu_names[i]!="") {
-	    cbandfreq=(bandinfo[b].centerfreq-(bandinfo[b].samplerate/2)-((hi+lo)/2));
+	    cbandfreq=(bandinfo[b].centerfreq-(bandinfo[b].samplerate/2));
             s+="<div id='user"+i+"' align='center' style='position:relative;left:"+(uu_freqs[i]*1024-250)+"px;width:500px; color:"+others_colours[i%8]+";'>";
 
            s+="<button type='button' class='userfreqbtn' onclick='setfreqb("+(uu_freqs[i]*bandinfo[b].samplerate+cbandfreq).toFixed(2)+")' style='color:"+others_colours[i%8]+";'>";
 
-	    s+="<b>"+uu_names[i]+' '+(uu_freqs[i]*bandinfo[b].samplerate+cbandfreq).toFixed(0)+"</b>";
+	    s+="<b>"+uu_names[i]+"</b>";
 	    s+='</button></div>';
             total++;
          }
@@ -1696,19 +1690,15 @@ function registerTouchEvents(id, touchStart, touchMove) {
 }
 
 function setusernamecookie() {
-
-   if (document.usernameform.username.value.length > 3 || /\s+/.test(document.usernameform.username.value))
-   {
-     ip2geo('visited');
-     document.usernameform.username.value="";
-   }
-
-   createCookie('username',document.usernameform.username.value,365*5);
-   var p=document.getElementById("please1");
-   if (p) p.innerHTML="Пожалуйста, введите имя или позывной (сохраняется в куки): ";
-   p=document.getElementById("please2");
-   if (p) p.innerHTML="";
-   send_soundsettings_to_server();
+   try {
+     if (!document.usernameform || !document.usernameform.username) return false;
+     createCookie('username',document.usernameform.username.value,365*5);
+     var p=document.getElementById("please2");
+     if (p) p.innerHTML="";
+     send_soundsettings_to_server();
+     douu();
+   } catch (e) {}
+   return false;
 }
 
 var dragging=false;
@@ -2032,47 +2022,19 @@ window.onkeydown = keydown;
 // водопадов; document_soundapplet — звуковой апплет; stretch_waterfalls —
 // растяжение водопада на всю ширину.
 
-function visit(tmpid) {
-  if ( document.getElementById(tmpid).value == '') {
-    document.getElementById(tmpid).value = document.getElementById(tmpid).value + " " + geo;
-    document.usernameform.username.value = document.getElementById(tmpid).value;
-  } else {
-    document.getElementById(tmpid).value = document.getElementById(tmpid).value;
-    if (document.getElementById(tmpid).value.length > 10 || /\s+/.test(document.getElementById(tmpid).value))
-    {
-      ip2geo('visited');
-      document.getElementById(tmpid).value = document.getElementById(tmpid).value + " " + geo;
-    }
-    document.usernameform.username.value = document.getElementById(tmpid).value;
-  }
-}
-
-function newid(tmpid) {
-  document.getElementById(tmpid).value = document.getElementById(tmpid).value + " " + geo;
-  document.usernameform.username.value = document.getElementById(tmpid).value;
-}
-
 function document_username()
 {
-  var x= readCookie('name');
+  var x= readCookie('username');
 
+  // Если кука пуста или в ней мусор — оставляем поле пустым,
+  // гео-имя (RU,Moscow / unknown) подставится через ip2geo ниже.
+  if (!x || x.length > 30) x="";
+
+  // Поле уже есть в статике (websdr-controls.html) — только заполняем.
   if (x) {
-    document.write('<span id="please">Пожалуйста, введите имя или позывной (сохраняется в куки): ');
-    document.write('<input type="text" id="visited" name="name" value="" ondragstart="return false" ondrop="return false" ondrag="return false" onpaste="return false" maxlength="6" onblur="visit(this.id); setusernamecookie();" onclick=""></span>');
-   document.write('<span id="please4">         ' );
-
-    if (x.length > 6 || /\s+/.test(document.usernameform.username.value))
-    {
-      ip2geo('visited');
-      x="";
-    }
-
     document.usernameform.username.value=x;
   } else {
-    document.write('<span id="please"><span id="please1"><b><i>Пожалуйста, введите имя или позывной :<\/i><\/b></span> ');
-    document.write('<input type="text" id="time" name="username" value="" ondragstart="return false" ondrop="return false" ondrag="return false" onpaste="return false" maxlength="6" onfocus=this.value="" onblur="visit(this.id); setusernamecookie();" onclick=""></span>');
-
-    ip2geo('time');
+    ip2geo('visitname');
   }
 }
 
@@ -2360,15 +2322,18 @@ function ip2geo(id)
   xhttp.send();
   xhttp.onreadystatechange = function()
   {
-    if (xhttp.readyState == 4 && xhttp.status == 200) { geo = xhttp.responseText, document.getElementById(id).value = geo }
-    else { document.getElementById(id).value = ("unknown") }
-    setTimeout( function() {if (document.getElementById(id).value == "" ) {window.location.href="access.html"} }, 1211);
-    setTimeout( function() {if (document.getElementById(id).value.indexOf("::ffff_") >=0 ) {window.location.href="access.html"} }, 1213);
-    setTimeout( function() {if (document.getElementById(id).value.indexOf("undefined") >=0 ) {window.location.href="access.html"} }, 1214);
-    setTimeout( function() {if (document.getElementById(id).value.indexOf("invalid") >=0 ) {window.location.href="access.html"} }, 1215);
-    setTimeout( function() {if (document.getElementById(id).value.indexOf("error") >=0 ) {window.location.href="access.html"} }, 1216);
-    setTimeout( function() { document.usernameform.username.value = document.getElementById(id).value }, 500);
-    setTimeout( function() { document.usernameform.username.value = document.getElementById(id).value }, 1400);
+    var v = "unknown";
+    if (xhttp.readyState == 4 && xhttp.status == 200)
+      v = (xhttp.responseText || "").replace(/[\r\n]+/g, "");
+    geo = v;
+    document.getElementById(id).value = v;
+    /* Подставить гео в поле и сразу отправить на сервер (~~param c name=):
+     * иначе первый param уходит с пустым именем, и слушатель виден пустым
+     * в списке (~~othersjj). */
+    setTimeout( function() {
+        document.usernameform.username.value = document.getElementById(id).value;
+        send_soundsettings_to_server();
+    }, 500);
   }
 }
 

@@ -20,7 +20,7 @@
 ">Наш RX-WEBSDR приёмник находится в г. Ярославль, Россия, QTH локатор: <a href="http://k7fry.com/grid/?qth=LO07AQ" target="_blank">LO07AQ98LT</a>
     <br />
 
-    В настоящий момент этот приёмник работает под управлением ПО современного RX-WEBSDR с открытым программным кодом.
+    В настоящий момент этот приёмник работает под управлением ПО  RX-WEBSDR с открытым программным кодом
  <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank"> https://github.com/AndyLinwood/rx-websdr</a> <br /> В качестве приёмника используется модифицированый RX888MKII с соответсвенно исправленым драйвером и прошивкой FX3
 </span>
 
@@ -63,7 +63,7 @@
 </div>
 
 
-<div style="margin-top:18px; text-align:right; padding-right:30px;">
+<div style="margin-top:18px; text-align:left; padding-left:5px;">
 <a href="https://srr-76.ru/listsdr.html" target="_blank" title="Список работающих в сети RX-WebSDR-серверов на карте мира"
    style="display:inline-block; background:#f5f5f5cc; color:#4a4a4a; border:solid 0px #fff; border-radius:4px;
           padding:8px 20px; font-size:1.0rem; text-decoration:none; cursor:pointer;
@@ -81,21 +81,7 @@
 
 
 
-<br>
 
-<div class="mb" style="display:none" >
-<form name="usernameform" action="#">
-<script type="text/javascript">
-document_username();
-</script>
-<script>
-  window.sessionTime();
-</script>
-
-	
-<input type="text" size=1 name="dummytopreventsubmissiononenter" style="display:none" onclick="">
-</form>
-</div>
 
 <div id="dummyforie"></div>
 <div style='margin-left: auto;
@@ -152,6 +138,15 @@ document_username();
   <input type="checkbox" name="background_toggle" class="mobileToggle" id="background_toggle" onclick="background_load();">
 <label for="background_toggle"></label></div>
   </div>
+
+<div class="mb" style="padding-top:5px; position:relative; z-index:999; display:inline-flex; vertical-align:bottom; margin-bottom:5px;">
+  <form name="usernameform" action="#" onsubmit="return setusernamecookie();" style="display:flex; align-items:center; gap:6px; white-space:nowrap; margin:0; padding:0;">
+    <b>Ваше имя/позывной:</b>
+    <input type="hidden" id="visitname" value="">
+    <input type="text" size=15 name="username" value="" maxlength="30" onchange="setusernamecookie()" onclick="">
+    <input type="text" size=1 name="dummytopreventsubmissiononenter" style="display:none" onclick="">
+  </form>
+</div>
   
 </div>
 
@@ -813,7 +808,7 @@ Max    </span>
 <br>
 <div class='mb'>
 <span  style="font-size:85%;margin: 0px 15px 0px 15px; display: inline-flex;"onclick="var e=document.getElementById(''); e.style.display=(e.style.display=='none')?'block':'none';">
-Этим RX-SDR сейчас одновременно пользуются <span id=numusers style='margin: 0px 3px;'>?</span> слушателей
+Этим RX-WEBSDR сейчас одновременно пользуются <span id=numusers style='margin: 0px 3px;'>?</span> слушателей
 <div class="toggleWrapper" style="
 		display: inline-flex;
 		margin: -2px 0px 0px 30px;
