@@ -77,6 +77,7 @@ var scaleheight=44;
 // ---- таймеры ----
 var interval_updatesmeter;
 var interval_ajax3;
+var interval_ft8;
 var chseq=0;   // порядковый номер последней полученной порции статистики/чата (обновляется сервером)
 var timeout_idle;
 var setfreqif_fut_timer;  // таймер для ввода частоты с клавиатуры
@@ -224,6 +225,8 @@ function bodyonload()
    statsobj = document.getElementById('stats');
    numusersobj = document.getElementById('numusers');
    usersobj = document.getElementById('users');
+   ft8panelobj = document.getElementById('ft8panel');
+   ft8listobj = document.getElementById('ft8list');
 
    setview(view);
 
@@ -878,6 +881,8 @@ function setmf(m, l, h)
 
 function set_mode(m)
 {
+   // выбор обычного режима приёма выключает FT8-декодер
+   // (кроме случая смены LSB/USB при переключении диапазона — там FT8 должен остаться)
    switch (m.toUpperCase()) {
       case "USB": setmf("usb", 0.15,  2.76); showhides(); break;
       case "LSB": setmf("lsb", -2.76, -0.15); showhides(); break;
@@ -1077,6 +1082,7 @@ function setband(b)
       var tmp=hi;
       hi=-lo;
       lo=-tmp;
+      local_ft8_keep=true;
       if (mode=="USB") {
 		  mode="LSB";
 		  set_mode('lsb');
@@ -1084,6 +1090,7 @@ function setband(b)
 		  mode="USB";
 		  set_mode('usb')
 	  }
+      local_ft8_keep=false;
    }
 
    band=b;
@@ -1123,6 +1130,7 @@ function setband(b)
    setTimeout(' smetermintimer=0',1000)
 
    if (!hidedx) showdx(band);
+   if (ft8_enabled) doft8();  // смена диапазона — перефильтровать декоды FT8
 }
 
 // показать/скрыть метки DX на шкале
@@ -1448,6 +1456,111 @@ function ajaxFunction3()
 }
 
 // ---------------------------------------------------------------------------
+// РАЗДЕЛ 17а. FT8-декодер (окно-панель)
+// ---------------------------------------------------------------------------
+var ft8_lines=new Array();  // строки декода (последние полученные)
+var ft8_lastseq=-1;         // последний обработанный ft8chseq
+var ft8_enabled=false;      // открыта ли панель
+var local_ft8_keep=false;   // защита: set_mode из setband не должен гасить FT8
+
+// eval-функции: сервер присылает полный хвост декодов ft8chseq=N; ft8str("line");...
+// при каждом ответе (новая порция) начинаем массив заново — окно не растёт бесконечно
+function ft8chseq(n){ ft8_lastseq=n; ft8_lines=new Array(); }
+function ft8str(s)
+{
+   ft8_lines.push(s);
+}
+
+// отрисовать панель (только декоды текущего диапазона) как таблицу
+function doft8()
+{
+   if (!ft8panelobj) return;
+   // полоса текущего виртуального бэнда
+   var loF=bi[band].centerfreq-bi[band].samplerate/2;
+   var hiF=bi[band].centerfreq+bi[band].samplerate/2;
+   var rows='';
+   for (var i=0;i<ft8_lines.length;i++) {
+      // строка вида "2026/09/18 09:24:45  14 +1.05 7,076,506.1 ~ HB9DLT ..."
+      // частота — единственное число с запятыми-разделителями тысяч (напр. 7,076,506.1)
+      var f=ft8_lines[i].match(/([0-9]{1,3}(,[0-9]{3})+\.[0-9])/);
+      var line=ft8_lines[i];
+      if (f) {
+         var freqHz=parseFloat(f[1].replace(/,/g,''));
+         var freqKhz=freqHz/1000;
+         if (freqKhz<loF || freqKhz>hiF) continue;
+
+         var m=line.match(/^(\S+\s+\S+)\s+(\d+)\s+([+-][0-9.]+)\s+([0-9,.]+)\s*~\s*(.*)$/);
+         var time=m ? m[1]: '';
+         var snr=m ? m[2]: '';
+         var db=m ? m[3]: '';
+         var fq=m ? m[4]: '';
+         var msg=m ? m[5]: line;
+
+         // строка на всю ширину окна, колонки по центру, снизу — видимая разделительная полоса
+         rows+="<div style='display:flex; align-items:center; width:100%; box-sizing:border-box; padding:3px 10px; border-bottom:1px solid #2a2f36; cursor:pointer;' onclick='setfreqb("+freqHz.toFixed(1)+")' title='клик — перестроиться на частоту "+freqHz.toFixed(1)+" кГц'>"+
+            "<span style='flex:0 0 118px; text-align:center;'>"+time+"</span>"+
+            "<span style='flex:0 0 42px; text-align:center;'>"+snr+"</span>"+
+            "<span style='flex:0 0 56px; text-align:center;'>"+db+"</span>"+
+            "<span style='flex:0 0 118px; text-align:center;'>"+fq+"</span>"+
+            "<span style='flex:1 1 auto; text-align:left; padding-left:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>"+msg.replace(/</g,'&lt;')+"</span>"+
+            "</div>";
+      } else {
+         rows+="<div style='white-space:nowrap; padding:3px 10px; border-bottom:1px solid #2a2f36;'>"+line.replace(/</g,'&lt;')+"</div>";
+      }
+   }
+   if (rows=='') rows='<div style="color:#808080; padding:4px 10px;">— нет декодов на этом диапазоне —</div>';
+   ft8listobj.innerHTML="<div style='width:100%; font-family:monospace;'>"+rows+"</div>";
+   ft8listobj.scrollTop=ft8listobj.scrollHeight;  // автопрокрутка вниз (свежее в конце)
+}
+
+// AJAX-опрос /~~ft8 (только когда панель открыта; при выключении останавливается)
+function ft8poll()
+{
+   if (!ft8_enabled) return;
+   var xmlHttp;
+   try { xmlHttp=new XMLHttpRequest(); }
+     catch (e) { try { xmlHttp=new ActiveXObject("Msxml2.XMLHTTP"); }
+       catch (e) { try { xmlHttp=new ActiveXObject("Microsoft.XMLHTTP"); }
+         catch (e) { return; } } }
+   xmlHttp.onreadystatechange=function()
+     {
+     if(xmlHttp.readyState==4)
+       {
+         if (ft8_enabled && xmlHttp.status==200 && xmlHttp.responseText!="") {
+           eval(xmlHttp.responseText);
+           doft8();
+         }
+         if (ft8_enabled) {
+           clearTimeout(interval_ft8);
+           interval_ft8 = setTimeout('ft8poll()',1000);
+         }
+       }
+     }
+   xmlHttp.open("GET","/~~ft8",true);
+   xmlHttp.send(null);
+}
+
+// показать/скрыть панель (кнопка FT8 в ряду режимов)
+// при выключении окно очищается, при следующем включении лента начинается заново
+function toggleft8()
+{
+   var btn=document.getElementById('btn-FT8');
+   var panel=document.getElementById('ft8panel');
+   ft8_enabled=!ft8_enabled;
+   if (ft8_enabled) {
+      if (panel) panel.style.display='block';
+      if (btn) btn.classList.add('btn-selected');
+      ft8poll();
+   } else {
+      ft8_lines=new Array();
+      if (ft8listobj) ft8listobj.innerHTML='';
+      if (panel) panel.style.display='none';
+      if (btn) btn.classList.remove('btn-selected');
+      clearTimeout(interval_ft8);
+   }
+}
+
+// ---------------------------------------------------------------------------
 // РАЗДЕЛ 18. Проверка занятости сервера
 // ---------------------------------------------------------------------------
 // (Java-апплеты давно не используются — пометка html5javawarn/javatest удалена.)
@@ -1491,8 +1604,8 @@ function updbw()
 
    try {
       document.getElementById('btn-'+mode).classList.add('btn-selected');
-      var ar=['AM','FM','USB','LSB','CW','AMSYNC','AMCOSTAS','AMN','FMN','USBN','LSBN','CWN'];
-      for (var i=0;i<ar.length;i++) if (ar[i]!=mode) document.getElementById('btn-'+ar[i]).classList.remove('btn-selected');
+      var ar=['AM','FM','USB','LSB','CW','FT8','AMSYNC','AMCOSTAS','AMN','FMN','USBN','LSBN','CWN'];
+      for (var i=0;i<ar.length;i++) if (ar[i]!=mode && !(ft8_enabled && ar[i]=='FT8')) document.getElementById('btn-'+ar[i]).classList.remove('btn-selected');
    } catch(e) {};
 
    setfreq(freq);

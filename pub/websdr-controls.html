@@ -588,6 +588,7 @@
 <button type="button" id="btn-USB" class="btnMode" onclick="set_mode('usb');toggle_info('mode', mode='USB');">USB</button>
 <button type="button" id="btn-AM" class="btnMode" onclick="set_mode('am');toggle_info('mode', mode='AM');">AM</button>
 <button type="button" id="btn-FM" class="btnMode" onclick="set_mode('fm');toggle_info('mode', mode='FM');">FM</button>
+<button type="button" id="btn-FT8" class="btnMode" onclick="toggleft8();">FT8</button>
 </div></div></td>
 <td>
     </td></tr></tbody></table>
@@ -804,6 +805,12 @@ Max    </span>
 	    <h3>DX Spots</h3>			
 	    </div>
 -->
+<div id="ft8panel" style="display:none; max-width:1024px; width:100%; margin-left:auto; margin-right:auto; margin-top:8px; background-color:#101418; border:1px solid #2a2f36; border-radius:6px; padding:6px; box-sizing:border-box;">
+  <div style="margin-bottom:4px;">
+    <b style="color:#7ec8ff; font-size:14px;">FT8 decoder</b>
+  </div>
+  <div id="ft8list" style="overflow-y:auto; height:220px; width:100%; box-sizing:border-box; font-family:monospace; font-size:12px; text-align:left; color:#cfcfcf;"></div>
+</div>
 <form name="form1" action="#">
 <br>
 <div class='mb'>

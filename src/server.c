@@ -605,6 +605,72 @@ static int serve_othersjj(struct lws *wsi) {
 }
 
 /* ------------------------------------------------------------------ */
+/* /~~ft8 — FT8 decoder output ("who decoded what on FT8")            */
+/* ------------------------------------------------------------------ */
+/* The FT8 decode daemon (ka9q-radio ft8-decode@1) appends one line per
+ * decoded message to /var/log/ft8.log, e.g.:
+ *     2026/09/18 09:07:15  14 +1.93 7,074,721.8 ~ HA1BF LA1RQ JP51
+ * This handler hands the LAST MAX_FT8_LINES lines to the client as a JS
+ * snippet (eval'd by the client, same pattern as /~~othersjj):
+ *     ft8chseq=<seq>;
+ *     ft8str("<escaped line>");   ... newest last
+ * The client keeps its own window (ring) of decoded lines and re-renders
+ * the "FT8" panel whenever the chseq moves on. */
+
+#define MAX_FT8_LINES 60
+
+static unsigned g_ft8_chseq = 0;
+
+static int serve_ft8(struct lws *wsi) {
+    static char body[16384];
+    static char path[128];
+    int n = 0;
+
+    snprintf(path, sizeof(path), "/var/log/ft8.log");
+
+    /* Read the last MAX_FT8_LINES non-empty lines of the log. */
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        n += snprintf(body + n, sizeof(body) - n,
+                      "ft8chseq=%u;\nft8str(\"[ft8.log not readable]\");\n", ++g_ft8_chseq);
+        return serve_mem(wsi, body, (size_t)n, "text/javascript");
+    }
+
+    /* ring buffer of lines */
+    static char lines[MAX_FT8_LINES][256];
+    int nlines = 0;
+    char tmp[300];
+    while (fgets(tmp, (int)sizeof(tmp), fp)) {
+        if (tmp[strlen(tmp)-1] == '\n') tmp[strlen(tmp)-1] = 0;
+        if (tmp[strlen(tmp)-1] == '\r') tmp[strlen(tmp)-1] = 0;
+        if (strlen(tmp) == 0) continue;
+        if (nlines < MAX_FT8_LINES) {
+            strcpy(lines[nlines], tmp);
+            nlines++;
+        } else {
+            memmove(lines, lines + 1, (MAX_FT8_LINES - 1) * sizeof(lines[0]));
+            strcpy(lines[nlines - 1], tmp);
+        }
+    }
+    fclose(fp);
+
+    n += snprintf(body + n, sizeof(body) - n, "ft8chseq=%u;\n", ++g_ft8_chseq);
+    for (int i = 0; i < nlines && n < (int)sizeof(body) - 128; i++) {
+        /* escape for JS single-quoted string */
+        char esc[512];
+        int e = 0;
+        for (int c = 0; lines[i][c] && e < (int)sizeof(esc) - 2; c++) {
+            if (lines[i][c] == '"' || lines[i][c] == '\\') esc[e++] = '\\';
+            esc[e++] = lines[i][c];
+        }
+        esc[e] = 0;
+        n += snprintf(body + n, sizeof(body) - n, "ft8str(\"%s\");\n", esc);
+    }
+
+    return serve_mem(wsi, body, (size_t)n, "text/javascript");
+}
+
+/* ------------------------------------------------------------------ */
 /* /~~chat — simple chat box                                           */
 /* ------------------------------------------------------------------ */
 /* Client sends:  GET /~~chat?name=<callsign>&msg=<message>
@@ -799,6 +865,8 @@ static int ws_handler(struct lws *wsi, enum lws_callback_reasons reason,
                              "application/javascript");
         if (strncmp(uri, "/~~othersjj", 11) == 0)
             return serve_othersjj(wsi);
+        if (strncmp(uri, "/~~ft8", 6) == 0)
+            return serve_ft8(wsi);
         if (strncmp(uri, "/~~chat", 6) == 0) {
             /* GET /~~chat?name=<callsign>&msg=<message> — append to chat file.
              * The real websdr also returns a 200 with empty JS body. */
