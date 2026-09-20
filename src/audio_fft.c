@@ -55,7 +55,7 @@ static int af_plan_flags(void)
  * planner corrupted its tcache and SIGSEGV'd inside fftwf_plan_dft_1d. All
  * plan create/destroy calls are serialised under this lock; executing a plan
  * afterwards is thread-safe and stays unlocked. */
-static pthread_mutex_t fft_plan_lock = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t fft_plan_lock = PTHREAD_MUTEX_INITIALIZER; /* shared: see websdr.h */
 
 #define AF_HALF 128          /* demod IFFT half width -> 8k audio */
 #define AF_AUDIOLEN 128

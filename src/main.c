@@ -77,9 +77,11 @@ registry_start();                       // ← НОВОЕ
         fprintf(stderr, "  Band %d: %s @ %d Hz, center %.1f kHz\n",
                 i, b->name, b->samplerate, b->centerfreq);
         pthread_mutex_init(&b->lock, NULL);
+        pthread_mutex_lock(&fft_plan_lock);
         b->fft_plan = fftwf_plan_dft_1d(
             FFT_SIZE, (fftwf_complex *)b->fft_input,
             (fftwf_complex *)b->fft_output, FFTW_FORWARD, FFTW_ESTIMATE);
+        pthread_mutex_unlock(&fft_plan_lock);
         b->zoom_fft = calloc((size_t)b->maxzoom + 1, sizeof(struct zoom_fft_state));
         b->running = 1;
         pthread_create(&b->thread, NULL, band_thread, b);

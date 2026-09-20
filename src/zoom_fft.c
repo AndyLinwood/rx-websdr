@@ -46,7 +46,9 @@ static void zoom_fft_init(struct band *band, int z) {
     if (s->active) {
         if (s->decim != (1 << z)) {
             /* zoom changed: reset */
+            pthread_mutex_lock(&fft_plan_lock);
             if (s->plan) fftwf_destroy_plan(s->plan);
+            pthread_mutex_unlock(&fft_plan_lock);
             free(s->fir_delay_i); free(s->fir_delay_q);
             free(s->accum_buf); free(s->fft_in); free(s->fft_out); free(s->power);
             memset(s, 0, sizeof(*s));
@@ -69,8 +71,10 @@ static void zoom_fft_init(struct band *band, int z) {
     s->fft_in = fftwf_alloc_complex(ZFFT_PTS);
     s->fft_out = fftwf_alloc_complex(ZFFT_PTS);
     s->power = malloc((size_t)ZFFT_PTS * sizeof(float));
+    pthread_mutex_lock(&fft_plan_lock);
     s->plan = fftwf_plan_dft_1d(ZFFT_PTS, s->fft_in, s->fft_out,
-                                FFTW_FORWARD, FFTW_MEASURE);
+                                FFTW_FORWARD, FFTW_ESTIMATE);
+    pthread_mutex_unlock(&fft_plan_lock);
 }
 
 /* Feed raw int16 IQ (ns16 samples) to every active zoom state.

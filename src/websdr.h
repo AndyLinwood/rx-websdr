@@ -321,6 +321,11 @@ void *audio_pacer_thread(void *arg);
 int audio_compute_smeter(struct client *cli);
 
 #if AUDIO_USE_FFT
+/* FFTW plan creation/destruction is NOT thread-safe: all code building or
+ * freeing FFTW plans must hold fft_plan_lock (defined in audio_fft.c).
+ * main.c band plans, zoom_fft.c and audio_fft.c all share it. */
+extern pthread_mutex_t fft_plan_lock;
+
 int  audio_fft_band_init(struct band *b);
 void audio_fft_band_free(struct band *b);
 void audio_fft_push_iq(struct band *b, const int16_t *iq, int nsamples);

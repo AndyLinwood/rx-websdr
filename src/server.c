@@ -61,7 +61,7 @@ static int stats_nusers(void) {
     int n = 0;
     for (int i = 0; i < MAX_CLIENTS; i++) {
 	struct client *cl = g_uu_slots[i];
-        if (cl && cl->wsi) n++;
+        if (cl && cl->audio_active) n++;
 
     }
     return n;
@@ -984,7 +984,7 @@ int server_get_total_clients(void) {
     int n = 0;
     for (int i = 0; i < MAX_CLIENTS; i++) {
         struct client *cl = g_uu_slots[i];
-        if (cl && cl->wsi) n++;
+        if (cl && cl->audio_active) n++;
     }
     return n;
 }

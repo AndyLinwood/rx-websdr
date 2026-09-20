@@ -111,7 +111,10 @@ static int send_heartbeat(void) {
     curl_easy_setopt(curl, CURLOPT_URL, Cfg.endpoint);
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, buf);
     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 10L);
+    /* srr-76 takes ~5 s to answer a full JSON heartbeat (it writes to
+     * its DB); under server load the 10 s budget was exceeded and the
+     * POST failed, leaving the aggregator with stale/zero listeners. */
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 60L);
     curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 5L);
 
     CURLcode res = curl_easy_perform(curl);
