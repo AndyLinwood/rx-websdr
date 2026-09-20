@@ -324,6 +324,30 @@
   </tr></tbody></table>
   </center></td></tr></tbody></table>
 </div>
+<div class="d-tr" style="">
+<b style="margin-top: 5px; font-size: 14px;">Memories</b>
+</div>
+
+<center>
+<table>
+<tbody>
+    <tr>
+    <td>
+    <span title="Delete all memories!"><input type="button" class="btnMem" value="Delete all" style="border-radius: 40px 0px 0px 40px; vertical-align:text-bottom; width:100%;" onclick="mem_deleteall()"></span>
+    </td>
+    <td>
+    <span title="Show or hide user memories list"><input id="btnMemList" type="button" class="btnMem" value="Show/Hide" style="border-radius: 0px 40px 40px 0px; vertical-align:text-bottom; width:100%;" onclick="hide_memory_list()"></span>
+    </td>
+    </tr>
+    </tbody>
+    </table>
+</center>
+
+<div class="d-tr">
+<div class="d-td" style="width: 350px; margin-left: 6.5px; ">
+<div id="memories" class="memories"><table><tbody><tr><td></td><td></td><td><center><input type="button" class="btnMem" title="Save current frequency to memory" value="SAVE" onclick="mem_store(0)"></center></td></tr></tbody></table></div>
+</div></div></center>
+
 </div>
 
     
@@ -798,6 +822,7 @@ Max    </span>
     " class="d-td"></div>
 	</div></form>  
 </div>
+
 <div style="text-align: center;">
 
 <!-- <div  id='spots'>

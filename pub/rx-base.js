@@ -49,6 +49,7 @@ var lo=-2.76,hi=-0.15;   // границы полосы пропускания, 
 var mode="LSB";           // режим: "LSB"/"USB"/"AM"/"FM"/"CW"
 var band=0;               // id бэнда, который слушаем
 var freq=freq=bandinfo[0].vfo;  // частота (несущей) в кГц
+var memories=[];           // сохранённые частоты (localStorage, Row 1: Memories)
 
 // ---- второй "VFO" (переключатель A/B) ----
 var ab_lo=lo;
@@ -156,6 +157,26 @@ function bodyonload()
    // Заполнить поле имени (кука или гео) — форма уже в DOM, иначе
    // первый ~~param ушёл бы с пустым name= и слушатель был бы невидим.
    try { document_username(); } catch (e) {}
+   // Память частот (Memories): прочитать localStorage один раз, конвертировать
+   // старые форматы, нарисовать таблицу. Функции см. mem_recall/mem_store/...
+   try { memories=JSON.parse(localStorage.getItem('memories')); } catch (e) {};
+   if (!memories) memories=[];
+   else {
+       var rew=false;
+       for (var i=0;i<memories.length;i++) {
+          if (memories[i].mode==1) { memories[i].mode="AM"; rew=true; }
+          if (memories[i].mode==4) { memories[i].mode="FM"; rew=true; }
+          if (memories[i].mode==0) {
+             rew=true;
+             if (memories[i].hi-memories[i].lo<1) memories[i].mode="CW";
+             else if (memories[i].hi+memories[i].lo>0) memories[i].mode="USB";
+             else memories[i].mode="LSB";
+          }
+          if (!memories[i].nomfreq) memories[i].nomfreq=memories[i].freq + (memories[i].mode=="CW"?0.75:0);
+       }
+       if (rew) try { localStorage.setItem('memories',JSON.stringify(memories)); } catch (e) {};
+   }
+   mem_show();
    var s;
    // HTML5-клиент всегда: Java-апплеты не поддерживаются современными
    // браузерами. Раньше здесь вызывалась html5orjavamenu(), строившая
@@ -480,6 +501,88 @@ function draw_passband()
 function volumedb(vol)
 {
   document.getElementById('volumedb').innerHTML=" " + vol + "dB";
+}
+
+// ---------------------------------------------------------------------------
+// Memories — сохранённые частоты (localStorage). Простой вариант как в
+// оригинальном WebSDR: recall / erase / store / метка на каждую строку.
+// ---------------------------------------------------------------------------
+function mem_recall(i)
+{
+   setband(memories[i].band);
+   mode=memories[i].mode;
+   lo=memories[i].lo;
+   hi=memories[i].hi;
+   updbw();
+   setfreq(memories[i].freq);
+   setwaterfall(band,memories[i].freq);
+}
+
+function mem_erase(i)
+{
+   var b=memories[i].band;
+   memories.splice(i,1);
+   mem_show();
+   showdx(b);
+   try { localStorage.setItem('memories',JSON.stringify(memories)); } catch (e) {};
+}
+
+function mem_store(i)
+{
+   var nomf=nominalfreq();
+   var l;
+   try { l=memories[i].label;} catch(e){ l=''; };
+   memories[i]={freq:freq, nomfreq:nomf, band:band, mode:mode, lo:lo, hi:hi, label:l };
+   mem_show();
+   showdx(memories[i].band);
+   try { localStorage.setItem('memories',JSON.stringify(memories)); } catch (e) {};
+}
+
+function mem_label(i,nw)
+{
+   memories[i].label=nw;
+   showdx(memories[i].band);
+   try { localStorage.setItem('memories',JSON.stringify(memories)); } catch (e) {};
+}
+
+function mem_show()
+{
+   var s="";
+   var i;
+   for (i=0;i<memories.length;i++) {
+      var m=memories[i].mode;
+      /* Строка 1: частота + режим + метка */
+      s+='<tr><td colspan="2">'+memories[i].nomfreq.toFixed(2)+' kHz '+m
+         +' &nbsp; <input title="label for this memory location" type="text" size=12 onchange="mem_label('+i+',this.value)" value="'+memories[i].label+'"></td></tr>';
+      /* Строка 2: кнопки управления */
+      s+='<tr><td><input type="button" title="recall" value="recall" onclick="mem_recall('+i+')">'
+         +'<input type="button" title="erase" value="erase" onclick="mem_erase('+i+')">'
+         +'<input type="button" title="store" value="store" onclick="mem_store('+i+')"></td></tr>';
+   }
+   /* Разделитель перед новой записью */
+   s+='<tr><td colspan="2"><hr style="margin:2px 0; border:0; border-top:1px solid #444;"></td></tr>';
+   /* Строка новой записи */
+   s+='<tr><td colspan="2">(new)</td></tr>';
+   s+='<tr><td><input type="button" disabled title="recall" value="recall" onclick="mem_recall('+i+')">'
+      +'<input type="button" disabled title="erase" value="erase" onclick="mem_erase('+i+')">'
+      +'<input type="button" title="store" value="store" onclick="mem_store('+i+')"></td></tr>';
+   document.getElementById('memories').innerHTML='<table>'+s+'</table>';
+}
+
+// Удалить все сохранённые частоты (кнопка "Delete all")
+function mem_deleteall()
+{
+   memories=[];
+   try { localStorage.removeItem('memories'); } catch (e) {};
+   mem_show();
+}
+
+// Показать/скрыть таблицу Memories (кнопка "Show/Hide")
+function hide_memory_list()
+{
+   var el=document.getElementById('memories');
+   if (!el) return;
+   el.style.display = (el.style.display=='none') ? '' : 'none';
 }
 
 // ---------------------------------------------------------------------------
