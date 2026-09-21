@@ -1234,6 +1234,18 @@ function setband(b)
 
    if (!hidedx) showdx(band);
    if (ft8_enabled) doft8();  // смена диапазона — перефильтровать декоды FT8
+
+   // VHF (2m, RTL-SDR): включать squelch 4 dB при переходе на диапазон,
+   // выключать при уходе на другие диапазоны.
+   var isVHF = (bi[band].name == 'VHF');
+   var cb = document.getElementById('gainlevelcheckbox');
+   if (isVHF) {
+      if (cb && !cb.checked) { cb.checked = true; toggle_squelch(true); }
+      var mg = document.getElementById('manualgain');
+      if (mg && parseInt(mg.value,10) != 4) { mg.value = 4; update_squelch_threshold(4); }
+   } else {
+      if (cb && cb.checked) { cb.checked = false; toggle_squelch(false); }
+   }
 }
 
 // показать/скрыть метки DX на шкале

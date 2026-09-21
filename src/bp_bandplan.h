@@ -186,6 +186,7 @@ static const struct BPEntry bp_entries[] = {
     {24890.0, 24990.0,  "12m",   3 },
     {26960.0, 27945.0,  "CB",    4 },
     {28000.0, 29700.0,  "10m",   3 },
+    {144000.0,146000.0,  "2m",     3 },
 };
 
 static void bp_draw_char(uint8_t *px, int x, int row_base,
