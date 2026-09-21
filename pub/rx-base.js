@@ -1242,7 +1242,7 @@ function setband(b)
    if (isVHF) {
       if (cb && !cb.checked) { cb.checked = true; toggle_squelch(true); }
       var mg = document.getElementById('manualgain');
-      if (mg && parseInt(mg.value,10) != 4) { mg.value = 4; update_squelch_threshold(4); }
+      if (mg && parseInt(mg.value,10) != 9) { mg.value = 9; update_squelch_threshold(9); }
    } else {
       if (cb && cb.checked) { cb.checked = false; toggle_squelch(false); }
    }
