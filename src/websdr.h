@@ -226,6 +226,10 @@ struct audio_state {
     float af_am_dc;
     float af_fm_prev_re, af_fm_prev_im;
     float af_fm_prev2_re, af_fm_prev2_im;
+    float af_deemph_state;     /* one-pole de-emphasis filter (NBFM) */
+    float af_foffset;          /* averaged FM DC offset (carrier drift) */
+    float af_hpf_x1, af_hpf_y1; /* one-pole 300 Hz high-pass (rumble) */
+    float af_notch_x1, af_notch_x2, af_notch_y1, af_notch_y2; /* 127.3 Hz CTCSS notch */
     fftwf_complex *af_din;   /* 2*half complex (IFFT input) */
     fftwf_complex *af_dout;  /* 2*half complex (IFFT output, AM/FM) */
     float *af_dout_r;        /* 2*half floats (IFFT output, SSB c2r) */

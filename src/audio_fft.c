@@ -522,6 +522,58 @@ static float *audio_fft_demod_fm(struct band *b, struct client *cli, int phase)
         float d = (p2_re - i_n) * p_im - (p2_im - q_n) * p_re;
         if (d > 0.99f) d = 0.99f;
         if (d < -0.99f) d = -0.99f;
+        /* NBFM de-emphasis (one-pole, tau ~75 us, 8 kHz audio):
+         * y[n] = y[n-1] + a*(x[n]-y[n-1]), a = 1-exp(-1/(tau*fs)).
+         * Cuts the top-end rasp on repeaters; matches radiod fm.c. */
+        {
+            float const tau_s = 75e-6f;
+            float const alpha = 1.0f - expf(-1.0f / (tau_s * 8000.0f));
+            a->af_deemph_state += alpha * (d - a->af_deemph_state);
+            d = a->af_deemph_state;
+        }
+        /* Carrier-drift removal (KA9Q fm.c): average the discriminator DC
+         * and subtract it, so a slow source-frequency wobble (RTL clock)
+         * does not warble the recovered tone. alpha ~1e-3 = slow track. */
+        {
+            float const falpha = 0.001f;
+            a->af_foffset += falpha * (d - a->af_foffset);
+            d -= a->af_foffset;
+        }
+        /* One-pole 300 Hz high-pass: remove infra rumble / hum (repeaters).
+         * y = a*(y_prev + x - x_prev), a = 1/(1 + w0/fs), w0=2*pi*300. */
+        {
+            float const fs = 8000.0f;
+            float const w0 = 2.0f * 3.14159265f * 300.0f / fs;
+            float const k = 1.0f - expf(-w0);   /* 300 Hz/8k -> ~0.21 */
+            float x = d;
+            float y = k * (a->af_hpf_y1 + x - a->af_hpf_x1);
+            a->af_hpf_x1 = x;
+            a->af_hpf_y1 = y;
+            d = y;
+        }
+        /* 127.3 Hz CTCSS notch (biquad): kill the sub-tone without touching
+         * voice. Bandwidth ~30 Hz. */
+        {
+            float const fs = 8000.0f;
+            float const f0 = 127.3f / fs;
+            float const bw = 30.0f / fs;
+            float const w0 = 2.0f * 3.14159265f * f0;
+            float const cw0 = cosf(w0);
+            float const alpha = sinf(w0) * sinhf(0.69314718f / 2.0f * bw);
+            float const b0 = 1.0f, b1 = -2.0f * cw0, b2 = 1.0f;
+            float const a0 = 1.0f + alpha;
+            float const a1 = -2.0f * cw0;
+            float const a2 = 1.0f - alpha;
+            /* normalize by a0 */
+            float x = d;
+            float y = (b0 * x + b1 * a->af_notch_x1 + b2 * a->af_notch_x2
+                       - a1 * a->af_notch_y1 - a2 * a->af_notch_y2) / a0;
+            a->af_notch_x2 = a->af_notch_x1;
+            a->af_notch_x1 = x;
+            a->af_notch_y2 = a->af_notch_y1;
+            a->af_notch_y1 = y;
+            d = y;
+        }
         a->af_dout_r[j] = d;
 
         p2_re = p_re; p2_im = p_im;

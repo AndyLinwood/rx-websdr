@@ -61,6 +61,7 @@ var ab_squelch=false;
 
 // ---- SQL (шумоподавитель) ----
 var squelch_open = false;      // текущее состояние (открыт/закрыт)
+var prev_mode = null;          // режим до входа на VHF (для возврата)
 var squelch_hang_timer = null; // таймер задержки закрытия
 var SQL_HYSTERESIS_DB = 1.5;   // гистерезис в дБ
 var SQL_HANG_MS = 200;         // время удержания после пропадания сигнала, мс
@@ -1235,18 +1236,23 @@ function setband(b)
    if (!hidedx) showdx(band);
    if (ft8_enabled) doft8();  // смена диапазона — перефильтровать декоды FT8
 
-   // VHF (2m, RTL-SDR): включать squelch 4 dB при переходе на диапазон,
-   // выключать при уходе на другие диапазоны.
+   // VHF (2m, RTL-SDR): включать squelch 9 dB + FM 6.50 kHz при переходе на
+   // диапазон, выключать при уходе на другие диапазоны.
    var isVHF = (bi[band].name == 'VHF');
    var cb = document.getElementById('gainlevelcheckbox');
    if (isVHF) {
       if (cb && !cb.checked) { cb.checked = true; toggle_squelch(true); }
       var mg = document.getElementById('manualgain');
       if (mg && parseInt(mg.value,10) != 9) { mg.value = 9; update_squelch_threshold(9); }
-      // FM 6.50 kHz passband (default FM bandwidth 12.4 kHz is too wide for 2m)
-      if (mode != 'FM' || lo != -3.2 || hi != 3.21) setmf('fm', -3.2, 3.21);
+      if (mode != 'FM') {
+         prev_mode = mode;           // запомнить режим для возврата при уходе
+         set_mode('fm');             // FM + showhides() + отправка на сервер
+      }
+      if (lo != -3.2 || hi != 3.21) setmf('fm', -3.2, 3.21);   // полоса 6.50 кГц
    } else {
       if (cb && cb.checked) { cb.checked = false; toggle_squelch(false); }
+      if (prev_mode && mode == 'FM') set_mode(prev_mode);      // вернуть прежний режим
+      prev_mode = null;
    }
 }
 
