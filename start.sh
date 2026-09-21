@@ -17,7 +17,7 @@ N_BANDS=$(grep -c "^band " /home/radio/rx-websdr/cfg/websdr.cfg)
 [ -z "$N_BANDS" ] && N_BANDS=9
 
 # --- 1) Kill everything ------------------------------------------------------
-for unit in websdr.service receiver.service radiod@rx888.service; do
+for unit in websdr.service receiver.service radiod@rx888.service radiod@vhf.service; do
     echo ">> stopping $unit"
     # receiver/websdr ignore SIGTERM while blocked in FIFO I/O; systemd would
     # wait TimeoutStopSec then SIGKILL. Force-kill the cgroup right away.
@@ -37,6 +37,11 @@ sudo systemctl start radiod@rx888.service
 until systemctl is-active --quiet radiod@rx888.service; do sleep 1; done
 echo "   radiod up (waiting a moment for streams to publish)"
 sleep 2
+
+echo ">> starting radiod@vhf.service (RTL-SDR 2m)"
+sudo systemctl start radiod@vhf.service
+until systemctl is-active --quiet radiod@vhf.service; do sleep 1; done
+echo "   radiod vhf up"
 
 # --- 3) Start receiver (writers), WAIT for every band's writer to be parked
 #        in open(fifo) before the reader is allowed to start.
