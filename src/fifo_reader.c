@@ -18,6 +18,7 @@
 #include <libwebsockets.h>
 
 #include "websdr.h"
+#include "rtl_client.h"
 
 #define BLOCK_SIZE (FFT_SIZE * 2 * sizeof(int16_t))
 
@@ -44,19 +45,29 @@ void *band_thread(void *arg) {
 
     fprintf(stderr, "Band %s: opening %s\n", band->name, band->device);
 
-    band->fifo_fd = open(band->device, O_RDONLY);
-    if (band->fifo_fd < 0) {
-        fprintf(stderr, "Band %s: cannot open %s: %s\n",
-                band->name, band->device, strerror(errno));
-        band->running = 0;
-        return NULL;
+    if (band->is_rtl) {
+        band->fifo_fd = rtl_client_connect(band, band->device);
+        if (band->fifo_fd < 0) {
+            fprintf(stderr, "Band %s: cannot connect rtl_tcp\n", band->name);
+            band->running = 0;
+            return NULL;
+        }
+    } else {
+        band->fifo_fd = open(band->device, O_RDONLY);
+        if (band->fifo_fd < 0) {
+            fprintf(stderr, "Band %s: cannot open %s: %s\n",
+                    band->name, band->device, strerror(errno));
+            band->running = 0;
+            return NULL;
+        }
     }
 
     int16_t *buffer = malloc(BLOCK_SIZE);          /* FIFO read chunk    */
     int16_t *frame  = malloc((size_t)FFT_SIZE * 2 * sizeof(int16_t)); /* full IQ frame */
     if (!buffer || !frame) {
         free(buffer); free(frame);
-        close(band->fifo_fd);
+        if (band->is_rtl) rtl_client_close(band->fifo_fd);
+        else close(band->fifo_fd);
         band->running = 0;
         return NULL;
     }
@@ -101,7 +112,17 @@ void *band_thread(void *arg) {
 
     struct timespec _t0; clock_gettime(CLOCK_MONOTONIC, &_t0);
     while (band->running) {
-        ssize_t n = read(band->fifo_fd, buffer, BLOCK_SIZE);
+        ssize_t n;
+        if (band->is_rtl) {
+            /* rtl_tcp streams uint8 I/Q (1 byte per I or Q value). Read the
+             * same number of int16 values as the FIFO path delivers in
+             * BLOCK_SIZE bytes (BLOCK_SIZE/2 int16 = 131072/2 = 65536). */
+            n = rtl_client_read(band->fifo_fd, buffer,
+                                (int)(BLOCK_SIZE / sizeof(int16_t)));
+            if (n > 0) n *= (ssize_t)sizeof(int16_t);
+        } else {
+            n = read(band->fifo_fd, buffer, BLOCK_SIZE);
+        }
         {
             struct timespec _t1; clock_gettime(CLOCK_MONOTONIC, &_t1);
             long _ms = (_t1.tv_sec - _t0.tv_sec) * 1000 + (_t1.tv_nsec - _t0.tv_nsec) / 1000000;
@@ -233,7 +254,8 @@ void *band_thread(void *arg) {
 #if AUDIO_USE_FFT
     audio_fft_band_free(band);
 #endif
-    close(band->fifo_fd);
+    if (band->is_rtl) rtl_client_close(band->fifo_fd);
+    else close(band->fifo_fd);
     fprintf(stderr, "Band %s: stopped (running=%d)\n", band->name, band->running);
     return NULL;
 }

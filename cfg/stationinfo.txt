@@ -154,20 +154,16 @@
 1458am LycaRadio
 1521am Радио  Китая
 1557am Радио Лента 
-1810lsb 160m>
 1836.6usb WSPR
 1840usb FT8
 1854cw beacon OKM1 ex OK0EV
 1999.5cwn SM6AAL-beacon500mW
-2000lsb <160m
 2130fm РЖД
 2182usb Int Rescue
 2869usb RUS Volmet
 2920usb Вольные операторы
-3500lsb 80m>
 3568.6usb WSPR
 3573usb FT8
-3800lsb <80m
 3920am Pirate Radio<br>Europe
 3950lsb Hurricane Watch
 3955am Channel292
@@ -176,11 +172,9 @@
 4930usb The Air Horn
 4996cw Сигнналы<br>точного времени и частоты
 5279usb RAOTA
-5351.5lsb 60m>
 5357usb FT8
 5363usb Dutch
 5364.6usb WSPR
-5366.5lsb <60m
 5450usb Volmet<br>EUR RAF Military1
 5475usb Volmet<br>SAM Agentina
 5493usb Air Traffic<br>Africa 4 route
@@ -220,16 +214,12 @@
 6305am Alice
 6604usb Volmet<br>NAT N-Atlantic
 6685usb Air Traffic<br>Russia
-7000lsb 40m>
 7038.6usb WSPR
 7074usb FT8
-7200lsb <40m
 7340am China
 9490am Radio Romania
-10100cw 30m>
 10136usb FT8
 10140.1usb WSPR
-10150cw <30m
 10460usb Радиохулиганы!!
 13261usb Air Traffic<br>E-Pacific 1&2 route
 13264usb Volmet<br>Europe
@@ -255,34 +245,23 @@
 13670am China
 13750am Romania Int.
 13845am WWCR Nashville
-14000usb 20m>
 14074usb FT8
 14097.1usb WSPR
-14350usb <20m
 15200am Deutsche Welle
-18068usb 17m>
 18100usb FT8
 18104.6usb WSPR
-18168usb <17m
-21000usb 15m>
 21074usb FT8
 21096.1usb WSPR
-21450usb <15m
-24890usb 12m>
 24915usb FT8
 24924.6usb WSPR
-24990usb <12m
 25900am Radio MTUCI
-26960fm 11m>
 27135am 15Ch
 27190usb 19Ch
 27200fm 20Ch
 27555usb 12Ch
-27850fm <11m
-28000usb 10m>
 28074usb FT8
 28124.6usb WSPR
-29700usb <10m
+
 120300am Yaroslavl tower
 127200am Moscow Approach
 127350am Yaroslavl ATIS

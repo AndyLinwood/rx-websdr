@@ -1,7 +1,8 @@
 #!/bin/bash
 # start.sh — (re)start the WebSDR stack in the ONLY correct way:
-#   1) stop EVERYTHING (including radiod) for a clean slate
-#   2) start, strictly in order: radiod@rx888 -> receiver (writers) -> websdr (reader)
+#   1) stop EVERYTHING (including radiod and rtl_tcp) for a clean slate
+#   2) start, strictly in order: radiod@rx888 -> receiver (writers) ->
+#      rtl_tcp_vhf (RTL-SDR dongle) -> websdr (reader)
 # Each step must fully finish before the next one begins.
 #
 # No state counting, no timers: the ordering alone guarantees the stack comes
@@ -17,7 +18,7 @@ N_BANDS=$(grep -c "^band " /home/radio/rx-websdr/cfg/websdr.cfg)
 [ -z "$N_BANDS" ] && N_BANDS=9
 
 # --- 1) Kill everything ------------------------------------------------------
-for unit in websdr.service receiver.service radiod@rx888.service radiod@vhf.service; do
+for unit in websdr.service receiver.service radiod@rx888.service rtl_tcp_vhf.service radiod@vhf.service; do
     echo ">> stopping $unit"
     # receiver/websdr ignore SIGTERM while blocked in FIFO I/O; systemd would
     # wait TimeoutStopSec then SIGKILL. Force-kill the cgroup right away.
@@ -29,6 +30,8 @@ for unit in websdr.service receiver.service radiod@rx888.service radiod@vhf.serv
 done
 sudo pkill -9 -x pcmrecord 2>/dev/null || true
 sudo pkill -9 -x rx-websdr  2>/dev/null || true
+# Let the RTL-SDR dongle fully release (radiod@vhf may have held it).
+sleep 3
 echo ">> all services stopped"
 
 # --- 2) Start radiod ---------------------------------------------------------
@@ -38,10 +41,15 @@ until systemctl is-active --quiet radiod@rx888.service; do sleep 1; done
 echo "   radiod up (waiting a moment for streams to publish)"
 sleep 2
 
-echo ">> starting radiod@vhf.service (RTL-SDR 2m)"
-sudo systemctl start radiod@vhf.service
-until systemctl is-active --quiet radiod@vhf.service; do sleep 1; done
-echo "   radiod vhf up"
+echo ">> starting rtl_tcp_vhf.service (RTL-SDR 2m via rtl_tcp, manual gain)"
+sudo systemctl start rtl_tcp_vhf.service
+for i in $(seq 1 15); do
+    if ! ss -tln 2>/dev/null | grep -q '127.0.0.1:1234'; then
+        sleep 1
+    fi
+done
+systemctl is-active --quiet rtl_tcp_vhf.service || echo "   WARNING: rtl_tcp_vhf not active"
+echo "   rtl_tcp vhf up (listening 127.0.0.1:1234)"
 
 # --- 3) Start receiver (writers), WAIT for every band's writer to be parked
 #        in open(fifo) before the reader is allowed to start.
@@ -73,6 +81,6 @@ for i in $(seq 1 20); do
 done
 echo
 echo ">> stack state:"
-systemctl is-active radiod@rx888.service receiver.service websdr.service
+systemctl is-active radiod@rx888.service receiver.service rtl_tcp_vhf.service websdr.service
 echo "   writers:   $(pgrep -x pcmrecord | wc -l)"
 echo "   http:      ${code:-FAIL}"

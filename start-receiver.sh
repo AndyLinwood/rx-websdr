@@ -12,9 +12,9 @@ start_band() {
     pcmrecord -c -r -S "$ssrc" "$data" > "$fifo" &
 }
 
-start_band 29100 "10m-high-pcm.local" /home/radio/fifo/fifo10mH
-start_band 28350 "10m-low-pcm.local"  /home/radio/fifo/fifo10mL
-start_band 27400 "11m-pcm.local"      /home/radio/fifo/fifo11m
+start_band 27950 "10m-high-pcm.local" /home/radio/fifo/fifo10mH
+#start_band 28350 "10m-low-pcm.local"  /home/radio/fifo/fifo10mL
+#start_band 27400 "11m-pcm.local"      /home/radio/fifo/fifo11m
 start_band 24940 "12m-pcm.local"      /home/radio/fifo/fifo12m
 start_band 21225 "15m-pcm.local"      /home/radio/fifo/fifo15m
 start_band 18118 "17m-pcm.local"      /home/radio/fifo/fifo17m

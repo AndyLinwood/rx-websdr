@@ -44,8 +44,20 @@ int config_load(const char *filename, struct websdr_config *config) {
             strncpy(current_band->name, trim(p), sizeof(current_band->name)-1);
             config->nbands++;
         } else if (current_band) {
-            if (strcmp(key, "device") == 0 && p)
-                strncpy(current_band->device, trim(p), sizeof(current_band->device)-1);
+            if (strcmp(key, "device") == 0 && p) {
+                char *dv = trim(p);
+                if (dv[0] == '!') {
+                    /* "!rtlsdr host:port" -> rtl_tcp client for this band. */
+                    current_band->is_rtl = 1;
+                    char *hp = (char *)strstr(dv, " ");
+                    if (hp) hp = trim(hp);
+                    else    hp = dv + 1;
+                    strncpy(current_band->device, hp, sizeof(current_band->device)-1);
+                } else {
+                    current_band->is_rtl = 0;
+                    strncpy(current_band->device, dv, sizeof(current_band->device)-1);
+                }
+            }
             else if (strcmp(key, "samplerate") == 0 && p)
                 current_band->samplerate = atoi(p);
             else if (strcmp(key, "centerfreq") == 0 && p)

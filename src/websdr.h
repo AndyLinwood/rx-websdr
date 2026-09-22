@@ -85,6 +85,8 @@ struct band {
     int maxzoom;
     int extrazoom;       /* cfg "extrazoom N": extra waterfall zoom levels beyond the samplerate-derived maxzoom (original websdr semantics) */
     int fifo_fd;
+    bool is_rtl;         /* device "!rtlsdr host:port" -> rtl_tcp client */
+    int rtl_fd;          /* rtl_tcp socket, valid if is_rtl */
     fftwf_plan fft_plan;
     float fft_input[FFT_SIZE * 2];
     float fft_output[FFT_SIZE * 2];
