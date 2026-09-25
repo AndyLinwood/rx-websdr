@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RX-WEBSDR Ярославль (LO07AQ98LT)</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <link rel="icon" type="image/png" href="favicon.png">
+<script src="tmp/bandinfo.js" type="text/javascript"></script>
+<script src="jquery-3.1.1.min.js"></script>
+<script src="rx-base.js?v=ft8" type="text/javascript"></script>
+
+    <link rel="stylesheet" href="websdr.css">
+</head>
+<body onload="bodyonload();">
+
+<!-- Loader + notify (как в рабочей версии) -->
+<div class="notify"><span id="notifyType" class=""></span></div>
+<div class="loader">
+  <div class="text">RX-WEBSDR загружается</div>
+  <div class="dots">
+      <div></div>
+      <div></div>
+      <div></div>
+      <div></div>
+  </div>
+</div>
+
+<div class="container">
+    
+    <!-- Шапка (Row 0) -->
+    <header>
+        <h2>RX-WEBSDR Ярославль · LO07AQ98LT · RX888MKII &amp; FX3</h2>
+        <div class="info-drop">
+            <button type="button" class="info-drop-btn" onclick="var p=document.getElementById('infodrop'); p.style.display=(p.style.display==='block')?'none':'block';">О приёмнике ▾</button>
+            <div class="info-drop-panel" id="infodrop">
+                <h3>Наш RX-WEBSDR приёмник</h3>
+                <div>
+                    Находится в г. <b>Ярославль, Россия</b>, QTH локатор:
+                    <a href="http://k7fry.com/grid/?qth=LO07AQ" target="_blank">LO07AQ98LT</a><br>
+                    Работает под управлением ПО <b>RX-WEBSDR</b> с открытым кодом
+                    <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank">AndyLinwood/rx-websdr</a>.<br>
+                    В качестве приёмника используется модифицированный <b>RX888MKII</b>
+                    с исправленным драйвером и прошивкой FX3.
+                </div>
+                <hr style="border-color:var(--border-color);">
+                <h3>Глобальная сеть RX-WebSDR</h3>
+                <div>
+                    Присоединяйтесь к глобальной сети нового поколения RX-WebSDR!
+                    Мы объединяем SDR-приёмники по всему миру в единую независимую экосистему
+                    с открытым исходным кодом. Подключите ваше оборудование к проекту,
+                    и ваш сервер мгновенно появится на мировой интерактивной карте
+                    с live-статистикой и рейтингом слушателей в реальном времени.
+                </div>
+                <details>
+                    <summary>Подробнее о проекте и подключении...</summary>
+                    <div style="padding-top:6px;">
+                        <h3>Преимущества платформы</h3>
+                        <ul>
+                            <li>Безграничная многодиапазонность: 12 и более диапазонов одновременно на одном сервере без потери качества звука и детализации водопада.</li>
+                            <li>Настоящий Multicast: архитектура на основе RTP-потоков позволяет параллельно разворачивать независимые тестовые или публичные серверы на одной антенне.</li>
+                            <li>Лёгкость и стабильность: чистый код на C, конфигурация через один файл, минимальные требования к железу и надёжное управление через systemd.</li>
+                        </ul>
+                        <h3>Как стать частью сети?</h3>
+                        <ol>
+                            <li>Скачайте серверную часть из официального репозитория на GitHub: <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank">AndyLinwood/rx-websdr</a>.</li>
+                            <li>Включите автоматическую публикацию, установив директиву <code>registry_enabled yes</code> в <code>websdr.cfg</code>.</li>
+                            <li>Ваш позывной, QTH и параметры антенны сразу отобразятся на глобальном мониторе сети!</li>
+                        </ol>
+                    </div>
+                </details>
+                <a class="monitor-btn" href="https://srr-76.ru/listsdr.html" target="_blank" title="Список работающих в сети RX-WebSDR-серверов на карте мира">📡 Глобальный монитор RX-WebSDR</a>
+            </div>
+        </div>
+        <div class="btn-group">
+            <button id="audiostartbutton" class="active-green" onclick="if(soundapplet) soundapplet.audioresume();">Audio Start</button>
+            <span style="color:var(--text-muted); margin-left: 10px;">Водопад:</span>
+            <!-- Форма viewform: ЖИВАЯ форма с #viewformbuttons — rx-base.js сам
+                 перезапишет innerHTML радиокнопками (все/один/выкл) и установит
+                 document.viewform.group[view]. Скрывать форму НЕЛЬЗЯ. -->
+            <form name="viewform" action="#" style="margin:0; padding:0; display:inline-flex; gap:5px; align-items:center;">
+            <div id="viewformbuttons" style="display: inline-flex; gap: 5px; align-items: center;">
+                <!-- rx-base.js построит здесь радиокнопки setview -->
+            </div>
+            <!-- allowkeys обязан жить ВНУТРИ формы viewform: settings_store
+                 (rx-base.js:615) читает document.viewform.allowkeys.checked -->
+            <input type="checkbox" name="allowkeys" checked id="allowkeys" style="display:none;">
+            </form>
+        </div>
+    </header>
+
+    <!-- Скрытые системные элементы управления (JS читает их в bodyonload).
+         НЕ выносить в hidden: compactviewcheckbox/background_toggle/volumecontrol2/
+         mutecheckbox/... должны существовать в DOM. Форма viewform ОБЯЗАТЕЛЬНО
+         живая (в шапке #viewformbuttons) — rx-base.js обращается к
+         document.viewform.group[view]. -->
+    <div class="hidden-form-system" style="display:none;">
+        <input type="checkbox" id="compactviewcheckbox">
+        <input type="checkbox" id="background_toggle">
+        <input type="range" id="volumecontrol2" value="0">
+        <input type="checkbox" id="hidedx">
+        <input type="checkbox" id="mutecheckbox">
+        <input type="text" id="magicinput" value="1">
+    </div>
+    
+    <form name="usernameform" class="hidden-form-system" onsubmit="return setusernamecookie();">
+        <input type="text" name="username" value="Слушатель">
+    </form>
+
+    <!-- Контейнер Водопада 1024px (Row 1) -->
+    <!-- ВАЖНО: #waterfalls пуст — rx-base.js / document_waterfalls()
+         сам построит wfdivN + шкалы + canvas (см. rx-base.js:2288).
+         Статичный canvas здесь был бы затёрт при загрузке (innerHTML='').
+         Оверлей фильтра (yellowbar/edgelower/edgeupper/carrier) лежит
+         ВНЕ #waterfalls (в #wfcontainer), чтобы пересоздание водопада
+         его не трогало — так же как в оригинале. -->
+    <div id="wfccontainer">
+        <div id="wfccontainer_inner">
+            <div id="wfcontainer" style="position:relative; transform-origin: 0% 0%;" class="clear">
+                <div id="waterfalls">
+                    <!-- rx-base.js вставит сюда wfdivN + шкалы + blackbar'ы -->
+                </div>
+
+                <!-- Оверлей полосы фильтра/курсора настройки (вне #waterfalls!) -->
+                <div class="hideblind" style="display: inline;">
+                    <img src="edgelower.png" title="drag to change filter" id="edgelower" onmousedown="mousedownlower(event)" class="scaleabs" alt="" style="top: 115px; left: 493.5px;">
+                    <img src="edgeupper.png" title="drag to change filter" id="edgeupper" onmousedown="mousedownupper(event)" class="scaleabs" alt="" style="top: 115px; left: 505.5px;">
+                    <div id="yellowbara">
+                        <div id="yellowbar" title="drag to tune" class="scaleabs" style="position: absolute; width: 1px; height: 18px; background-color: transparent; top: 100px; left: 504.5px;" onmousedown="mousedownpassband(event)">
+                            <div id="yellowbarr" class="scaleabs" style="position:relative;left:0px;">
+                                <div class="scaleabs" style="position:absolute;width:0px;height:0px;"></div>
+                                <div class="vl"></div>
+                            </div>
+                        </div>
+                        <img src="carrier.png" title="drag to tune" id="carrier" onmousedown="mousedownpassband(event)" class="scaleabs" style="z-index: 2; top: 115px; left: 505.5px; height: 33px;" alt="">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<!-- Информационная строка под водопадом -->
+    <div class="panel" style="padding: 4px 8px; display: flex; justify-content: space-between; align-items: center;">
+        <form name="usernameform_visible" onsubmit="document.usernameform.username.value=this.username_v.value; setusernamecookie(); return false;" style="display:inline-block; margin:0;">
+            <span>Имя/Позывной:</span>
+            <input type="text" name="username_v" id="visitname" style="width: 120px;" value="Слушатель" onchange="document.usernameform.username.value=this.value; setusernamecookie();">
+        </form>
+        <div style="color: var(--neon-green); font-weight: bold; font-size: 10px;">
+            Круглый стол ЯО по воскресеньям в 21:00msk — <a href="https://ua3mrs.ru/#freq=145725000,mod=nfm,sql=-47" target="_blank" style="color: var(--neon-blue);">145,725 MHz</a> / FM / CTCSS 127.3 Гц
+        </div>
+    </div>
+
+    <!-- Основная Трехколоночная Сетка элементов управления.
+         ВНИМАНИЕ: вся сетка — одна форма freqform. Кнопки бэндов (group0 в #bandbuttons)
+         и поле частоты (frequency) должны быть в ОДНОЙ форме — rx-base.js обращается
+         к document.freqform.group0[band] и document.freqform.frequency. -->
+    <form name="freqform" action="#" onsubmit="setfreqif(this.frequency.value); return false;">
+    <div class="main-grid">
+        
+        <!-- ЛЕВАЯ КОЛОНКА: Диапазоны, Фильтры, Память -->
+        <div class="flex-col">
+            <div class="panel">
+                <div class="panel-title">Band selection</div>
+                <!-- ВАЖНО: #bandbuttons пуст — document_bandbuttons() (rx-base.js:2254)
+                     сам построит кнопки бэндов (name=group0). Кнопки ДОЛЖНЫ лежать
+                     внутри формы freqform (см. ниже) — setband() обращается к
+                     document.freqform.group0[band]. -->
+                <span id="bandbuttons" class="d-table"></span>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-title">Filters & Bandwidth</div>
+                <div style="margin-bottom: 4px; color: var(--text-muted);">
+                    <span style="font-weight:bold;">Filters: </span>
+                    <b><span id="numericalbandwidth6" style="color:#fff">---</span></b> kHz @ -6dB;
+                    <b><span id="numericalbandwidth60" style="color:#fff">---</span></b> kHz @ -60dB
+                </div>
+                <!-- Таблица пресетов полосы: показывается набор активного режима
+                     (showhides/showrow в rx-base.js переключают display ячеек) -->
+                <table>
+  <tbody><tr><td id="lsbpresets" style="display: none;">
+    <table>
+      <tbody><tr>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.00 kHz @ -6dB" onclick="setmf('lsb', -2.26, -0.35);  rememberpreset();">2.00 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.20 kHz @ -6dB" onclick="setmf('lsb', -2.36, -0.25);  rememberpreset();">2.20 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.40 kHz @ -6dB" onclick="setmf('lsb', -2.56, -0.25);  rememberpreset();">2.40 kHz</button></td>
+        </tr>
+    <tr>
+		<td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.60 kHz @ -6dB" onclick="setmf('lsb', -2.71, -0.2);  rememberpreset();">2.60 kHz</button></td>
+		<td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.70 kHz @ -6dB" onclick="setmf('lsb', -2.76, -0.15);  rememberpreset();">2.70 kHz</button></td>
+	        <td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 2.80 kHz @ -6dB" onclick="setmf('lsb', -2.8, -0.09);  rememberpreset();">2.80 kHz</button></td>
+		   </tr>
+    <tr>
+		<td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 3.00 kHz @ -6dB" onclick="setmf('lsb', -2.97, -0.06);  rememberpreset();">3.00 kHz</button></td>
+        	<td><button type="button" class="btnBandW" title="Bandwidth preset (LSB): 3.50 kHz @ -6dB" onclick="setmf('lsb', -3.47, -0.06);  rememberpreset();">3.50 kHz</button></td>
+    </tr>
+    </tbody></table>
+    </td>
+  <td id="usbpresets" style="display: none;">
+    <table>
+      <tbody><tr>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.00 kHz @ -6dB" onclick="setmf('usb', 0.35, 2.26);  rememberpreset();">2.00 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.20 kHz @ -6dB" onclick="setmf('usb', 0.25, 2.36);  rememberpreset();">2.20 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.40 kHz @ -6dB" onclick="setmf('usb', 0.25, 2.56);  rememberpreset();">2.40 kHz</button></td>
+     </tr>
+    <tr>
+	<td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.30 kHz @ -6dB" onclick="setmf('usb', 0.2, 2.71);  rememberpreset();">2.60 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.70 kHz @ -6dB" onclick="setmf('usb', 0.15, 2.76);  rememberpreset();">2.70 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 2.80 kHz @ -6dB" onclick="setmf('usb', 0.09, 2.8);  rememberpreset();">2.80 kHz</button></td>
+    </tr>
+<tr>
+	<td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 3.00 kHz @ -6dB" onclick="setmf('usb', 0.06, 2.97);  rememberpreset();">3.00 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (USB): 3.50 kHz @ -6dB" onclick="setmf('usb', 0.06, 3.47);  rememberpreset();">3.50 kHz</button></td></tr>
+		</tbody></table>
+  </td>
+  <td id="ampresets" style="display: none;">
+    <table>
+      <tbody><tr>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (AM): 5.00 kHz @ -6dB" onclick="setmf('am', -2.46, 2.45);  rememberpreset();">5.00 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (AM): 6.50 kHz @ -6dB" onclick="setmf('am', -3.21, 3.2);  rememberpreset();">6.50 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (AM): 7.00 kHz @ -6dB" onclick="setmf('am', -3.46, 3.45);  rememberpreset();">7.00 kHz</button></td>
+		</tr>
+    <tr>
+	<td><button type="button" class="btnBandW" title="Bandwidth preset (AM): 10.00 kHz @ -6dB" onclick="setmf('am', -4.96, 4.95);  rememberpreset();">10.00 kHz</button></td>
+	<td><button type="button" class="btnBandW" title="Bandwidth preset (AM): 15.00 kHz @ -6dB" onclick="setmf('am', -7.46, 7.45);  rememberpreset();">15.00 kHz</button></td></tr>
+    </tbody></table>
+  </td>
+  <td id="fmpresets" style="display: none;">
+    <table>
+      <tbody><tr>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (FM): 5.50 kHz @ -6dB" onclick="setmf('fm', -2.7, 2.71);  rememberpreset();">5.50 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (FM): 6.50 kHz @ -6dB" onclick="setmf('fm', -3.2, 3.21);  rememberpreset();">6.50 kHz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset (FM): 10.00 kHz @ -6dB" onclick="setmf('fm', -4.95, 4.96);  rememberpreset();">10.00 kHz</button></td>
+		</tr>
+    <tr> <td><button type="button" class="btnBandW" title="Bandwidth preset (FM): 12.50 kHz @ -6dB" onclick="setmf('fm', -6.2, 6.21);  rememberpreset();">12.50 kHz</button></td>
+	<td><button type="button" class="btnBandW" title="Bandwidth preset (FM): 25.00 kHz @ -6dB" onclick="setmf('fm', -12.45, 12.46);  rememberpreset();">25.00 kHz</button></td></tr>
+    </tbody></table>
+  </td>
+  <td id="cwpresets" style="display: none;">
+    <table>
+      <tbody><tr>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset : 700 Hz - 800 Hz (CW)" onclick="setmf('cw', -0.8, -0.7);  rememberpreset();">100 Hz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset : 650 Hz - 850 Hz (CW)" onclick="setmf('cw', -0.85, -0.65);  rememberpreset();">200 Hz</button></td>
+        <td><button type="button" class="btnBandW" title="Bandwidth preset : 600 Hz - 900 Hz (CW)" onclick="setmf('cw', -0.9, -0.6);  rememberpreset();">300 Hz</button></td>
+</tr>
+    <tr>
+                <td><button type="button" class="btnBandW" title="Bandwidth preset : 550 Hz - 950 Hz (CW)" onclick="setmf('cw', -0.95, -0.55);  rememberpreset();">400 Hz</button></td>
+		<td><button type="button" class="btnBandW" title="Bandwidth preset : 500 Hz - 1 kHz (CW)" onclick="setmf('cw', -1, -0.5);  rememberpreset();">500 Hz</button></td>
+    </tr>
+    </tbody></table>
+   </td>
+  </tr></tbody></table>
+                <!-- числовые Low/High фильтра — JS обновляет эти id (updbw) -->
+                <div style="display:none;">
+                    <span id="numericalfilterlow">---</span>
+                    <span id="numericalfilterhigh">---</span>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Memories</div>
+                <div class="btn-group" style="margin-bottom: 6px;">
+                    <button onclick="mem_store(memories.length);">Save Current</button>
+                    <button onclick="mem_deleteall();" style="color: var(--danger)">Delete All</button>
+                    <button onclick="hide_memory_list();">Show/Hide</button>
+                </div>
+                <!-- Контейнер для оригинального вывода пресетов WebSDR -->
+                <div id="memories"></div>
+            </div>
+        </div>
+
+        <!-- ЦЕНТРАЛЬНАЯ КОЛОНКА: Частота, S-метр, Кнопки настройки частоты и Тюнера -->
+        <div class="flex-col">
+            <div class="panel">
+                <div class="panel-title">Frequency & Signal Control</div>
+                
+                <div class="digital-display" style="display:flex; align-items:center; gap:8px; padding:4px 8px;">
+                    <!-- Magic Eye (круговой индикатор) — JS пишет в circle[0]/circle[1]
+                         через setProgress(). Должен быть САМЫМ ПЕРВЫМ circle в DOM. -->
+                    <svg style="display:block; border:2px solid rgb(43,43,43); border-radius:50%; width:56px; height:56px; background:green; flex:0 0 auto; box-shadow: 0 0 8px 0px rgb(13,224,12);" class="progress-ring" width="120" height="120">
+                        <g>
+                            <linearGradient id="gradient" gradientTransform="rotate(90)" x1="50%">
+                                <stop offset="0" stop-color="#59b189" style="stop-color:#c3ffc3;"></stop>
+                                <stop offset="0%" stop-color="#59b189" stop-opacity="0" style="stop-color: rgb(15,252,13); stop-opacity:1;"></stop>
+                            </linearGradient>
+                            <linearGradient id="gradient2" gradientTransform="rotate(90)" x1="50%">
+                                <stop offset="0%" stop-color="#59b189" stop-opacity="0" style="stop-color: rgb(15,252,13); stop-opacity:1;"></stop>
+                                <stop offset="0" stop-color="#59b189" style="stop-color:#c3ffc3;"></stop>
+                            </linearGradient>
+                            <circle class="progress-ring__circle" stroke="url(#gradient)" stroke-width="17" r="20" fill="transparent" cx="28" cy="28" style="stroke-dasharray:125.664,125.664; stroke-dashoffset:125.664;"></circle>
+                            <circle class="progress-ring__circle" stroke="url(#gradient2)" stroke-width="17" r="20" fill="transparent" cx="28" cy="28" style="stroke-dasharray:125.664,125.664; stroke-dashoffset:-125.664; mix-blend-mode:lighten;"></circle>
+                        </g>
+                        <!-- Тёмный центр Magic Eye (как в оригинале: #2d2d2d, 23px) -->
+                        <circle cx="28" cy="28" r="11.5" fill="#2d2d2d" stroke="none"></circle>
+                    </svg>
+
+                    <!-- Поле ввода частоты — freqform оборачивает весь main-grid (ниже),
+                         чтобы document.freqform.group0[band] в rx-base.js работал. -->
+                    <input type="text" name="frequency" id="freq-digits" value="---" onkeyup="setfreqif_fut(this.value);">
+
+                    <!-- Число SNR (Magic Eye числом). Фиксированная ширина блока
+                         (под "SNR 100" и min-width числа = 3 знака), чтобы при смене
+                         разрядности не сдвигались цифры частоты слева. -->
+                    <span style="display:inline-flex; align-items:center; gap:3px; font-size:10px; color:var(--text-muted); width:56px; flex:0 0 auto;">
+                        <span>SNR</span>
+                        <span id="snr_info" style="display:inline-block; min-width:20px; text-align:right; color:var(--neon-green); font-weight:bold;">0</span>
+                    </span>
+                </div>
+
+                <!-- S-метр: как в оригинале — столбик EQ + пик/минимум + шкала-картинка smeter.png.
+                     #numericalsmeter/#numericalsmeterpeak держит JS; #smeterbar скрыт (в оригинале display:none). -->
+                <div style="width:280px; margin:0 auto;">
+                    <div class="view_smeter" style="position:relative; height:20px; overflow:visible;">
+                        <div id="smetermin" class="smetermin" style="width:0px;"><div style="position:absolute;height:0px;"></div></div>
+                        <div id="smeterpeak" class="smeterpeak" style="width:0px; z-index:10;"><div style="position:absolute;width:0px;height:0px;"></div></div>
+                        <div id="smeterbar" class="smeterbar" style="width:0px; display:none;"><div style="position:absolute;width:0px;height:0px;"></div></div>
+                        <!-- EQ-столбик (визуальная полоса уровня) -->
+                        <div class="EQ" id="smeterbarnew" style="width:96px;"><div class="EQ-column" data-volume="5"></div></div>
+                        <!-- сетка делений (для точного позиционирования ширины в JS) -->
+                        <table class="smetertable" style="margin-top:-8px; position:relative; width:228px; height:8px; border-spacing:0px;"><tbody><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+                        <span id="numericalsmeter" style="display:none;"></span>
+                        <span id="numericalsmeterpeak" style="display:none;"></span>
+                    </div>
+                    <!-- Шкала S-метра (деления 60..0) -->
+                    <img src="smeter.png" style="margin-top:0px; width:280px;" alt="[scale]">
+                </div>
+
+                <div style="margin-top: 8px;">
+                    <!-- Кнопки шага частоты -->
+                    <div class="btn-group" style="justify-content: center; margin-bottom: 6px;">
+                        <button onclick="freq_step('-1');">◀◀</button>
+                        <button onclick="freqstep(-1);">◀</button>
+                        <button onclick="freq_step('9');" class="active-blue">0</button>
+                        <button onclick="freqstep(1);">▶</button>
+                        <button onclick="freq_step('+1');">▶▶</button>
+                    </div>
+                    
+                    <!-- Ряд выбора Моды -->
+                    <div class="btn-group" style="justify-content: center; gap: 3px;">
+                        <button id="btn-CW" onclick="set_mode('cw');">CW</button>
+                        <button id="btn-LSB" onclick="set_mode('lsb');">LSB</button>
+                        <button id="btn-USB" onclick="set_mode('usb');">USB</button>
+                        <button id="btn-AM" onclick="set_mode('am');">AM</button>
+                        <button id="btn-FM" onclick="set_mode('fm');">FM</button>
+                        <button id="btn-FT8" onclick="toggleft8();">FT8</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-title">Waterfall Settings</div>
+
+                <!-- Кнопки зума (как в боевом) -->
+                <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px;">
+                    <button class="btnZoom" title="view entire frequency range of this receiver" onclick="wfset(4);" style="border-radius: 40px 0px 0px 40px;">Max out</button>
+                    <button class="btnZoom" title="zoom out one step" onclick="wfset(1);">Zoom out</button>
+                    <button class="btnZoom" title="view the entire current amateur or broadcast band" onclick="wfset(3);">Band</button>
+                    <button class="btnZoom" title="zoom in one step" onclick="wfset(0);">Zoom in</button>
+                    <button class="btnZoom" title="zoom in as deep as possible" onclick="wfset(2);" style="border-radius: 0px 40px 40px 0px;">Max in</button>
+                </div>
+
+                <!-- Type / Size / Hide labels -->
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="text-align:center;">
+                        <div style="margin-bottom:2px; color:var(--text-muted); font-size:10px;">Type</div>
+                        <select id="wfmode" onchange="waterfallmode(this.value);" style="width:90px;">
+                            <option value="0">spectrum</option>
+                            <option value="1" selected>waterfall</option>
+                            <option value="2">weak sigs</option>
+                            <option value="3">strong sigs</option>
+                        </select>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="margin-bottom:2px; color:var(--text-muted); font-size:10px;">Size</div>
+                        <select id="wf-size" onchange="waterfallheight(this.value);" style="width:90px;">
+                            <option value="75">tiny</option>
+                            <option value="150">small</option>
+                            <option value="200" selected>normal</option>
+                            <option value="250">medium</option>
+                        </select>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:5px;">
+                        <input type="checkbox" class="sw-toggle" id="hidedx" onclick="sethidedx(this.checked);settings_store();">
+                        <span style="font-size:10px; color:var(--text-muted);">Hide labels</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ПРАВАЯ КОЛОНКА: Настройки Tube, DSP, Аудио и Запись -->
+        <div class="flex-col">
+            <div class="panel">
+                <div class="panel-title">Tube & DSP</div>
+
+                <!-- Переключатели в столбик (по живому эталону :8095) -->
+                <div class="sw-row">
+                    <span class="sw-label">Mute</span>
+                    <input type="checkbox" class="sw-toggle" id="mutecheckbox" onclick="setmute(this.checked?1:0);toggle_info('mute',this.checked);">
+                </div>
+                <div class="sw-row">
+                    <span class="sw-label">Autonotch</span>
+                    <input type="checkbox" class="sw-toggle" id="autonotchcheckbox" onclick="setautonotch(this.checked?1:0);toggle_info('anf1',this.checked);">
+                </div>
+                <div class="sw-row">
+                    <span class="sw-label">Notch-2</span>
+                    <input type="checkbox" class="sw-toggle" id="autonotch2checkbox" onclick="setautonotch2(this.checked?1:0);toggle_info('anf2',this.checked);">
+                </div>
+                <div class="sw-row">
+                    <span class="sw-label">CTCSS notch</span>
+                    <input type="checkbox" class="sw-toggle" id="ctcsscheckbox" onclick="setctcss(this.checked?1:0);">
+                </div>
+
+                <!-- DSP Noise Reduction + Hi-Boost -->
+                <div class="row-item" style="margin-top: 8px;">
+                    <span style="font-weight:bold;">DSP Noise Reduction:</span>
+                    <select id="nrcheckbox" onchange="setnoise(parseInt(this.value));" style="width: 110px; border-radius:10px;">
+                        <option value="0">Off</option>
+                        <option value="1">Low</option>
+                        <option value="2">Medium</option>
+                        <option value="3">High</option>
+                        <option value="4">Strong</option>
+                    </select>
+                </div>
+                <div class="sw-row" style="margin-top: 4px;">
+                    <span class="sw-label">Hi-Boost</span>
+                    <input type="checkbox" class="sw-toggle" id="hiboostcheckbox" onclick="sethboost(this.checked?1:0);">
+                </div>
+
+                <hr style="border-color:var(--border-color); margin:8px 0;">
+
+                <!-- Squelch на своей строке + порог -->
+                <div class="sw-row">
+                    <span class="sw-label" style="font-weight:bold;">Squelch</span>
+                    <input type="checkbox" class="sw-toggle" id="gainlevelcheckbox" onclick="toggle_squelch(this.checked);">
+                </div>
+                <div id="gainlevelmask" class="row-item hiddencontrol" style="margin-top:4px;">
+                    <span>Threshold:</span>
+                    <input type="range" id="manualgain" min="0" max="60" value="20" style="width:110px;" oninput="update_squelch_threshold(this.value);" onchange="settings_store();">
+                    <span id="gaindb">SQL 20 dB</span>
+                </div>
+
+                <!-- toggle_info() пишет is_on/is_off (rx-base.js:2585).
+                     Нужны ТОЛЬКО те id, что вызывает toggle_info: 'sql' и 'mute' -->
+                <span id="sql_info" style="display:none;"></span>
+                <span id="mute_info" style="display:none;"></span>
+            </div>
+
+            <div class="panel">
+                <div class="panel-title">Audio Control & Record</div>
+                <div class="row-item">
+                    <span>Громкость: <span id="volumedb" style="color:#fff">0dB</span></span>
+                </div>
+                <input type="range" min="-40" max="12" value="0" style="width: 100%; height: 3px; accent-color: var(--neon-blue);" oninput="document.getElementById('volumecontrol2').value=this.value; volumedb(this.value); set_volume(this.value);">
+                
+                <div class="btn-group" style="margin-top: 8px; justify-content: space-between; width:100%;">
+                    <button onclick="var m=document.getElementById('mutecheckbox'); m.checked=!m.checked; setmute(m.checked?1:0); this.classList.toggle('btn-selected');">Mute (M)</button>
+                    <button id="recbutton" onclick="record_click();" style="color: #ff4a4a; font-weight:bold;">● Audio Rec</button>
+                </div>
+                <div style="margin-top: 4px; text-align: right; color: var(--neon-amber);" id="reccontrol">0 kB</div>
+                <div id="recwarning" style="display:none; color:var(--danger); font-size:9px;">WAV blob error</div>
+            </div>
+        </div>
+
+    </div>
+    </form>
+
+    <!-- Панель FT8 декодов (изначально скрыта, открывается по кнопке FT8) -->
+    <div class="panel" id="ft8panel" style="display: none; margin-bottom: 8px;">
+        <div class="panel-title">FT8 Монитор диапазона</div>
+        <div id="ft8list" style="height: 120px; overflow-y: auto; background: #05070a; border: 1px solid var(--border-color); border-radius: 3px;"></div>
+    </div>
+
+    <!-- Блок Статистики и списка подключений (Слушатели) -->
+    <div class="panel">
+        <div class="panel-title">Этим RX-WEBSDR сейчас пользуются (<span id="numusers" style="color: var(--neon-blue);">0</span>) пользователей</div>
+        <!-- Сюда douu() из rx-base.js выведет оригинальную графическую карту подключений -->
+        <div id="users"></div>
+        <!-- Невидимый элемент для совместимости со старыми вызовами статистики -->
+        <div id="stats" style="display:none;"></div>
+    </div>
+
+    <!-- Нижний Блок: Чат поддержки -->
+    <div class="panel">
+        <div class="panel-title">Чат поддержки и обсуждения работы WebSDR</div>
+        
+        <!-- Контейнер вывода сообщений -->
+        <div id="chatboxnew"></div>
+        <!-- Скрытый оригинальный контейнер, если JS обращается к нему напрямую -->
+        <div id="chatbox" style="display:none;"></div>
+
+        <!-- Форма отправки сообщений -->
+        <form name="chatform" onsubmit="return sendchat();" style="margin:0; padding:0;">
+            <div style="display: flex; gap: 4px;">
+                <input type="text" name="chat" placeholder="Введите ваше сообщение в чат..." style="flex-grow: 1;">
+                <button type="submit" class="active-blue" style="padding: 2px 12px;">Отправить</button>
+            </div>
+        </form>
+    </div>
+
+</div>
+
+<!-- Скрытый блок аудиоплеера (системный контейнер для websdr-sound.js) -->
+<div id="soundappletdiv" style="display:none;"></div>
+
+<!-- Скрытая таблица S-метра: sgraph в rx-base.js (1299) берёт
+     document.getElementsByClassName('smetertable')[0].rows[0].cells[0] -->
+<table class="smetertable" style="display:none;"><tr><td>&nbsp;</td></tr></table>
+
+<!-- Инжектируемый прелоадер для совместимости со стилями rx-base -->
+<div class="loader" style="display:none;"><div class="loaded_hiding"></div><div class="loaded"></div></div>
+
+<script>
+/* Закрыть выпадающую панель «О приёмнике» по клику вне её */
+document.addEventListener('click', function (ev) {
+    var d = document.getElementById('infodrop');
+    if (!d) return;
+    var wrap = d.parentElement; /* .info-drop */
+    if (wrap && !wrap.contains(ev.target) && d.style.display === 'block')
+        d.style.display = 'none';
+});
+</script>
+</body>
+</html>

@@ -412,6 +412,13 @@ function setautonotch2(a)
 {
    a=Number(a);
    soundapplet.setparam2(a);
+    // CTCSS - подавление субтона
+    function setctcss(a)
+    {
+       a=Number(a);
+       soundapplet.setparam("ctcss="+a);
+    }
+
 }
 
 // DNR MOD — шумоподавление (noise reduction)
@@ -770,7 +777,7 @@ function showdx(b)
    }
    document.getElementById('blackbar'+band2id(b)).innerHTML=s;
    if (s!='') {
-      document.getElementById('blackbar'+band2id(b)).style.height='64px';
+      document.getElementById('blackbar'+band2id(b)).style.height='52px';
    } else {
       document.getElementById('blackbar'+band2id(b)).style.height='30px';
    }
@@ -2584,11 +2591,11 @@ function background_load()
 {
 	var on = document.getElementById('background_toggle').checked;
 	if (on) {
-		document.body.style.background = 'url(bg6.jpg) no-repeat center center fixed';
-		document.body.style.backgroundSize= 'cover';
+		document.body.style.background = "";
+		document.body.style.backgroundSize = "";
 	}
 	else {
-		document.body.style.background ='#bedcd7'
+		document.body.style.background = "";
 	}
 	settings_store();
 }
@@ -2598,10 +2605,10 @@ function preloader () {
 	window.setTimeout(function () {
       document.getElementsByClassName('loader')[0].classList.add('loaded');
       document.getElementsByClassName('loader')[0].remove('loaded_hiding');
-    }, 700);
+    }, 1200);
 }
 
   $(window).on('load', function() {
-	window.setTimeout(preloader, 500)
+	window.setTimeout(preloader, 2000)
   }
  );
