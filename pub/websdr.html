@@ -308,24 +308,6 @@
                     </span>
                 </div>
 
-                <!-- S-метр: как в оригинале — столбик EQ + пик/минимум + шкала-картинка smeter.png.
-                     #numericalsmeter/#numericalsmeterpeak держит JS; #smeterbar скрыт (в оригинале display:none). -->
-                <div style="width:280px; margin:0 auto;">
-                    <div class="view_smeter" style="position:relative; height:20px; overflow:visible;">
-                        <div id="smetermin" class="smetermin" style="width:0px;"><div style="position:absolute;height:0px;"></div></div>
-                        <div id="smeterpeak" class="smeterpeak" style="width:0px; z-index:10;"><div style="position:absolute;width:0px;height:0px;"></div></div>
-                        <div id="smeterbar" class="smeterbar" style="width:0px; display:none;"><div style="position:absolute;width:0px;height:0px;"></div></div>
-                        <!-- EQ-столбик (визуальная полоса уровня) -->
-                        <div class="EQ" id="smeterbarnew" style="width:96px;"><div class="EQ-column" data-volume="5"></div></div>
-                        <!-- сетка делений (для точного позиционирования ширины в JS) -->
-                        <table class="smetertable" style="margin-top:-8px; position:relative; width:228px; height:8px; border-spacing:0px;"><tbody><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
-                        <span id="numericalsmeter" style="display:none;"></span>
-                        <span id="numericalsmeterpeak" style="display:none;"></span>
-                    </div>
-                    <!-- Шкала S-метра (деления 60..0) -->
-                    <img src="smeter.png" style="margin-top:0px; width:280px;" alt="[scale]">
-                </div>
-
                 <div style="margin-top: 8px;">
                     <!-- Кнопки шага частоты -->
                     <div class="btn-group" style="justify-content: center; margin-bottom: 6px;">
@@ -349,7 +331,30 @@
                     </div>
                 </div>
             </div>
-            
+
+                <div class="panel">
+                    <div class="panel-title">S-Meter</div>
+                <!-- S-метр: как в оригинале — столбик EQ + пик/минимум + шкала-картинка smeter.png.
+                     #numericalsmeter/#numericalsmeterpeak держит JS; #smeterbar скрыт (в оригинале display:none). -->
+                <div style="width:280px; margin:0 auto;">
+                    <div class="view_smeter" style="position:relative; height:20px; overflow:visible;">
+                        <div id="smetermin" class="smetermin" style="width:0px;"><div style="position:absolute;height:0px;"></div></div>
+                        <div id="smeterpeak" class="smeterpeak" style="width:0px; z-index:10;"><div style="position:absolute;width:0px;height:0px;"></div></div>
+                        <div id="smeterbar" class="smeterbar" style="width:0px; display:none;"><div style="position:absolute;width:0px;height:0px;"></div></div>
+                        <!-- EQ-столбик (визуальная полоса уровня) -->
+                        <div class="EQ" id="smeterbarnew" style="width:96px;"><div class="EQ-column" data-volume="5"></div></div>
+                        <!-- сетка делений (для точного позиционирования ширины в JS) -->
+                        <table class="smetertable" style="margin-top:-8px; position:relative; width:228px; height:8px; border-spacing:0px;"><tbody><tr><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></tbody></table>
+                        <span id="numericalsmeter" style="display:none;"></span>
+                        <span id="numericalsmeterpeak" style="display:none;"></span>
+                    </div>
+                    <!-- Шкала S-метра (деления 60..0) -->
+                    <img src="smeter.png" style="margin-top:-14px; width:280px;" alt="[scale]">
+                </div>
+
+
+                </div>
+
             <div class="panel">
                 <div class="panel-title">Waterfall Settings</div>
 
