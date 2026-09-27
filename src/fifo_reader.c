@@ -46,9 +46,22 @@ void *band_thread(void *arg) {
     fprintf(stderr, "Band %s: opening %s\n", band->name, band->device);
 
     if (band->is_rtl) {
+        /* rtl_tcp may not be up yet (cold boot: websdr After=rtl_tcp_vhf,
+         * but the dongle/rtl_tcp can also die later). Retry the connect so
+         * the VHF band survives both a race at startup and a mid-run
+         * rtl_tcp failure, instead of dying permanently on first failure. */
         band->fifo_fd = rtl_client_connect(band, band->device);
+        int rtl_tries = 0;
+        while (band->fifo_fd < 0 && rtl_tries < 30) {
+            rtl_tries++;
+            fprintf(stderr, "Band %s: rtl_tcp not up (attempt %d/30), retrying in 3s\n",
+                    band->name, rtl_tries);
+            sleep(3);
+            band->fifo_fd = rtl_client_connect(band, band->device);
+        }
         if (band->fifo_fd < 0) {
-            fprintf(stderr, "Band %s: cannot connect rtl_tcp\n", band->name);
+            fprintf(stderr, "Band %s: cannot connect rtl_tcp after 30 attempts, giving up\n",
+                    band->name);
             band->running = 0;
             return NULL;
         }

@@ -265,18 +265,13 @@ void audio_process_iq(struct client *cli, const int16_t *iq, int nsamples) {
  * NOT applied here (with 30m/160m negative gains it would push the meter off
  * the bottom). A fixed absolute offset like the old -150 only matched 40m —
  * on 80m (strong input) the noise floor read S9+. */
-/* S-meter: proper amateur S scale (S9 = -73 dBm, 6 dB per S point:
- * S1 = -121 dBm ... S9 = -73, above S9: +10/+20/+30/+40/+60 dB).
- * The reading is the PEAK bin power inside the RX filter passband (a real
- * S-meter measures the signal, not the integrated noise energy of the whole
- * passband), referenced to the band's tracked noise floor (noise_dB, the
- * median of power_hi in dB) which is pinned to S1 (-121 dBm). On plain
- * receiver/band noise the peak bin stays within a few dB of the median, so
- * the meter sits at S0-S1; a real signal pushes it up 6 dB per point.
- * The old implementation averaged ALL filter bins — on a busy band the
- * QRN/QRM energy in a 2.4 kHz passband lifted the reading to S4-S7 with no
- * signal present (user: "сильно завышает"). */
-#define SMETER_NOISE_DBM -121.0   /* noise floor anchored to S1 */
+/* S-meter: average passband power, noise-anchored (same as the archived
+ * working version). SMETER_NOISE_DBM pins the noise floor at ~S2-S3
+ * (raw≈180, -109 dBm on the client's S scale S9=-73 dBm, 6 dB/S); signals
+ * sit above it. NOTE: the peak-bin variant (-121) was a mistake — the peak
+ * over a wide passband reads far above the average, pushing the client
+ * bar off-scale (user: "вылетает на соседние панели"). */
+#define SMETER_NOISE_DBM -109.0
 int audio_compute_smeter(struct client *cli) {
     struct band *b = cli->band;
     if (!b) return 0;
@@ -289,10 +284,9 @@ int audio_compute_smeter(struct client *cli) {
     if (hi_bin >= FFT_SIZE) hi_bin = FFT_SIZE-1;
     if (hi_bin <= lo_bin) hi_bin = lo_bin+1;
     if (hi_bin >= FFT_SIZE) hi_bin = FFT_SIZE-1;
-    double peak = 0;
-    for (int i = lo_bin; i <= hi_bin; i++)
-        if (b->power_hi[i] > peak) peak = b->power_hi[i];
-    double dbm = 20*log10(peak) - b->noise_dB + SMETER_NOISE_DBM;
+    double sum = 0;
+    for (int i = lo_bin; i <= hi_bin; i++) sum += b->power_hi[i];
+    double dbm = 20*log10(sum/(hi_bin-lo_bin+1)) - b->noise_dB + SMETER_NOISE_DBM;
     double raw = (dbm+127)*10;
     if (raw < 0) raw = 0;
     if (raw > 4095) raw = 4095;
