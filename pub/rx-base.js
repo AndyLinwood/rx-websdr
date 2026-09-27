@@ -613,7 +613,8 @@ function showrow(visiblerow,h1,h2,h3,h4)
 function settings_store()
 {
    var s={};
-   s.allowkeys=document.viewform.allowkeys.checked;
+   s.allowkeys=true;
+   document.viewform.allowkeys.checked=true;
    s.compactview=document.getElementById('compactviewcheckbox').checked;
    s.volume=document.getElementById('volumecontrol2').value;
 
@@ -636,11 +637,12 @@ function settings_recall()
    var s;
    try { s=JSON.parse(localStorage.getItem('settings')); } catch (e) {  return; };
    if (!s) {
+	   document.viewform.allowkeys.checked = true;
 	   document.getElementById('background_toggle').checked = true;
 	   background_load();
 	   return;
 	  }
-   document.viewform.allowkeys.checked=s.allowkeys;
+   document.viewform.allowkeys.checked = true;
    document.getElementById('compactviewcheckbox').checked=s.compactview;
    if (s.divRingOpacity) {
 	   divRing.style.opacity=s.divRingOpacity;
@@ -2200,6 +2202,8 @@ function keydown(e)
           var mm=!document.getElementById("mutecheckbox").checked;
           document.getElementById("mutecheckbox").checked=mm;
           setmute(mm);
+		  var mb=document.getElementById("mutebtn");
+		  if (mb) mb.classList.toggle('btn-selected', mm);
 		  toggle_info('mute', mm);
           return cancelEvent(e);
       case 86:   // V/v = громкость
@@ -2436,11 +2440,9 @@ function record_stop()
    var wavdata = res.wavdata;
    wavdata.unshift(wavhead);
 
-   var mimetype = 'application/binary';
+   var mimetype = 'audio/wav';
    var bb = new Blob(wavdata, {type: mimetype});
-   if (!bb) document.getElementById('recwarning').style.display="block";
    rec_downloadurl = window.URL.createObjectURL(bb);
-   if (rec_downloadurl.indexOf('http')>=0) document.getElementById('recwarning').style.display="block";
    var fname='';
    try {
       fname=(new Date().toISOString()).replace(/\.[0-9]{3}/,"");
