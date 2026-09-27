@@ -432,7 +432,7 @@
         }
         .EQ {
             width: 300px;
-            margin-left: 12px;
+            margin-left: 0px;
             margin-top: 0;
             max-width: 241px;
             height: 8px;
