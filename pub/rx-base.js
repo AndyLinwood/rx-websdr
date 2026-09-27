@@ -51,6 +51,7 @@ var interval_updatesmeter;
 var interval_ajax3;
 var interval_ft8;
 var chseq=0;   // порядковый номер последней полученной порции статистики/чата (обновляется сервером)
+var chatseq=0;  // курсор чата: число строк чат-файла, виденное клиентом (шлётся сервером отдельно от chseq)
 var timeout_idle;
 var setfreqif_fut_timer;  // таймер для ввода частоты с клавиатуры
 
@@ -1550,7 +1551,7 @@ function ajaxFunction3()
       }
     }
   interval_ajax3 = setTimeout('ajaxFunction3()',120000);
-  var url="/~~othersjj?chseq="+chseq;
+  var url="/~~othersjj?chseq="+chseq+"&chatseq="+chatseq;
   xmlHttp.open("GET",url,true);
   xmlHttp.send(null);
 }

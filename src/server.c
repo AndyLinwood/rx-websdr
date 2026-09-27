@@ -525,6 +525,7 @@ fail:
 static int chat_emit(struct lws *wsi, unsigned client_chseq,
                      char *body, int n, int cap);
 static void chat_append(struct lws *wsi, const char *name, const char *msg);
+static unsigned g_chat_seq = 0;    /* highest chat sequence number issued */
 
 /* ------------------------------------------------------------------ */
 /* /~~othersjj — "who is listening" list                              */
@@ -551,6 +552,13 @@ static int serve_othersjj(struct lws *wsi) {
     char arg[32];
     int al = lws_get_urlarg_by_name_safe(wsi, "chseq", arg, (int)sizeof(arg));
     if (al > 0) client_chseq = (unsigned)atoi(arg);
+    /* Chat cursor: the client echoes back the chatseq value we last sent it
+     * (the number of lines in the chat file). It must NOT share the stats
+     * chseq, which increments on every poll and quickly overtakes the chat
+     * line count, starving chat_emit() below. */
+    unsigned client_chatseq = 0;
+    al = lws_get_urlarg_by_name_safe(wsi, "chatseq", arg, (int)sizeof(arg));
+    if (al > 0) client_chatseq = (unsigned)atoi(arg);
     if (client_chseq < g_stats.stats_chseq)
         n += snprintf(body + n, sizeof(body) - n,
             "statsobj.innerHTML=\"Past 10 seconds: CPUload=%.1f%%, %.2f users; "
@@ -599,7 +607,9 @@ static int serve_othersjj(struct lws *wsi) {
 
     /* Append new chat lines (if enabled) — see chat_emit() below. */
     if (g_config && g_config->chat)
-        n = chat_emit(wsi, client_chseq, body, n, (int)sizeof(body));
+        n = chat_emit(wsi, client_chatseq, body, n, (int)sizeof(body));
+    if (n < (int)sizeof(body) - 32)
+        n += snprintf(body + n, sizeof(body) - n, "chatseq=%u;\n", g_chat_seq);
 
     return serve_mem(wsi, body, (size_t)n, "text/javascript");
 }
@@ -687,29 +697,33 @@ static int serve_ft8(struct lws *wsi) {
  * Escaping: name/message must not contain \n or \t (we strip them) so a line
  * stays one record; the JS-side rendering HTML-escapes on display. */
 
-static unsigned g_chat_rows = 0;   /* how many lines are in the chat file */
-static int      g_chat_rows_init = 0;
+static int g_chat_seq_init = 0;
 
-/* Count the lines in the chat file (once) so a server restart still hands
- * the whole history to clients that were already connected. */
+/* Highest chat sequence number seen so far (read from the file once). The
+ * seq is a monotonic id written as the first tab-field of each chat record
+ * (seq\tepoch\tname\tmsg). Manual deletion of rows (spam cleanup) shifts
+ * line numbers but not seqs, so a client cursor stays valid across edits.
+ * We only write seqs that are higher than anything previously seen. */
 static void chat_init_rows(void) {
-    if (g_chat_rows_init || !g_config) return;
-    g_chat_rows_init = 1;
+    if (g_chat_seq_init || !g_config) return;
+    g_chat_seq_init = 1;
     FILE *fp = fopen(g_config->chatfile, "r");
     if (!fp) return;
-    int c;
-    unsigned rows = 0;
-    while ((c = fgetc(fp)) != EOF)
-        if (c == '\n') rows++;
+    char line[600];
+    unsigned maxseq = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        unsigned seq = (unsigned)strtoul(line, NULL, 10);
+        if (seq > maxseq) maxseq = seq;
+    }
     fclose(fp);
-    g_chat_rows = rows;
+    g_chat_seq = maxseq;
 }
 
 static void chat_append(struct lws *wsi, const char *name, const char *msg) {
     if (!g_config || !g_config->chat) return;
     chat_init_rows();
 
-    char line[512];
+    char line[600];
     char tbuf[24];
     snprintf(tbuf, sizeof(tbuf), "%ld", (long)time(NULL));
 
@@ -729,51 +743,52 @@ static void chat_append(struct lws *wsi, const char *name, const char *msg) {
     }
     mbuf[j] = 0;
 
-    snprintf(line, sizeof(line), "%s\t%s\t%s\n", tbuf, nbuf, mbuf);
+    unsigned seq = ++g_chat_seq;
+    snprintf(line, sizeof(line), "%u\t%s\t%s\t%s\n", seq, tbuf, nbuf, mbuf);
 
     FILE *fp = fopen(g_config->chatfile, "a");
     if (fp) {
         fputs(line, fp);
         fclose(fp);
-        g_chat_rows++;   /* this is what drives "have you seen it?" */
         (void)wsi;       /* response body is empty; 200 below */
     }
 }
 
-/* Render chatnewline('...'); statements for lines this client hasn't seen.
- * Returns the new total body length. */
+/* Render chatnewline('...'); statements for records whose seq is newer than
+ * the cursor the client echoed back (client_chseq). Returns the new total
+ * body length. */
 static int chat_emit(struct lws *wsi, unsigned client_chseq,
                      char *body, int n, int cap) {
     if (!g_config || !g_config->chat) return n;
     chat_init_rows();
-    if (client_chseq >= g_chat_rows) return n;   /* nothing new for this client */
+    if (client_chseq >= g_chat_seq) return n;   /* nothing new for this client */
 
     FILE *fp = fopen(g_config->chatfile, "r");
     if (!fp) return n;
 
     char line[600];
-    unsigned lineno = 0;
     while (fgets(line, sizeof(line), fp)) {
-        lineno++;
-        if (lineno <= client_chseq) continue;   /* already seen */
+        /* line: <seq>\t<epoch>\t<name>\t<message>\n */
+        char *f1 = strchr(line, '\t');
+        if (!f1) continue;
+        unsigned seq = (unsigned)strtoul(line, NULL, 10);
+        if (seq <= client_chseq) continue;   /* already seen */
 
-        /* line: <epoch>\t<name>\t<message>\n  (message may not contain \t) */
-        char *t1 = strchr(line, '\t');
-        if (!t1) continue;
-        char *t2 = strchr(t1 + 1, '\t');
+        char *t2 = strchr(f1 + 1, '\t');
         if (!t2) continue;
-        char *name = t1 + 1;
-        char *msg  = t2 + 1;
-        *t2 = 0;                 /* terminate name at the second tab */
+        char *t3 = strchr(t2 + 1, '\t');
+        if (!t3) continue;
+        char *name = t2 + 1;
+        char *msg  = t3 + 1;
+        *t3 = 0;                 /* terminate name at the third tab */
         /* trim trailing newline/CR from msg */
         char *e = msg + strlen(msg);
         while (e > msg && (e[-1] == '\n' || e[-1] == '\r')) *--e = 0;
 
-        /* Chat line time stamp: epoch was the first tab-separated field.
-         * Render as [HH:MM] in local server time (the client only gets the
-         * formatted string, no JS changes needed). */
+        /* Chat line time stamp: epoch was the second tab-separated field.
+         * Render as [HH:MM] in local server time. */
         char ts[8];
-        long epoch = atol(line);
+        long epoch = atol(f1 + 1);
         if (epoch > 0) {
             struct tm tmv;
             localtime_r(&epoch, &tmv);

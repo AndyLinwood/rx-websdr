@@ -63,8 +63,7 @@
         }
 
         /* Абсолютное позиционирование оверлея настройки (carrier/edgelower/
-           edgeupper/yellowbar). В оригинале это в style.css — здесь, чтобы
-           новый дизайн не зависел от старого CSS. */
+           edgeupper/yellowbar). */
         .scaleabs { position: absolute; }
 
         /* Кнопки диапазонов — по центру */
@@ -72,13 +71,13 @@
             display: block;
             text-align: center;
         }
-        /* Цифровой шрифт частоты (как в рабочей версии) */
+        /* Цифровой шрифт частоты */
         @font-face {
             font-family: 'digital-font';
             src: url('DS-DIGII.ttf');
         }
 
-        /* --- Loader (как в рабочей версии) --- */
+        /* --- Loader  --- */
         .loader {
             display: flex;
             flex-direction: column;
@@ -148,11 +147,11 @@
         .success:before { content: "На этом диапазоне пока нет приёмника. Для его появления Вы можете помочь проекту! Кнопка  внизу страницы"; }
 
 
-        /* Горизонтальная жёлтая полоска на указателе настройки (как в оригинале) */
+        /* Горизонтальная жёлтая полоска на указателе настройки */
         #yellowbarr { background-color:yellow; top:1px; height:1px; }
         #yellowbara:hover #yellowbarr { top:2px; height:2px; }
         /* Полоса фильтра — затенение по водопаду, зависит от ширины полосы
-           (width:100% от #yellowbar), как в рабочем rx-websdr style.css */
+           (width:100% от #yellowbar) */
         .vl {
             position:absolute;
             width:100%;
@@ -166,7 +165,7 @@
                 rgb(255,255,0) 120%);
         }
 
-        /* Magic Eye: плавное движение + сектор снизу (как в оригинале) */
+        /* Magic Eye: плавное движение + сектор снизу */
         .progress-ring__circle {
             transition: 0.35s stroke-dashoffset;
             transform: rotate(-90deg);
@@ -405,7 +404,7 @@
             color: #667;
             pointer-events: none;
         }
-        /* --- S-метр: классы из оригинала (websdr-head.html) --- */
+        /* --- S-метр: классы из оригинала --- */
         .smeterpeak {
             height: 11.17px;
             margin: 0 0 -12px 7px;

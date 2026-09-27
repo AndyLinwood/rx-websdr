@@ -30,7 +30,7 @@
     
     <!-- Шапка (Row 0) -->
     <header>
-        <h2>RX-WEBSDR Ярославль · LO07AQ98LT · RX888MKII &amp; FX3</h2>
+        <h2>RX-WEBSDR Ярославль · LO07AQ98LT · RX888MKII</h2>
         <div class="info-drop">
             <button type="button" class="info-drop-btn" onclick="var p=document.getElementById('infodrop'); p.style.display=(p.style.display==='block')?'none':'block';">О приёмнике ▾</button>
             <div class="info-drop-panel" id="infodrop">
@@ -104,7 +104,7 @@
     </div>
     
     <form name="usernameform" class="hidden-form-system" onsubmit="return setusernamecookie();">
-        <input type="text" name="username" value="Слушатель">
+        <input type="text" name="username" value=" ">
     </form>
 
     <!-- Контейнер Водопада 1024px (Row 1) -->
@@ -113,7 +113,7 @@
          Статичный canvas здесь был бы затёрт при загрузке (innerHTML='').
          Оверлей фильтра (yellowbar/edgelower/edgeupper/carrier) лежит
          ВНЕ #waterfalls (в #wfcontainer), чтобы пересоздание водопада
-         его не трогало — так же как в оригинале. -->
+         его не трогало  -->
     <div id="wfccontainer">
         <div id="wfccontainer_inner">
             <div id="wfcontainer" style="position:relative; transform-origin: 0% 0%;" class="clear">
@@ -142,8 +142,8 @@
 <!-- Информационная строка под водопадом -->
     <div class="panel" style="padding: 4px 8px; display: flex; justify-content: space-between; align-items: center;">
         <form name="usernameform_visible" onsubmit="document.usernameform.username.value=this.username_v.value; setusernamecookie(); return false;" style="display:inline-block; margin:0;">
-            <span>Имя/Позывной:</span>
-            <input type="text" name="username_v" id="visitname" style="width: 120px;" value="Слушатель" onchange="document.usernameform.username.value=this.value; setusernamecookie();">
+            <span>Ваше Имя или Позывной:</span>
+            <input type="text" name="username_v" id="visitname" style="width: 120px;" value=" " onchange="document.usernameform.username.value=this.value; setusernamecookie();">
         </form>
         <div style="color: var(--neon-green); font-weight: bold; font-size: 10px;">
             Круглый стол ЯО по воскресеньям в 21:00msk — <a href="https://ua3mrs.ru/#freq=145725000,mod=nfm,sql=-47" target="_blank" style="color: var(--neon-blue);">145,725 MHz</a> / FM / CTCSS 127.3 Гц
@@ -328,11 +328,13 @@
                 <div style="margin-top: 8px;">
                     <!-- Кнопки шага частоты -->
                     <div class="btn-group" style="justify-content: center; margin-bottom: 6px;">
-                        <button onclick="freq_step('-1');">◀◀</button>
-                        <button onclick="freqstep(-1);">◀</button>
+                        <button onclick="tune_step=0; freqstep(-3); setstep();" style="border-radius: 40px 0px 0px 40px;">◀◀◀</button>
+                        <button onclick="tune_step=0; freqstep(-2); setstep();">◀◀</button>
+                        <button onclick="freq_step('-1');">◀</button>
                         <button onclick="freq_step('9');" class="active-blue">0</button>
-                        <button onclick="freqstep(1);">▶</button>
-                        <button onclick="freq_step('+1');">▶▶</button>
+                        <button onclick="freq_step('+1');">▶</button>
+                        <button onclick="tune_step=0; freqstep(+2); setstep();">▶▶</button>
+                        <button onclick="tune_step=0; freqstep(+3); setstep();" style="border-radius: 0px 40px 40px 0px;">▶▶▶</button>
                     </div>
                     
                     <!-- Ряд выбора Моды -->
@@ -350,7 +352,7 @@
             <div class="panel">
                 <div class="panel-title">Waterfall Settings</div>
 
-                <!-- Кнопки зума (как в боевом) -->
+                <!-- Кнопки зума  -->
                 <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:4px; margin-bottom:8px;">
                     <button class="btnZoom" title="view entire frequency range of this receiver" onclick="wfset(4);" style="border-radius: 40px 0px 0px 40px;">Max out</button>
                     <button class="btnZoom" title="zoom out one step" onclick="wfset(1);">Zoom out</button>
@@ -387,16 +389,18 @@
             </div>
         </div>
 
-        <!-- ПРАВАЯ КОЛОНКА: Настройки Tube, DSP, Аудио и Запись -->
+        <!-- ПРАВАЯ КОЛОНКА: Настройки DSP, Аудио и Запись -->
         <div class="flex-col">
             <div class="panel">
-                <div class="panel-title">Tube & DSP</div>
+                <div class="panel-title">DSP & AUDIO</div>
 
-                <!-- Переключатели в столбик (по живому эталону :8095) -->
+                <!-- Переключатели в столбик  -->
                 <div class="sw-row">
                     <span class="sw-label">Mute</span>
                     <input type="checkbox" class="sw-toggle" id="mutecheckbox" onclick="setmute(this.checked?1:0);toggle_info('mute',this.checked);">
                 </div>
+		<br />
+                <hr style="border-color:var(--border-color); margin:8px 0;">
                 <div class="sw-row">
                     <span class="sw-label">Autonotch</span>
                     <input type="checkbox" class="sw-toggle" id="autonotchcheckbox" onclick="setautonotch(this.checked?1:0);toggle_info('anf1',this.checked);">
@@ -425,7 +429,7 @@
                     <span class="sw-label">Hi-Boost</span>
                     <input type="checkbox" class="sw-toggle" id="hiboostcheckbox" onclick="sethboost(this.checked?1:0);">
                 </div>
-
+		<br />
                 <hr style="border-color:var(--border-color); margin:8px 0;">
 
                 <!-- Squelch на своей строке + порог -->
@@ -519,5 +523,10 @@ document.addEventListener('click', function (ev) {
         d.style.display = 'none';
 });
 </script>
+
+<!-- Копирайт в самом низу страницы -->
+<footer style="text-align:center; color:var(--text-muted); font-size:10px; padding:12px 0 4px 0; border-top:1px solid var(--border-color); margin-top:12px;">
+    © 2007-2026, Ярославль • Региональное отделение Союза радиолюбителей России • <a href="https://srr-76.ru" target="_blank" style="color:var(--neon-blue); text-decoration:none;">srr-76.ru</a>
+</footer>
 </body>
 </html>
