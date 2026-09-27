@@ -272,12 +272,12 @@
         <!-- ЦЕНТРАЛЬНАЯ КОЛОНКА: Частота, S-метр, Кнопки настройки частоты и Тюнера -->
         <div class="flex-col">
             <div class="panel">
-                <div class="panel-title">Frequency & Signal Control</div>
+                <div class="panel-title" style="text-align:center;">Frequency & Signal Control</div>
                 
                 <div class="digital-display" style="display:flex; align-items:center; gap:8px; padding:4px 8px;">
                     <!-- Magic Eye (круговой индикатор) — JS пишет в circle[0]/circle[1]
                          через setProgress(). Должен быть САМЫМ ПЕРВЫМ circle в DOM. -->
-                    <svg style="display:block; border:2px solid rgb(43,43,43); border-radius:50%; width:56px; height:56px; background:green; flex:0 0 auto; box-shadow: 0 0 8px 0px rgb(13,224,12);" class="progress-ring" width="120" height="120">
+                    <svg style="display:block; position:absolute; left:-4px; top:50%; transform:translateY(-50%); z-index:5; border:2px solid rgb(43,43,43); border-radius:50%; width:84px; height:84px; background:#072507; background-image:radial-gradient(circle at 50% 45%, #1e5e1e 0%, #0f3d0f 55%, #072507 100%); box-shadow: 0 0 12px 2px rgb(13,224,12), inset 0 0 14px rgba(0,0,0,0.85);" class="progress-ring" width="120" height="120">
                         <g>
                             <linearGradient id="gradient" gradientTransform="rotate(90)" x1="50%">
                                 <stop offset="0" stop-color="#59b189" style="stop-color:#c3ffc3;"></stop>
@@ -287,11 +287,18 @@
                                 <stop offset="0%" stop-color="#59b189" stop-opacity="0" style="stop-color: rgb(15,252,13); stop-opacity:1;"></stop>
                                 <stop offset="0" stop-color="#59b189" style="stop-color:#c3ffc3;"></stop>
                             </linearGradient>
-                            <circle class="progress-ring__circle" stroke="url(#gradient)" stroke-width="17" r="20" fill="transparent" cx="28" cy="28" style="stroke-dasharray:125.664,125.664; stroke-dashoffset:125.664;"></circle>
-                            <circle class="progress-ring__circle" stroke="url(#gradient2)" stroke-width="17" r="20" fill="transparent" cx="28" cy="28" style="stroke-dasharray:125.664,125.664; stroke-dashoffset:-125.664; mix-blend-mode:lighten;"></circle>
+                            <circle class="progress-ring__circle" stroke="url(#gradient)" stroke-width="24" r="28" fill="transparent" cx="40" cy="40" style="stroke-dasharray:175.93,175.93; stroke-dashoffset:175.93;"></circle>
+                            <circle class="progress-ring__circle" stroke="url(#gradient2)" stroke-width="24" r="28" fill="transparent" cx="40" cy="40" style="stroke-dasharray:175.93,175.93; stroke-dashoffset:-175.93; mix-blend-mode:lighten;"></circle>
                         </g>
-                        <!-- Тёмный центр Magic Eye (как в оригинале: #2d2d2d, 23px) -->
-                        <circle cx="28" cy="28" r="11.5" fill="#2d2d2d" stroke="none"></circle>
+                        <!-- Тёмный центр Magic Eye (как в оригинале: #2d2d2d) — с тенью для «глубины лампы» -->
+                        <circle cx="40" cy="40" r="17" fill="url(#centerdark)" stroke="none"></circle>
+                        <defs>
+                            <radialGradient id="centerdark">
+                                <stop offset="0%" stop-color="#3a3a3a"></stop>
+                                <stop offset="65%" stop-color="#2d2d2d"></stop>
+                                <stop offset="100%" stop-color="#141414"></stop>
+                            </radialGradient>
+                        </defs>
                     </svg>
 
                     <!-- Поле ввода частоты — freqform оборачивает весь main-grid (ниже),

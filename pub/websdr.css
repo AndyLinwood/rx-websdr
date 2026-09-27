@@ -366,6 +366,7 @@
             flex: 1 1 auto;
             width: 100%;
             text-align: center;
+            padding-left: 96px;
             font-weight: bold;
         }
         #freq-digits:focus {
