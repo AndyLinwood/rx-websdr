@@ -1002,6 +1002,59 @@ static int chat_emit(struct lws *wsi, unsigned client_chseq,
 /* /~~admin — chat moderation page                                     */
 /* ------------------------------------------------------------------ */
 
+/* Delete ALL chat records from a given name (case-insensitive). Used when
+ * banning a callsign: their whole history is removed. Rewrites chatfile. */
+static void chat_delete_by_name(const char *name) {
+    if (!g_config || !name || !name[0]) return;
+    char nlow[96];
+    int k = 0;
+    for (int i = 0; name[i] && k < (int)sizeof(nlow) - 1; i++) {
+        char c = name[i];
+        if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+        nlow[k++] = c;
+    }
+    nlow[k] = 0;
+    char tmp[512];
+    snprintf(tmp, sizeof(tmp), "%s.tmp", g_config->chatfile);
+    FILE *in = fopen(g_config->chatfile, "r");
+    if (!in) return;
+    FILE *out = fopen(tmp, "w");
+    if (!out) { fclose(in); return; }
+    char line[600];
+    int any = 0;
+    while (fgets(line, sizeof(line), in)) {
+        /* seq\tepoch\tname\tmsg — parse into the LINE ITSELF only for the
+         * name comparison; do NOT truncate the buffer (we must fputs() the
+         * original line verbatim for non-matching rows). */
+        char *save = line;
+        char *f1 = strchr(save, '\t');
+        if (!f1) { fputs(save, out); continue; }
+        char *t2 = strchr(f1 + 1, '\t');
+        if (!t2) { fputs(save, out); continue; }
+        char *t3 = strchr(t2 + 1, '\t');
+        if (!t3) { fputs(save, out); continue; }
+        /* copy name (between t2+1 and t3) into a scratch buffer */
+        char nm[96];
+        size_t nmlen = (size_t)(t3 - (t2 + 1));
+        if (nmlen >= sizeof(nm)) nmlen = sizeof(nm) - 1;
+        memcpy(nm, t2 + 1, nmlen);
+        nm[nmlen] = 0;
+        char blow[96];
+        int m = 0;
+        for (int j = 0; nm[j] && m < (int)sizeof(blow) - 1; j++) {
+            char c = nm[j];
+            if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+            blow[m++] = c;
+        }
+        blow[m] = 0;
+        if (strcmp(blow, nlow) == 0) { any = 1; continue; }  /* drop */
+        fputs(save, out);
+    }
+    fclose(in); fclose(out);
+    if (any) rename(tmp, g_config->chatfile);
+    else remove(tmp);
+}
+
 /* Delete a chat record by its seq: rewrite chatfile without that line.
  * seqs are never reused, so client cursors stay valid. Returns 1 if found. */
 static int chat_delete_by_seq(unsigned seq) {
@@ -1071,7 +1124,7 @@ static int admin_build_table(char *buf, size_t cap) {
                 "<tr><td>%u</td><td>%s</td>"
                 "<td><a href='javascript:ban(\"%s\")' title='забанить'>%s</a></td>"
                 "<td>%s</td>"
-                "<td><a class=del href='/?admin=del&seq=%u'>[удалить]</a></td></tr>",
+                "<td><a class=del href='/~~admin?admin=del&seq=%u'>[удалить]</a></td></tr>",
                 seq, ts, name, name, msg, seq);
         }
     }
@@ -1091,7 +1144,7 @@ static int admin_build_html(char *buf, size_t cap) {
         "<title>Чат — админ</title>"
         "%s</head><body>"
         "<h2>Админ чата</h2>"
-        "<p><a href='/?'>На сайт</a> | <a href='/?admin=logout'>Выйти</a> | "
+        "<p><a href='/?'>На сайт</a> | <a href='/~~admin?admin=logout'>Выйти</a> | "
         "<button onclick='refresh()'>Обновить</button></p>"
         "<script>"
         "function ban(v){var i=document.getElementById('be');i.value=v;i.focus();}"
@@ -1108,7 +1161,7 @@ static int admin_build_html(char *buf, size_t cap) {
         for (int i = 0; i < g_bann; i++)
             if (g_banlist[i][0])
                 n += snprintf(buf + n, cap - n,
-                    "<li>%s <a class=del href='/?admin=unban&e=%s'>[разбанить]</a></li>",
+                    "<li>%s <a class=del href='/~~admin?admin=unban&e=%s'>[разбанить]</a></li>",
                     g_banlist[i], g_banlist[i]);
         n += snprintf(buf + n, cap - n, "</ul>");
     } else {
@@ -1193,6 +1246,9 @@ static int serve_admin(struct lws *wsi) {
     else if (strcmp(action, "ban") == 0 && entry[0]) {
         banlist_add(entry);
         banlist_load();
+        /* banning a callsign (not an IP/CIDR): purge their messages too */
+        if (!strchr(entry, '.') && !strchr(entry, '/') && !strchr(entry, ':'))
+            chat_delete_by_name(entry);
     }
     else if (strcmp(action, "unban") == 0 && entry[0]) {
         banlist_remove(entry);
