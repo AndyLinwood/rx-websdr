@@ -223,6 +223,11 @@ static void handle_soundparam(struct client *cli, const char *params) {
         d[di] = 0;
     }
 
+    /* Server-side geo for anonymous listeners: resolved ONCE per peer when
+     * the client first sends ~~param (not in ~`othersjj` — a blocking curl
+     * there would stall the lws service loop and kill audio flushing). */
+    if (!cli->username[0]) server_geo_name(cli);
+
     /* mute may come alone (toggle) — apply it even without a band change */
     if (mute_s) {
         cli->muted = (atoi(mute_s) != 0);

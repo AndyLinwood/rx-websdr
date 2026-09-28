@@ -589,12 +589,11 @@ static int serve_othersjj(struct lws *wsi) {
         }
 
         /* escape single quotes / backslashes so the eval'd JS stays valid */
-        const char *disp = server_geo_name(cl);
         char esc[128];
         int e = 0;
-        for (int c = 0; disp && disp[c] && e < (int)sizeof(esc) - 2; c++) {
-            if (disp[c] == '\'' || disp[c] == '\\') esc[e++] = '\\';
-            esc[e++] = disp[c];
+        for (int c = 0; cl->username[c] && e < (int)sizeof(esc) - 2; c++) {
+            if (cl->username[c] == '\'' || cl->username[c] == '\\') esc[e++] = '\\';
+            esc[e++] = cl->username[c];
         }
         esc[e] = 0;
 
