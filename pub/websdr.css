@@ -66,10 +66,13 @@
            edgeupper/yellowbar). */
         .scaleabs { position: absolute; }
 
-        /* Кнопки диапазонов — по центру */
+        /* Кнопки диапазонов — по центру, одинаковой ширины (по «160m») */
         #bandbuttons {
             display: block;
             text-align: center;
+        }
+        #bandbuttons .btnBand {
+            min-width: 46px;
         }
         /* Цифровой шрифт частоты */
         @font-face {

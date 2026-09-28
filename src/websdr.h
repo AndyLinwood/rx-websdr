@@ -271,6 +271,8 @@ struct client {
     int lo_filter;
     int hi_filter;
     char username[64];        /* callsign/name from ~~param (for the users list) */
+    char geo_ip[64];          /* IP for which geo was resolved ("" = not yet) */
+    char geo[64];             /* cached geo "CC,City" for geo_ip */
     int uu_index;             /* stable slot index for the /~~othersjj users list */
     char vis_ip[64];          /* last visitor-logged IP   (dedup) */
     char vis_name[64];        /* last visitor-logged name (dedup) */
@@ -351,4 +353,5 @@ static inline double band_eff_center(const struct band *b) {
 }
 
 int stationinfo_load(const char *filename, struct websdr_config *config);
+const char *server_geo_name(struct client *cli);
 #endif

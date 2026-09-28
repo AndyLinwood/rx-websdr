@@ -9,10 +9,86 @@
 #include <sys/stat.h>
 
 #include <libwebsockets.h>
+#include <curl/curl.h>
 
 #include "websdr.h"
 
 extern struct websdr_config *g_config;
+
+
+/* Server-side geo fallback for anonymous listeners.
+ * If the client did not send a name (username empty), look up the peer IP in
+ * ipwho.is (free HTTPS, no key) exactly once per IP and cache the result in
+ * cli->geo / cli->geo_ip. The users list is rendered from cli->username, so
+ * this makes anonymous listeners show "RU,City" instead of "unknown"/empty,
+ * independent of the client's own geo lookup or ad blockers. */
+struct geo_write_ctx { char *buf; size_t cap; size_t *used; };
+static size_t geo_write_cb(char *ptr, size_t size, size_t nmemb, void *udata) {
+    struct geo_write_ctx *c = (struct geo_write_ctx *)udata;
+    size_t n = size * nmemb;
+    size_t room = c->cap - *c->used;
+    if (n > room) n = room;
+    memcpy(c->buf + *c->used, ptr, n);
+    *c->used += n;
+    return size * nmemb;
+}
+
+const char *server_geo_name(struct client *cli) {
+    if (!cli || !cli->wsi) return cli ? cli->username : "";
+    if (cli->username[0]) return cli->username;      /* explicit name wins */
+
+    char ip[64] = "";
+    lws_get_peer_simple(cli->wsi, ip, sizeof(ip));
+    if (!ip[0] || strcmp(ip, "::1") == 0 || strcmp(ip, "127.0.0.1") == 0)
+        return cli->username;
+
+    /* Cache per IP: once resolved for this peer, reuse it. */
+    if (cli->geo_ip[0] && strcmp(cli->geo_ip, ip) == 0)
+        return cli->geo[0] ? cli->geo : cli->username;
+
+    cli->geo[0] = 0;
+    strncpy(cli->geo_ip, ip, sizeof(cli->geo_ip) - 1);
+
+    CURL *curl = curl_easy_init();
+    if (!curl) return cli->username;
+
+    char url[160];
+    snprintf(url, sizeof(url), "https://ipwho.is/%s", ip);
+
+    char buf[2048];
+    size_t used = 0;
+    struct geo_write_ctx wctx = { buf, sizeof(buf), &used };
+    curl_easy_setopt(curl, CURLOPT_URL, url);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT, 4L);
+    curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, 2L);
+    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, geo_write_cb);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &wctx);
+    CURLcode rc = curl_easy_perform(curl);
+    curl_easy_cleanup(curl);
+    if (rc != CURLE_OK || used == 0) return cli->username;
+    buf[used < sizeof(buf) ? used : sizeof(buf) - 1] = 0;
+
+    /* {"country_code":"RU","city":"Yaroslavl",...} — parse the two fields. */
+    char *cc = strstr(buf, "\"country_code\":\"");
+    char *ct = strstr(buf, "\"city\":\"");
+    if (cc && ct) {
+        char country[8] = "", city[48] = "";
+        cc += strlen("\"country_code\":\"");
+        int k = 0;
+        while (*cc && *cc != '"' && k < (int)sizeof(country) - 1) country[k++] = *cc++;
+        country[k] = 0;
+        ct += strlen("\"city\":\"");
+        k = 0;
+        while (*ct && *ct != '"' && k < (int)sizeof(city) - 1) city[k++] = *ct++;
+        city[k] = 0;
+        if (country[0]) {
+            snprintf(cli->geo, sizeof(cli->geo), "%s%s%s",
+                     country, city[0] ? "," : "", city);
+            return cli->geo;
+        }
+    }
+    return cli->username;
+}
 
 static void visitor_log(struct client *cli, const char *bandname);
 

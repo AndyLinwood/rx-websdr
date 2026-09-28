@@ -2533,16 +2533,42 @@ function sendlog()
 function ip2geo(id)
 {
   var xhttp = new XMLHttpRequest();
+  var url = "https://ipwho.is/";
 
-  xhttp.open("GET","http://ip-api.com/csv?fields=countryCode,city", true);
+  xhttp.open("GET", url, true);
   xhttp.send();
   xhttp.onreadystatechange = function()
   {
     var v = "unknown";
-    if (xhttp.readyState == 4 && xhttp.status == 200)
-      v = (xhttp.responseText || "").replace(/[\r\n]+/g, "");
-    geo = v;
-    document.getElementById(id).value = v;
+    if (xhttp.readyState == 4 && xhttp.status == 200) {
+      try {
+        var r = JSON.parse(xhttp.responseText);
+        if (r && r.success && r.country_code) v = r.country_code + "," + (r.city || "");
+      } catch (e) { v = "unknown"; }
+    }
+    /* fallback: если ipwho.is не отдал гео — пробуем ipinfo.io (тоже https, CORS *) */
+    if (v === "unknown") {
+      var x2 = new XMLHttpRequest();
+      x2.open("GET","https://ipinfo.io/json", true);
+      x2.send();
+      x2.onreadystatechange = function() {
+        var v2 = "unknown";
+        if (x2.readyState == 4 && x2.status == 200) {
+          try {
+            var r2 = JSON.parse(x2.responseText);
+            if (r2 && r2.country) v2 = r2.country + "," + (r2.city || "");
+          } catch (e2) { v2 = "unknown"; }
+        }
+        setgeo_result(id, v2);
+      };
+      return;
+    }
+    setgeo_result(id, v);
+  }
+}
+function setgeo_result(id, v) {
+    var el = document.getElementById(id);
+    if (el) el.value = v;
     /* Подставить гео в поле и сразу отправить на сервер (~~param c name=):
      * иначе первый param уходит с пустым именем, и слушатель виден пустым
      * в списке (~~othersjj). */
@@ -2550,7 +2576,6 @@ function ip2geo(id)
         document.usernameform.username.value = document.getElementById(id).value;
         send_soundsettings_to_server();
     }, 500);
-  }
 }
 
 function debug(a)

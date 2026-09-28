@@ -488,7 +488,7 @@
         b.u = 1;
         b.startstop = function(a) {
             if (a && !b.d)
-                b.d = new WebSocket("ws://" + window.location.host + "/~~waterstream" + b.band + "?format=" + b.n + "&width=" + aa + "&zoom=" + this.b + "&start=" + this.c),
+                b.d = new WebSocket((location.protocol==="https:"?"wss://":"ws://") + window.location.host + "/~~waterstream" + b.band + "?format=" + b.n + "&width=" + aa + "&zoom=" + this.b + "&start=" + this.c),
                 b.d.binaryType = "arraybuffer",
                 b.d[s] = onmessage,
                 b.l = t,
