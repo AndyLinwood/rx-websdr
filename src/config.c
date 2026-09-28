@@ -239,6 +239,13 @@ int config_reload_hot(struct websdr_config *live) {
     strncpy(live->visitorsfile, tmp->visitorsfile, sizeof(live->visitorsfile)-1);
     live->visitorsmax = tmp->visitorsmax;
 
+    /* Admin chat moderation: password / ban-file path — safe to swap on the
+     * fly (checked per request / per banlist access). */
+    strncpy(live->adminpass, tmp->adminpass, sizeof(live->adminpass)-1);
+    live->adminpass[sizeof(live->adminpass)-1] = 0;
+    strncpy(live->banfile, tmp->banfile, sizeof(live->banfile)-1);
+    live->banfile[sizeof(live->banfile)-1] = 0;
+
     /* gain применяется при рендере строки водопада — достаточно обновить поле. */
     for (int i = 0; i < live->nbands; i++) {
         if (live->bands[i].gain != tmp->bands[i].gain) {
