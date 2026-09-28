@@ -904,6 +904,27 @@ static int ws_handler(struct lws *wsi, enum lws_callback_reasons reason,
         cli->fd = lws_get_socket_fd(wsi);
         cli->band = NULL;
         cli->waterfall_active = false;
+        /* Real client IP: behind caddy every peer is 127.0.0.1, so prefer
+         * X-Forwarded-For (first entry) added by the proxy; fall back to the
+         * socket peer for direct connections. */
+        {
+            char xff[256] = "";
+            char *src = NULL;
+            if (lws_hdr_copy(wsi, xff, sizeof(xff), WSI_TOKEN_X_FORWARDED_FOR) > 0)
+                src = xff;
+            if (src) {
+                char *comma = strchr(src, ',');
+                if (comma) *comma = 0;
+                while (*src == ' ') src++;
+                char *e = src + strlen(src);
+                while (e > src && e[-1] == ' ') *--e = 0;
+            }
+            if (src && src[0])
+                strncpy(cli->client_ip_str, src, sizeof(cli->client_ip_str) - 1);
+            else
+                lws_get_peer_simple(wsi, cli->client_ip_str, sizeof(cli->client_ip_str));
+            cli->client_ip_str[sizeof(cli->client_ip_str) - 1] = 0;
+        }
         /* stable slot for the /~~othersjj users list */
         cli->uu_index = -1;
         for (int si = 0; si < MAX_CLIENTS; si++) {

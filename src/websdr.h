@@ -272,6 +272,7 @@ struct client {
     int hi_filter;
     char username[64];        /* callsign/name from ~~param (for the users list) */
     char geo_ip[64];          /* IP for which geo was resolved ("" = not yet) */
+    char client_ip_str[64];    /* real client IP (X-Forwarded-For or peer) */
     char geo[64];             /* cached geo "CC,City" for geo_ip */
     int uu_index;             /* stable slot index for the /~~othersjj users list */
     char vis_ip[64];          /* last visitor-logged IP   (dedup) */

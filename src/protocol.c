@@ -33,12 +33,27 @@ static size_t geo_write_cb(char *ptr, size_t size, size_t nmemb, void *udata) {
     return size * nmemb;
 }
 
+/* Real client IP: behind the caddy reverse proxy every peer is 127.0.0.1,
+ * so read the X-Forwarded-For header added by caddy (first entry = client).
+ * Falls back to the socket peer (direct/non-proxied connections). */
+static void client_ip(struct client *cli, char *out, size_t outsz) {
+    if (!cli) { if (outsz) out[0] = 0; return; }
+    if (cli->client_ip_str[0]) {
+        strncpy(out, cli->client_ip_str, outsz - 1);
+        out[outsz - 1] = 0;
+    } else if (cli->wsi) {
+        lws_get_peer_simple(cli->wsi, out, outsz);
+    } else {
+        out[0] = 0;
+    }
+}
+
 const char *server_geo_name(struct client *cli) {
     if (!cli || !cli->wsi) return cli ? cli->username : "";
     if (cli->username[0]) return cli->username;      /* explicit name wins */
 
     char ip[64] = "";
-    lws_get_peer_simple(cli->wsi, ip, sizeof(ip));
+    client_ip(cli, ip, sizeof(ip));
     if (!ip[0] || strcmp(ip, "::1") == 0 || strcmp(ip, "127.0.0.1") == 0)
         return cli->username;
 
@@ -287,8 +302,7 @@ static void visitor_log(struct client *cli, const char *bandname) {
     if (!cli) return;
 
     char ip[64] = "?";
-    if (cli->wsi)
-        lws_get_peer_simple(cli->wsi, ip, sizeof(ip));
+    client_ip(cli, ip, sizeof(ip));
 
     char name[64] = "";
     {
