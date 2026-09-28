@@ -1027,41 +1027,10 @@ static int chat_delete_by_seq(unsigned seq) {
 
 
 /* Build the admin page HTML (chat tail + controls). Returns length. */
-static int admin_build_html(char *buf, size_t cap) {
+/* Render just the chat table (used by AJAX refresh and full page). */
+static int admin_build_table(char *buf, size_t cap) {
     int n = 0;
-    const char *css =
-        "<style>body{font:14px system-ui;margin:20px;background:#111;color:#ddd}"
-        "table{border-collapse:collapse;width:100%}"
-        "td,th{border:1px solid #333;padding:4px 8px;text-align:left}"
-        ".del{color:#f66}a{color:#7af}</style>";
     n += snprintf(buf + n, cap - n,
-        "<!DOCTYPE html><html lang=ru><head><meta charset=utf-8>"
-        "<title>Чат — админ</title>"
-        "<meta http-equiv=refresh content='5'>"
-        "%s</head><body>"
-        "<h2>Админ чата</h2>"
-        "<p><a href='/?'>На сайт</a> | <a href='/?admin=logout'>Выйти</a></p>",
-        css);
-
-    if (g_bann > 0) {
-        n += snprintf(buf + n, cap - n, "<h3>В бане:</h3><ul>");
-        for (int i = 0; i < g_bann; i++)
-            if (g_banlist[i][0])
-                n += snprintf(buf + n, cap - n,
-                    "<li>%s <a class=del href='/?admin=unban&e=%s'>[разбанить]</a></li>",
-                    g_banlist[i], g_banlist[i]);
-        n += snprintf(buf + n, cap - n, "</ul>");
-    } else {
-        n += snprintf(buf + n, cap - n, "<h3>В бане: пусто</h3>");
-    }
-
-    n += snprintf(buf + n, cap - n,
-        "<h3>Забанить:</h3><form method=get>"
-        "<input type=hidden name=admin value=ban><input name=e placeholder='позывной или IP/CIDR'>"
-        "<button>OK</button></form>");
-
-    n += snprintf(buf + n, cap - n,
-        "<h3>Чат (последние 100):</h3>"
         "<table><tr><th>seq</th><th>время</th><th>имя</th><th>сообщение</th><th></th></tr>");
     FILE *fp = g_config ? fopen(g_config->chatfile, "r") : NULL;
     if (fp) {
@@ -1099,12 +1068,62 @@ static int admin_build_html(char *buf, size_t cap) {
                 strftime(ts, sizeof(ts), "%H:%M", &tmv);
             }
             n += snprintf(buf + n, cap - n,
-                "<tr><td>%u</td><td>%s</td><td>%s</td><td>%s</td>"
+                "<tr><td>%u</td><td>%s</td>"
+                "<td><a href='javascript:ban(\"%s\")' title='забанить'>%s</a></td>"
+                "<td>%s</td>"
                 "<td><a class=del href='/?admin=del&seq=%u'>[удалить]</a></td></tr>",
-                seq, ts, name, msg, seq);
+                seq, ts, name, name, msg, seq);
         }
     }
-    n += snprintf(buf + n, cap - n, "</table></body></html>");
+    n += snprintf(buf + n, cap - n, "</table>");
+    return n;
+}
+
+static int admin_build_html(char *buf, size_t cap) {
+    int n = 0;
+    const char *css =
+        "<style>body{font:14px system-ui;margin:20px;background:#111;color:#ddd}"
+        "table{border-collapse:collapse;width:100%}"
+        "td,th{border:1px solid #333;padding:4px 8px;text-align:left}"
+        ".del{color:#f66}a{color:#7af}</style>";
+    n += snprintf(buf + n, cap - n,
+        "<!DOCTYPE html><html lang=ru><head><meta charset=utf-8>"
+        "<title>Чат — админ</title>"
+        "%s</head><body>"
+        "<h2>Админ чата</h2>"
+        "<p><a href='/?'>На сайт</a> | <a href='/?admin=logout'>Выйти</a> | "
+        "<button onclick='refresh()'>Обновить</button></p>"
+        "<script>"
+        "function ban(v){var i=document.getElementById('be');i.value=v;i.focus();}"
+        "function refresh(){"
+        "fetch('?admin=raw').then(function(r){return r.text();}).then(function(t){"
+        "document.getElementById('chatfeed').innerHTML=t;});}"
+        "setInterval(refresh,5000);"
+        "refresh();"
+        "</script>",
+        css);
+
+    if (g_bann > 0) {
+        n += snprintf(buf + n, cap - n, "<h3>В бане:</h3><ul>");
+        for (int i = 0; i < g_bann; i++)
+            if (g_banlist[i][0])
+                n += snprintf(buf + n, cap - n,
+                    "<li>%s <a class=del href='/?admin=unban&e=%s'>[разбанить]</a></li>",
+                    g_banlist[i], g_banlist[i]);
+        n += snprintf(buf + n, cap - n, "</ul>");
+    } else {
+        n += snprintf(buf + n, cap - n, "<h3>В бане: пусто</h3>");
+    }
+
+    n += snprintf(buf + n, cap - n,
+        "<h3>Забанить:</h3><form method=get>"
+        "<input type=hidden name=admin value=ban><input id=be name=e placeholder='позывной или IP/CIDR'>"
+        "<button>OK</button></form>");
+
+    n += snprintf(buf + n, cap - n,
+        "<h3>Чат (последние 100):</h3><div id=chatfeed>");
+    n += admin_build_table(buf + n, (size_t)(cap - n));
+n += snprintf(buf + n, cap - n, "</div></body></html>");
     return n;
 }
 
@@ -1182,6 +1201,13 @@ static int serve_admin(struct lws *wsi) {
     else if (strcmp(action, "clear") == 0) {
         FILE *fp = g_config->chatfile[0] ? fopen(g_config->chatfile, "w") : NULL;
         if (fp) fclose(fp);
+    }
+
+    if (strcmp(action, "raw") == 0) {
+        /* AJAX refresh: just the chat table body (no full page). */
+        char html[65536];
+        int n = admin_build_table(html, sizeof(html));
+        return serve_mem(wsi, html, (size_t)n, "text/html");
     }
 
     char html[65536];
