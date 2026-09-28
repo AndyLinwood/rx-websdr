@@ -16,3 +16,6 @@ rx-websdr-test/
 *.bak-*
 *.bak-*
 *.log
+
+# Admin ban list (server-local, secrets may appear in callsigns)
+banlist.txt
