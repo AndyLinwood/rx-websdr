@@ -10,6 +10,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
+#include <stdint.h>
 #include <math.h>
 #include <time.h>
 #include <sys/time.h>
@@ -719,8 +721,170 @@ static void chat_init_rows(void) {
     g_chat_seq = maxseq;
 }
 
+
+/* ------------------------------------------------------------------ */
+/* Admin: /~~admin — moderate the chat (delete msgs, ban by callsign
+ * and by IP). Protected by a password from cfg "adminpass"; a successful
+ * login sets a session cookie (adminses) whose value is a simple hash of
+ * the password — good enough for a hobby server, no external deps.      */
+/* ------------------------------------------------------------------ */
+
+/* Ban list: one entry per line — either a callsign (exact match, case
+ * insensitive) or an IP/CIDR. Loaded once at startup and re-read on each
+ * ban/unban; checked in chat_append before a message is stored. */
+#define BANLIST_MAX 256
+static char g_banlist[BANLIST_MAX][128];
+static int  g_bann = 0;
+
+static void banlist_load(void) {
+    if (!g_config || g_config->banfile[0] == 0) return;
+    g_bann = 0;
+    FILE *fp = fopen(g_config->banfile, "r");
+    if (!fp) return;
+    char line[160];
+    while (g_bann < BANLIST_MAX && fgets(line, sizeof(line), fp)) {
+        char *e = line + strlen(line);
+        while (e > line && (e[-1] == '\n' || e[-1] == '\r' || e[-1] == ' ')) *--e = 0;
+        if (!line[0] || line[0] == '#') continue;
+        strncpy(g_banlist[g_bann], line, sizeof(g_banlist[g_bann]) - 1);
+        g_banlist[g_bann][sizeof(g_banlist[g_bann]) - 1] = 0;
+        g_bann++;
+    }
+    fclose(fp);
+}
+
+/* Real client IP from a raw wsi (used by admin/chat paths outside a
+ * struct client): X-Forwarded-For first entry (caddy) or socket peer. */
+static void client_ip_from_wsi(struct lws *wsi, char *out, size_t outsz) {
+    out[0] = 0;
+    if (!wsi) return;
+    char xff[256] = "";
+    if (lws_hdr_copy(wsi, xff, sizeof(xff), WSI_TOKEN_X_FORWARDED_FOR) > 0) {
+        char *comma = strchr(xff, ',');
+        if (comma) *comma = 0;
+        char *sp = xff;
+        while (*sp == ' ') sp++;
+        char *e = sp + strlen(sp);
+        while (e > sp && e[-1] == ' ') *--e = 0;
+        if (sp[0]) { strncpy(out, sp, outsz - 1); out[outsz - 1] = 0; return; }
+    }
+    lws_get_peer_simple(wsi, out, outsz);
+}
+
+/* CIDR match: "a.b.c.d/len" against dotted ip. */
+static int cidr_match(const char *cidr, const char *ip) {
+    unsigned a[4] = {0}, b[4] = {0};
+    int plen = 32;
+    char buf[64];
+    strncpy(buf, cidr, sizeof(buf) - 1); buf[sizeof(buf) - 1] = 0;
+    char *slash = strchr(buf, '/');
+    if (slash) { *slash = 0; plen = atoi(slash + 1); }
+    if (sscanf(buf, "%u.%u.%u.%u", &a[0], &a[1], &a[2], &a[3]) != 4) return 0;
+    if (sscanf(ip, "%u.%u.%u.%u", &b[0], &b[1], &b[2], &b[3]) != 4) return 0;
+    if (plen < 0) plen = 0; if (plen > 32) plen = 32;
+    unsigned mask = plen ? (0xFFFFFFFFu << (32 - plen)) : 0;
+    unsigned av = (a[0]<<24)|(a[1]<<16)|(a[2]<<8)|a[3];
+    unsigned bv = (b[0]<<24)|(b[1]<<16)|(b[2]<<8)|b[3];
+    return (av & mask) == (bv & mask);
+}
+
+static int is_banned(const char *name, const char *ip) {
+    if (g_bann <= 0) return 0;
+    char nlow[128];
+    int k = 0;
+    for (int i = 0; name && name[i] && k < (int)sizeof(nlow) - 1; i++) {
+        char c = name[i];
+        if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+        nlow[k++] = c;
+    }
+    nlow[k] = 0;
+    for (int i = 0; i < g_bann; i++) {
+        if (!g_banlist[i][0]) continue;
+        if (strchr(g_banlist[i], '/')) {
+            if (ip && cidr_match(g_banlist[i], ip)) return 1;
+        } else if (strchr(g_banlist[i], '.')) {
+            if (ip && strcmp(g_banlist[i], ip) == 0) return 1;
+        } else {
+            /* callsign — case-insensitive exact */
+            char blow[128];
+            int m = 0;
+            for (int j = 0; g_banlist[i][j] && m < (int)sizeof(blow) - 1; j++) {
+                char c = g_banlist[i][j];
+                if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+                blow[m++] = c;
+            }
+            blow[m] = 0;
+            if (nlow[0] && strcmp(nlow, blow) == 0) return 1;
+        }
+    }
+    return 0;
+}
+
+static void banlist_add(const char *entry) {
+    if (!entry || !entry[0]) return;
+    /* avoid duplicates */
+    for (int i = 0; i < g_bann; i++)
+        if (strcasecmp(g_banlist[i], entry) == 0) return;
+    if (g_bann >= BANLIST_MAX) return;
+    strncpy(g_banlist[g_bann], entry, sizeof(g_banlist[g_bann]) - 1);
+    g_banlist[g_bann][sizeof(g_banlist[g_bann]) - 1] = 0;
+    g_bann++;
+    FILE *fp = g_config && g_config->banfile[0] ? fopen(g_config->banfile, "a") : NULL;
+    if (fp) { fprintf(fp, "%s\n", entry); fclose(fp); }
+}
+
+static void banlist_remove(const char *entry) {
+    int removed = 0;
+    for (int i = 0; i < g_bann; i++) {
+        if (strcasecmp(g_banlist[i], entry) == 0) {
+            g_banlist[i][0] = 0; removed++;
+        }
+    }
+    if (!removed || !g_config || g_config->banfile[0] == 0) return;
+    FILE *fp = fopen(g_config->banfile, "w");
+    if (fp) {
+        for (int i = 0; i < g_bann; i++)
+            if (g_banlist[i][0]) fprintf(fp, "%s\n", g_banlist[i]);
+        fclose(fp);
+    }
+}
+
+/* Session cookie: adminses = hash(adminpass). */
+static uint32_t admin_hash(const char *s) {
+    uint32_t h = 5381;
+    for (; s && *s; s++) h = h * 33 + (unsigned char)*s;
+    return h;
+}
+static char g_admin_session[16];   /* hex of hash, set at config time */
+
+static void admin_session_init(void) {
+    if (g_admin_session[0]) return;
+    if (!g_config || !g_config->adminpass[0]) return;
+    snprintf(g_admin_session, sizeof(g_admin_session), "%08x", admin_hash(g_config->adminpass));
+}
+
+static int admin_ok(struct lws *wsi) {
+    if (!g_config || !g_config->adminpass[0]) return 0;
+    admin_session_init();
+    char cookie[256] = "";
+    if (lws_hdr_copy(wsi, cookie, sizeof(cookie), WSI_TOKEN_HTTP_COOKIE) <= 0) return 0;
+    char ses[24] = "";
+    /* parse adminses=... from cookie */
+    char *p = strstr(cookie, "adminses=");
+    if (!p) return 0;
+    p += 9;
+    int i = 0;
+    while (p[i] && p[i] != ';' && p[i] != ' ' && i < (int)sizeof(ses) - 1) { ses[i] = p[i]; i++; }
+    ses[i] = 0;
+    return strcmp(ses, g_admin_session) == 0;
+}
+
 static void chat_append(struct lws *wsi, const char *name, const char *msg) {
     if (!g_config || !g_config->chat) return;
+    if (g_bann == 0) banlist_load();
+    char ip[64] = "";
+    client_ip_from_wsi(wsi, ip, sizeof(ip));
+    if (is_banned(name, ip)) return;   /* banned: drop silently */
     chat_init_rows();
 
     char line[600];
@@ -835,6 +999,196 @@ static int chat_emit(struct lws *wsi, unsigned client_chseq,
 }
 
 /* ------------------------------------------------------------------ */
+/* /~~admin — chat moderation page                                     */
+/* ------------------------------------------------------------------ */
+
+/* Delete a chat record by its seq: rewrite chatfile without that line.
+ * seqs are never reused, so client cursors stay valid. Returns 1 if found. */
+static int chat_delete_by_seq(unsigned seq) {
+    if (!g_config) return 0;
+    char tmp[512];
+    snprintf(tmp, sizeof(tmp), "%s.tmp", g_config->chatfile);
+    FILE *in = fopen(g_config->chatfile, "r");
+    if (!in) return 0;
+    FILE *out = fopen(tmp, "w");
+    if (!out) { fclose(in); return 0; }
+    char line[600];
+    int found = 0;
+    while (fgets(line, sizeof(line), in)) {
+        unsigned s = (unsigned)strtoul(line, NULL, 10);
+        if (s == seq) { found = 1; continue; }
+        fputs(line, out);
+    }
+    fclose(in); fclose(out);
+    if (found) rename(tmp, g_config->chatfile);
+    else remove(tmp);
+    return found;
+}
+
+
+/* Build the admin page HTML (chat tail + controls). Returns length. */
+static int admin_build_html(char *buf, size_t cap) {
+    int n = 0;
+    const char *css =
+        "<style>body{font:14px system-ui;margin:20px;background:#111;color:#ddd}"
+        "table{border-collapse:collapse;width:100%}"
+        "td,th{border:1px solid #333;padding:4px 8px;text-align:left}"
+        ".del{color:#f66}a{color:#7af}</style>";
+    n += snprintf(buf + n, cap - n,
+        "<!DOCTYPE html><html lang=ru><head><meta charset=utf-8>"
+        "<title>Чат — админ</title>"
+        "<meta http-equiv=refresh content='5'>"
+        "%s</head><body>"
+        "<h2>Админ чата</h2>"
+        "<p><a href='/?'>На сайт</a> | <a href='/?admin=logout'>Выйти</a></p>",
+        css);
+
+    if (g_bann > 0) {
+        n += snprintf(buf + n, cap - n, "<h3>В бане:</h3><ul>");
+        for (int i = 0; i < g_bann; i++)
+            if (g_banlist[i][0])
+                n += snprintf(buf + n, cap - n,
+                    "<li>%s <a class=del href='/?admin=unban&e=%s'>[разбанить]</a></li>",
+                    g_banlist[i], g_banlist[i]);
+        n += snprintf(buf + n, cap - n, "</ul>");
+    } else {
+        n += snprintf(buf + n, cap - n, "<h3>В бане: пусто</h3>");
+    }
+
+    n += snprintf(buf + n, cap - n,
+        "<h3>Забанить:</h3><form method=get>"
+        "<input type=hidden name=admin value=ban><input name=e placeholder='позывной или IP/CIDR'>"
+        "<button>OK</button></form>");
+
+    n += snprintf(buf + n, cap - n,
+        "<h3>Чат (последние 100):</h3>"
+        "<table><tr><th>seq</th><th>время</th><th>имя</th><th>сообщение</th><th></th></tr>");
+    FILE *fp = g_config ? fopen(g_config->chatfile, "r") : NULL;
+    if (fp) {
+        char lines[100][600];
+        int cnt = 0;
+        char line[600];
+        while (fgets(line, sizeof(line), fp)) {
+            if (cnt == 100) {
+                memmove(lines[0], lines[1], sizeof(lines[0]) * 99);
+                cnt = 99;
+            }
+            strncpy(lines[cnt], line, sizeof(lines[cnt]) - 1);
+            lines[cnt][sizeof(lines[cnt]) - 1] = 0;
+            cnt++;
+        }
+        fclose(fp);
+        for (int i = 0; i < cnt; i++) {
+            char *f1 = strchr(lines[i], '\t');
+            if (!f1) continue;
+            unsigned seq = (unsigned)strtoul(lines[i], NULL, 10);
+            char *t2 = strchr(f1 + 1, '\t');
+            if (!t2) continue;
+            char *t3 = strchr(t2 + 1, '\t');
+            if (!t3) continue;
+            *t3 = 0;
+            char *name = t2 + 1;
+            char *msg = t3 + 1;
+            char *e2 = msg + strlen(msg);
+            while (e2 > msg && (e2[-1]=='\n'||e2[-1]=='\r')) *--e2 = 0;
+            char ts[8] = "??:??";
+            long epoch = atol(f1 + 1);
+            if (epoch > 0) {
+                struct tm tmv; time_t tt = (time_t)epoch;
+                localtime_r(&tt, &tmv);
+                strftime(ts, sizeof(ts), "%H:%M", &tmv);
+            }
+            n += snprintf(buf + n, cap - n,
+                "<tr><td>%u</td><td>%s</td><td>%s</td><td>%s</td>"
+                "<td><a class=del href='/?admin=del&seq=%u'>[удалить]</a></td></tr>",
+                seq, ts, name, msg, seq);
+        }
+    }
+    n += snprintf(buf + n, cap - n, "</table></body></html>");
+    return n;
+}
+
+
+/* Login prompt — password check happens in serve_admin (admin=login&p=..);
+ * this static form just submits to it. */
+static int serve_admin_login(struct lws *wsi) {
+    const char *html =
+        "<!DOCTYPE html><html lang=ru><head><meta charset=utf-8>"
+        "<title>Админ — вход</title></head>"
+        "<body style='font:14px system-ui;background:#111;color:#ddd;margin:40px'>"
+        "<h2>Вход для администратора</h2>"
+        "<form method=get>"
+        "<input type=hidden name=admin value=login>"
+        "<input type=password name=p placeholder='пароль' autofocus>"
+        "<button>Войти</button></form>"
+        "</body></html>";
+    return serve_mem(wsi, html, strlen(html), "text/html");
+}
+
+/* Entry: auth, act, render the admin page. Query args are parsed with
+ * lws_get_urlarg_by_name_safe (action=p/login/del/ban/unban/clear...). */
+static int serve_admin(struct lws *wsi) {
+    if (!g_config || !g_config->adminpass[0])
+        return serve_mem(wsi, "admin disabled", 14, "text/plain");
+    admin_session_init();
+
+    char action[16] = "";
+    char val[128] = "";
+    char arg[32];
+    if (lws_get_urlarg_by_name_safe(wsi, "admin", arg, (int)sizeof(arg)) > 0)
+        strncpy(action, arg, sizeof(action) - 1);
+    if (lws_get_urlarg_by_name_safe(wsi, "p", val, (int)sizeof(val)) <= 0)
+        val[0] = 0;
+    char entry[128] = "";
+    if (lws_get_urlarg_by_name_safe(wsi, "e", entry, (int)sizeof(entry)) <= 0)
+        entry[0] = 0;
+    unsigned delseq = 0;
+    char seqarg[16];
+    if (lws_get_urlarg_by_name_safe(wsi, "seq", seqarg, (int)sizeof(seqarg)) > 0)
+        delseq = (unsigned)atoi(seqarg);
+
+    /* login */
+    if (strcmp(action, "login") == 0 && val[0]) {
+        if (strcmp(val, g_config->adminpass) == 0) {
+            char page[256];
+            snprintf(page, sizeof(page),
+                "<script>document.cookie='adminses=%s; Path=/';location='?admin';</script>",
+                g_admin_session);
+            return serve_mem(wsi, page, strlen(page), "text/html");
+        }
+        return serve_admin_login(wsi);
+    }
+
+    /* everything else requires a valid session cookie */
+    if (!admin_ok(wsi)) return serve_admin_login(wsi);
+
+    if (strcmp(action, "logout") == 0) {
+        const char *page =
+            "<script>document.cookie='adminses=; Path=/; max-age=0';"
+            "location='?admin';</script>";
+        return serve_mem(wsi, page, strlen(page), "text/html");
+    }
+
+    if (strcmp(action, "del") == 0 && delseq)
+        chat_delete_by_seq(delseq);
+    else if (strcmp(action, "ban") == 0 && entry[0]) {
+        banlist_add(entry);
+        banlist_load();
+    }
+    else if (strcmp(action, "unban") == 0 && entry[0]) {
+        banlist_remove(entry);
+        banlist_load();
+    }
+    else if (strcmp(action, "clear") == 0) {
+        FILE *fp = g_config->chatfile[0] ? fopen(g_config->chatfile, "w") : NULL;
+        if (fp) fclose(fp);
+    }
+
+    char html[65536];
+    int n = admin_build_html(html, sizeof(html));
+    return serve_mem(wsi, html, (size_t)n, "text/html");
+}
+/* ------------------------------------------------------------------ */
 /* lws callbacks                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -882,6 +1236,10 @@ static int ws_handler(struct lws *wsi, enum lws_callback_reasons reason,
             return serve_othersjj(wsi);
         if (strncmp(uri, "/~~ft8", 6) == 0)
             return serve_ft8(wsi);
+        if (strncmp(uri, "/~~admin", 7) == 0) {
+            /* /~~admin?admin=... — chat moderation (parses args itself). */
+            return serve_admin(wsi);
+        }
         if (strncmp(uri, "/~~chat", 6) == 0) {
             /* GET /~~chat?name=<callsign>&msg=<message> — append to chat file.
              * The real websdr also returns a 200 with empty JS body. */

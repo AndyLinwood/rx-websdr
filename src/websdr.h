@@ -144,6 +144,8 @@ struct websdr_config {
     int   chseq;
     int   chat;             /* 1 = chat enabled (default 0) */
     char  chatfile[256];    /* chat log path (default "<cwd>/chat.log") */
+    char  adminpass[64];    /* /~~admin password (empty = admin page disabled) */
+    char  banfile[256];     /* ban list path (default "<cwd>/banlist.txt") */
     int   visitors;         /* 1 = visitor logging enabled (default 1) */
     char  visitorsfile[256];/* visitor log path (default "<cwd>/visitors.log") */
     long  visitorsmax;      /* rotate once log exceeds this many bytes (default 2 MB) */
