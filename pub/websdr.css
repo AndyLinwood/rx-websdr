@@ -173,6 +173,11 @@
             transition: 0.35s stroke-dashoffset;
             transform: rotate(-90deg);
             transform-origin: 50% 50%;
+            /* Дуги-сектора рисуются ПОВЕРХ внутренней тени SVG, поэтому без
+             * собственной тени выглядят плоской наклейкой. drop-shadow по
+             * контуру дуги даёт «глубину лампы» (плавный край, полутона). */
+            filter: drop-shadow(0 0 6px rgba(0,0,0,0.55))
+                    drop-shadow(0 0 14px rgba(13,224,12,0.25));
         }
 
         /* Выпадающая панель «О приёмнике» в шапке */
@@ -369,7 +374,7 @@
             flex: 1 1 auto;
             width: 100%;
             text-align: center;
-            padding-left: 96px;
+            padding-left: 0;
             font-weight: bold;
         }
         #freq-digits:focus {
