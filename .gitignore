@@ -19,3 +19,4 @@ rx-websdr-test/
 
 # Admin ban list (server-local, secrets may appear in callsigns)
 banlist.txt
+cfg/websdr.cfg

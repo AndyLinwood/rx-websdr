@@ -34,7 +34,7 @@ tcpport 8081
 chat 1
 chatfile /home/radio/rx-websdr/chat.log
 # Admin chat moderation (/~~admin). adminpass = password (empty = page disabled).
-adminpass websdr2026
+adminpass CHANGE_ME
 banfile /home/radio/rx-websdr/banlist.txt
 
 
