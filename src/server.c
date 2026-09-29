@@ -130,6 +130,10 @@ struct lws_context *g_lws_ctx = NULL;
 #define BANDINFO_CAP (1 << 17)   /* 128 KB of generated bandinfo.js */
 static char g_bandinfo[BANDINFO_CAP];
 static int g_bandinfo_len = 0;
+/* Timestamp, связывающий scaleimgs-пути в bandinfo.js с записанными PNG
+ * (pub/tmp/<ts>-b...). Храним, чтобы при hot-reload (stationinfo) перегенерить
+ * bandinfo.js с теми же путями — тайлсы заново не пишем. */
+static char g_bandinfo_ts[32];
 
 /* ------------------------------------------------------------------ */
 /* Client tracking                                                     */
@@ -1489,6 +1493,7 @@ int server_start(struct websdr_config *config) {
      * timestamp ties bandinfo.js scale paths to the written PNG files. */
     char ts[32];
     snprintf(ts, sizeof(ts), "%ld", (long)time(NULL));
+    snprintf(g_bandinfo_ts, sizeof(g_bandinfo_ts), "%s", ts);
     scale_generate_all("pub", ts, config);
     g_bandinfo_len = bandinfo_build(g_bandinfo, BANDINFO_CAP, config, ts);
     if (g_bandinfo_len < 0) {
@@ -1510,7 +1515,20 @@ int server_start(struct websdr_config *config) {
         if (g_reload) {
             g_reload = 0;
             fprintf(stderr, "[reload] SIGHUP received, hot-reloading cfg...\n");
-            if (config_reload_hot(g_config) == 0) {
+            int cfg_ok = (config_reload_hot(g_config) == 0);
+            /* stationinfo.txt перечитываем независимо от cfg: метки можно
+             * обновлять на лету, без рестарта и без отключения клиентов. */
+            int st_ok = (stationinfo_reload("cfg/stationinfo.txt", g_config) == 0);
+            if (cfg_ok || st_ok) {
+                /* Метки из stationinfo включены в bandinfo.js — перегенерим его
+                 * с тем же ts (scaleimgs-пути остаются валидными). */
+                g_bandinfo_len = bandinfo_build(g_bandinfo, BANDINFO_CAP, g_config, g_bandinfo_ts);
+                if (g_bandinfo_len < 0) {
+                    fprintf(stderr, "[reload] bandinfo_build failed\n");
+                    g_bandinfo_len = 0;
+                }
+            }
+            if (cfg_ok) {
                 /* Registry перечитывается отдельно (registry_init сам читает
                  * cfg/websdr.cfg) — перезапускаем тред heartbeat. */
                 registry_stop();

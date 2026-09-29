@@ -1,9 +1,12 @@
 #!/bin/bash
 # reload.sh — горячая перезагрузка конфигурации (SIGHUP) без остановки сервера.
 #
-# Перечитывает cfg/websdr.cfg на лету и применяет БЕЗОПАСНЫЕ параметры:
-#   registry_*, chat/chatfile, visitors/visitorsfile/visitorsmax,
-#   gain (per-band), buttonlink.
+# Перечитывает на лету:
+#   * cfg/websdr.cfg       — безопасные параметры: registry_*, chat/chatfile,
+#                            visitors/visitorsfile/visitorsmax, gain (per-band),
+#                            buttonlink, adminpass/banfile.
+#   * cfg/stationinfo.txt  — DX-метки (добавление/изменение меток) без
+#                            перезапуска сервера и без отключения клиентов.
 # Клиенты при этом НЕ отключаются (вебсокеты не рвутся).
 #
 # Структурные изменения (количество/имена бэндов, samplerate, centerfreq,
@@ -29,7 +32,7 @@ if ! systemctl is-active --quiet websdr.service; then
     exit 1
 fi
 
-echo ">> SIGHUP -> rx-websdr (pid $PID): горячая перезагрузка cfg/websdr.cfg..."
+echo ">> SIGHUP -> rx-websdr (pid $PID): горячая перезагрузка cfg/ (websdr.cfg + stationinfo.txt)..."
 
 sudo kill -HUP "$PID"
 

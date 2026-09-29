@@ -356,5 +356,6 @@ static inline double band_eff_center(const struct band *b) {
 }
 
 int stationinfo_load(const char *filename, struct websdr_config *config);
+int stationinfo_reload(const char *filename, struct websdr_config *config);
 const char *server_geo_name(struct client *cli);
 #endif
