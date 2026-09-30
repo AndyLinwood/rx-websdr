@@ -354,7 +354,7 @@
         .digital-display {
             background-color: #05070a;
             border: 1px solid #1f2733;
-            border-radius: 3px;
+            border-radius: 8px;   /* стало 8px (было 4px) — заметное скругление */
             padding: 6px;
             font-family: 'Courier New', Courier, monospace;
             font-weight: bold;
@@ -423,6 +423,7 @@
             position: relative;
         }
         .smetermin {
+            display: none;   /* метка шумового пола скрыта 30.09 (см. HTML) */
             margin: 7px 0 -12px 7px;
             z-index: 1;
             width: 0;

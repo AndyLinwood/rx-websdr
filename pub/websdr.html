@@ -10,7 +10,7 @@
 <script src="jquery-3.1.1.min.js"></script>
 <script src="rx-base.js?v=rec3" type="text/javascript"></script>
 
-    <link rel="stylesheet" href="websdr.css">
+    <link rel="stylesheet" href="websdr.css?v=rec4">
 </head>
 <body onload="bodyonload();">
 
@@ -280,7 +280,10 @@
                          ОРИГИНАЛ ОДИН-В-ОДИН из прежнего дизайна (бекап 24.09,
                          pub/websdr-controls.html): 56px, вписан в окно частоты,
                          дуги 17px/r20 cx/cy=28, тёмный центр 23px #2d2d2d. -->
-                    <div style="display:flex; align-items:center; margin-right:-22px; margin-left:-9px; opacity:0.9; transition:opacity 0.5s ease 0s;" class="progress-ring">
+                    <!-- Magic Eye: сдвинут вправо (30.09): изначально margin-left:-9px, теперь +23px
+                         (два шага по +16px). НЕ менять margin-right (он задаёт границу
+                         зоны цифр — от него зависит «дыхание» цифр при смене разрядов). -->
+                    <div style="display:flex; align-items:center; margin-right:-22px; margin-left:23px; opacity:0.9; transition:opacity 0.5s ease 0s;" class="progress-ring">
                         <svg style="display:block; border:2px solid rgb(43,43,43); border-radius:50%; width:56px; height:56px; background:green; position:relative; bottom:50%; top:50%; box-shadow:0 0 8px 0px rgb(13,224,12);" class="progress-ring" width="120" height="120">
                             <g>
                                 <linearGradient id="gradient" gradientTransform="rotate(90)" x1="50%">
@@ -342,7 +345,10 @@
                      #numericalsmeter/#numericalsmeterpeak держит JS; #smeterbar скрыт ). -->
                 <div style="width:280px; margin:0 auto;">
                     <div class="view_smeter" style="position:relative; height:20px; overflow:visible;">
-                        <div id="smetermin" class="smetermin" style="width:0px;"><div style="position:absolute;height:0px;"></div></div>
+                        <!-- #smetermin (бирюзовая метка шумового пола) удалена 30.09:
+                             медленно ползающая точка не несла информации и портила вид.
+                             Расчёт smetermin в rx-base.js остаётся (нужен для SNR), просто
+                             визуал больше не рисуется. -->
                         <div id="smeterpeak" class="smeterpeak" style="width:0px; z-index:10;"><div style="position:absolute;width:0px;height:0px;"></div></div>
                         <div id="smeterbar" class="smeterbar" style="width:0px; display:none;"><div style="position:absolute;width:0px;height:0px;"></div></div>
                         <!-- EQ-столбик (визуальная полоса уровня) -->

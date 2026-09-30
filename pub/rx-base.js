@@ -94,10 +94,19 @@ var waterfallapplet = new Array();
 var soundapplet = null;
 
 // ---- объекты для S-метра / шумовых метрик ----
-var smeterminobj;	// используется в шумовых метриках
+// smeterminobj: #smetermin удалён из HTML 30.09 (метка шумового пола), визуал убран;
+// сам расчёт smetermin остаётся — питает SNR/Magic Eye.
 var snrobj;
 var noise=0;		// шум
 var snr=1;		// отношение сигнал/шум
+
+// ---- калибровка S-метра ----
+// Сервер шлёт сырой dBm (raw (dBm+127)*10), привязанный к шуму бэнда:
+// шумовой пол ~ -109 dBm, а сильные сигналы дают «9+10..9+20 дБ» вместо честных
+// S9 (-73 dBm). Вычитаем SMETER_TRIM_DB дБ из показаний (полоса+пик+минимум+
+// численные dBm) — это убирает систематическое завышение, НЕ трогая разности
+// (SNR, Magic Eye, squelch-пороги считаются от разницы уровней).
+var SMETER_TRIM_DB = 10;
 
 // ---- разное ----
 var serveravailable=-1;  // -1 пока не проверено, 0/1 — false/true
@@ -189,7 +198,7 @@ function bodyonload()
    smeterobjnew = document.getElementById('smeterbarnew');
    numericalsmeterobj=document.getElementById('numericalsmeter');
    smeterpeakobj = document.getElementById('smeterpeak');
-   smeterminobj = document.getElementById('smetermin');
+   // smeterminobj (метка шумового пола) удалён из HTML — визуал больше не нужен
    snrobj = document.getElementById('snr_info');
    numericalsmeterpeakobj=document.getElementById('numericalsmeterpeak');
    smeterobj.style.top= smeterpeakobj.style.top;
@@ -1298,6 +1307,10 @@ function updatesmeter()
    try {
       var s=soundapplet.smeter();
    } catch (e) { s=0; };
+   // Калибровочный сдвиг S-метра (см. SMETER_TRIM_DB выше): сырые dBm с сервера
+   // завышены, убираем фиксированные 10 дБ до отрисовки/подсчётов, чтобы
+   // станция «9 баллов» садилась в S9, а не 9+20 дБ.
+   if (s>=0) s -= SMETER_TRIM_DB * 10;
    if (s>=0) {
 	   block_width = document.getElementsByClassName('smetertable')[0].rows[0].cells[0].getBoundingClientRect().width
 	   smeterobj.style.width= s*0.0191667*1.08+"px";
@@ -1332,14 +1345,8 @@ function updatesmeter()
 			  {smetermintimer=600;}
 		}
 
-		if (smetermin>=0) {
-          new_width = smetermin * 0.0191667
-          if (parseFloat(smeterminobj.style.width)-new_width < 0) smeterminobj.style.transition = '10s width'
-          else smeterminobj.style.transition = '0.1s width'
-          smeterminobj.style.width = new_width + "px";
-          smeterminobj.style.width= (smetermin*0.0191667)*1.08 +"px";
-		}
-		else smeterminobj.style.width="0px";
+		/* Визуальная бирюзовая метка шумового пола (#smetermin) удалена 30.09 —
+		 * сам расчёт smetermin оставлен: он питает SNR и Magic Eye ниже. */
 		}
 	snrValue=Math.round((smeterpeak-smetermin)/100)
 	snrobj.textContent = snrValue
@@ -1458,6 +1465,7 @@ function getnoise()
 	try {
      	var n=soundapplet.smeter();
     	    } catch (e) { n=0; };
+	if (n>=0) n -= SMETER_TRIM_DB * 10;   // тот же калибровочный сдвиг
 
 	smetermintimer--;
    	if ((smetermin>n-0.1) || (smetermintimer<=0))
@@ -1470,8 +1478,8 @@ function getnoise()
 				{smetermintimer=40;}
 		}
 
-		if (smetermin>=0) smeterminobj.style.width= (smetermin*0.0191667)*1.09 +"px";
-		else smeterminobj.style.width="0px";
+		/* Визуальная метка шумового пола удалена (см. #smetermin в CSS/HTML) —
+		 * расчёт smetermin оставлен для SNR. Визуал больше не рисуем. */
 		}
 }
 
@@ -1820,6 +1828,10 @@ function soundappletstarted2()
    try { toggle_squelch(document.getElementById('gainlevelcheckbox').checked) } catch(e){};
     soundapplet.smetercallback = function(val) {
         if (!ab_squelch || !soundapplet) return;
+
+        // Тот же калибровочный сдвиг, что и в updatesmeter(): сравниваем с
+        // порогом в единицах скорректированного S-метра.
+        val -= SMETER_TRIM_DB * 10;
 
         var threshold_db = parseInt(document.getElementById('manualgain').value);
         if (isNaN(threshold_db)) threshold_db = 20;
