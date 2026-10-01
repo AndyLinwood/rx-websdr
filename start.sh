@@ -14,11 +14,12 @@
 
 set -o errexit
 
-N_BANDS=$(grep -c "^band " /home/radio/rx-websdr/cfg/websdr.cfg)
-[ -z "$N_BANDS" ] && N_BANDS=9
+# Number of fifo writers = active start_band lines (NOT band lines: 2m/rtl uses rtl_tcp, not a fifo)
+N_BANDS=$(grep -c "^start_band " /home/radio/rx-websdr/start-receiver.sh)
+[ -z "$N_BANDS" ] && N_BANDS=10
 
 # --- 1) Kill everything ------------------------------------------------------
-for unit in websdr.service receiver.service radiod@rx888.service ; do
+for unit in websdr.service receiver.service radiod@rx888.service radiod@rsp1a.service sdrplay-api.service ; do
     echo ">> stopping $unit"
     # receiver/websdr ignore SIGTERM while blocked in FIFO I/O; systemd would
     # wait TimeoutStopSec then SIGKILL. Force-kill the cgroup right away.
@@ -39,14 +40,18 @@ until systemctl is-active --quiet radiod@rx888.service; do sleep 1; done
 echo "   radiod up (waiting a moment for streams to publish)"
 sleep 2
 
-echo ">> starting rtl_tcp_vhf.service (RTL-SDR 2m via rtl_tcp, manual gain)"
-sudo systemctl start rtl_tcp_vhf.service
+echo ">> starting sdrplay-api.service (SDRplay API)"
+sudo systemctl start sdrplay-api.service 2>/dev/null || echo "   sdrplay-api missing; continuing"
+sleep 1
+echo ">> starting radiod@rsp1a.service (RSP1a VHF)"
+sudo systemctl start radiod@rsp1a.service 2>/dev/null || echo "   WARNING: radiod@rsp1a failed to start"
 for i in $(seq 1 15); do
-    if ss -tln 2>/dev/null | grep -q '127.0.0.1:1234'; then
-        break
-    fi
+    systemctl is-active --quiet radiod@rsp1a.service && break
     sleep 1
 done
+sleep 2
+
+
 systemctl is-active --quiet rtl_tcp_vhf.service || echo "   WARNING: rtl_tcp_vhf not active"
 echo "   rtl_tcp vhf up (listening 127.0.0.1:1234)"
 
@@ -80,6 +85,6 @@ for i in $(seq 1 20); do
 done
 echo
 echo ">> stack state:"
-systemctl is-active radiod@rx888.service receiver.service rtl_tcp_vhf.service websdr.service
+systemctl is-active radiod@rx888.service receiver.service websdr.service
 echo "   writers:   $(pgrep -x pcmrecord | wc -l)"
 echo "   http:      ${code:-FAIL}"
