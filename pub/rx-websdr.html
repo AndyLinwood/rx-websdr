@@ -10,7 +10,7 @@
 <script src="jquery-3.1.1.min.js"></script>
 <script src="rx-base.js?v=rec3" type="text/javascript"></script>
 
-    <link rel="stylesheet" href="websdr.css?v=rec4">
+    <link rel="stylesheet" href="rx-websdr.css?v=rec5">
 </head>
 <body onload="bodyonload();">
 
@@ -145,8 +145,10 @@
             <input type="text" name="username_v" id="visitname" style="width: 120px;" value="You Call " onchange="document.usernameform.username.value=this.value; setusernamecookie();">
         </form>
         <div style="color: var(--neon-green); font-weight: bold; font-size: 10px;">
-            Круглый стол ЯО по воскресеньям в 21:00msk — <a href="https://ua3mrs.ru/#freq=145725000,mod=nfm,sql=-47" target="_blank" style="color: var(--neon-blue);">145,725 MHz</a> / FM / CTCSS 127.3 Гц
-        </div>
+		<span style="color: var(--danger)">ВНИМАНИЕ</span> Включена резервная  антенна. InVee отключены для ремонтно-профилактических работ.
+        <br /> <br />   Круглый стол ЯО по воскресеньям в 21:00msk — <a href="https://websdr.srr-76.ru/?tune=145350000,mod=nfm" target="_blank" style="color: var(--neon-blue);">145,725 MHz</a> / FM / CTCSS 127.3 Гц
+	        
+</div>
     </div>
 
     <!-- Основная Трехколоночная Сетка элементов управления.
