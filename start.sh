@@ -1,8 +1,7 @@
 #!/bin/bash
 # start.sh — (re)start the WebSDR stack in the ONLY correct way:
-#   1) stop EVERYTHING (including radiod and rtl_tcp) for a clean slate
+#   1) stop EVERYTHING (including radiod) for a clean slate
 #   2) start, strictly in order: radiod@rx888 -> receiver (writers) ->
-#      rtl_tcp_vhf (RTL-SDR dongle) -> websdr (reader)
 # Each step must fully finish before the next one begins.
 #
 # No state counting, no timers: the ordering alone guarantees the stack comes
@@ -14,7 +13,6 @@
 
 set -o errexit
 
-# Number of fifo writers = active start_band lines (NOT band lines: 2m/rtl uses rtl_tcp, not a fifo)
 N_BANDS=$(grep -c "^start_band " /home/radio/rx-websdr/start-receiver.sh)
 [ -z "$N_BANDS" ] && N_BANDS=10
 
@@ -52,8 +50,6 @@ done
 sleep 2
 
 
-systemctl is-active --quiet rtl_tcp_vhf.service || echo "   WARNING: rtl_tcp_vhf not active"
-echo "   rtl_tcp vhf up (listening 127.0.0.1:1234)"
 
 # --- 3) Start receiver (writers), WAIT for every band's writer to be parked
 #        in open(fifo) before the reader is allowed to start.
