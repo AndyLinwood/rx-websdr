@@ -492,8 +492,7 @@ function volumedb(vol)
 }
 
 // ---------------------------------------------------------------------------
-// Memories — сохранённые частоты (localStorage). Простой вариант как в
-// оригинальном WebSDR: recall / erase / store / метка на каждую строку.
+// Memories — сохранённые частоты (localStorage).
 // ---------------------------------------------------------------------------
 function mem_recall(i)
 {
@@ -982,6 +981,8 @@ function set_mode(m)
       case "AM":  setmf("am", -4.96,  4.95); showhides(); break;
       case "CW":  setmf("cw", -0.95,  -0.55); showhides(); break;
       case "FM":  setmf("fm", -6.2,  6.21); showhides(); break;
+      /* NBFM/NFM — то же FM (мап в ссылках ?tune=...,mod=nfm) */
+      case "NFM": case "NBFM": setmf("fm", -6.2, 6.21); showhides(); break;
    }
 }
 
@@ -1040,12 +1041,22 @@ function freqstep(st)
 }
 
 // установка частоты из URL (?tune=)
+// Формат: ?tune=<частота в Гц>,mod=<режим>
+//   mod: nfm/nbfm -> FM, fm -> FM, am -> AM, usb -> USB, lsb -> LSB, cw -> CW
 function setfreqtune(s)
 {
-   var param = new RegExp("([0-9.]*)([^&#]*)").exec(s);
+   var param = new RegExp("([0-9.]+)(.*)").exec(s);
    if (!param[1]) return;
-   if (param[2]) set_mode(param[2]);
-   setfreqif(param[1]);
+   var freq_hz = parseFloat(param[1]);
+   if (!(freq_hz > 0)) return;
+   /* Частота в ссылке задана в Гц (напр. 145725000 = 145.725 МГц), а внутренние
+    * функции WebSDR работают в кГц — переводим. */
+   setfreqif(freq_hz / 1000.0);
+   if (param[2]) {
+      /* param[2] вида ",mod=nfm[,sql=-47...]" — выкусываем режим */
+      var m = /[,;]?mod\s*=\s*([^,\s]+)/i.exec(param[2]);
+      if (m) set_mode(m[1]);
+   }
 }
 
 // шаги настройки: -1 / 9 / +1 (кнопки < > и выравнивание)
@@ -1225,9 +1236,9 @@ function setband(b)
    if (!hidedx) showdx(band);
    if (ft8_enabled) doft8();  // смена диапазона — перефильтровать декоды FT8
 
-   // VHF (2m, RTL-SDR): включать squelch 9 dB + FM 6.50 kHz при переходе на
+   // VHF: на диапазоне 2м  включать squelch 9 dB + FM 6.50 kHz при переходе на
    // диапазон, выключать при уходе на другие диапазоны.
-   var isVHF = (bi[band].name == 'VHF');
+   var isVHF = (bi[band].name == '2m');
    var cb = document.getElementById('gainlevelcheckbox');
    if (isVHF) {
       if (cb && !cb.checked) { cb.checked = true; toggle_squelch(true); }
@@ -1746,7 +1757,7 @@ function readCookie(name) {
 }
 
 // ---------------------------------------------------------------------------
-// РАЗДЕЛ 20. Идентификаторы бэндов и скорость/высота водопада
+//  Идентификаторы бэндов и скорость/высота водопада
 // ---------------------------------------------------------------------------
 // В режиме «один бэнд» id==0 для всех бэндов (band2id), а id2band возвращает
 // текущий выбранный. В режиме «все бэнды» id==band.
@@ -1803,7 +1814,7 @@ function waterfallmode(m)
 }
 
 // ---------------------------------------------------------------------------
-// РАЗДЕЛ 21. Готовность водопада и звука
+// Готовность водопада и звука
 // ---------------------------------------------------------------------------
 // soundappletstarted() вызывается звуковым апплетом когда WebSocket открыт;
 // waterfallappletstarted() — водопадным апплетом после создания канвасов.
@@ -1908,7 +1919,7 @@ function allwaterfallappletsstarted()
 }
 
 // ---------------------------------------------------------------------------
-// РАЗДЕЛ 23. Обработка мыши и тача
+//  Обработка мыши и тача
 // ---------------------------------------------------------------------------
 function registerTouchEvents(id, touchStart, touchMove) {
    var elem=document.getElementById(id);
@@ -2187,7 +2198,7 @@ if (document.addEventListener) {
 }
 
 // ---------------------------------------------------------------------------
-// РАЗДЕЛ 24. Управление клавиатурой
+// Управление клавиатурой
 // ---------------------------------------------------------------------------
 var allowkeyboard;
 
@@ -2245,7 +2256,7 @@ function keydown(e)
 window.onkeydown = keydown;
 
 // ---------------------------------------------------------------------------
-// РАЗДЕЛ 25. Построение GUI динамически
+// Построение GUI динамически
 // ---------------------------------------------------------------------------
 // visit/newid/document_username — подстановка гео-имени в поле ввода имени.
 // document_bandbuttons — кнопки бэндов; document_waterfalls — контейнеры
@@ -2409,7 +2420,7 @@ function stretch_waterfalls_do()
 window.addEventListener('resize', stretch_waterfalls, false);
 
 // ---------------------------------------------------------------------------
-// РАЗДЕЛ 26. Запись, чат, журнал, гео, фон, прелоадер
+// Запись, чат, журнал, гео, фон, прелоадер
 // ---------------------------------------------------------------------------
 var rec_showtimer;
 var rec_downloadurl;
