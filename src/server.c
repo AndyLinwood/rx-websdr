@@ -473,6 +473,17 @@ static int serve_file(struct lws *wsi, const char *pubdir, const char *uri) {
             (const unsigned char *)"content-type:",
             (const unsigned char *)mime, strlen(mime), &p, end))
         goto fail;
+    /* Маркер настоящего rx-websdr: агрегатор сверяет его с server_id из
+     * heartbeat при регистрации нового сервера (защита от подделки). */
+    {
+        const char *rid = registry_get_server_id();
+        if (rid && rid[0]) {
+            if (lws_add_http_header_by_name(wsi,
+                    (const unsigned char *)"x-rx-websdr:",
+                    (const unsigned char *)rid, (int)strlen(rid), &p, end))
+                goto fail;
+        }
+    }
     if (lws_add_http_header_content_length(wsi, body_len, &p, end))
         goto fail;
     if (lws_finalize_http_header(wsi, &p, end))
@@ -512,6 +523,14 @@ static int serve_mem(struct lws *wsi, const void *data, size_t len, const char *
     if (lws_add_http_header_status(wsi, HTTP_STATUS_OK, &p, end)) goto fail;
     if (lws_add_http_header_by_name(wsi, (const unsigned char *)"content-type:",
                                     (const unsigned char *)mime, strlen(mime), &p, end)) goto fail;
+    {
+        const char *rid = registry_get_server_id();
+        if (rid && rid[0]) {
+            if (lws_add_http_header_by_name(wsi,
+                    (const unsigned char *)"x-rx-websdr:",
+                    (const unsigned char *)rid, (int)strlen(rid), &p, end)) goto fail;
+        }
+    }
     if (lws_add_http_header_content_length(wsi, len, &p, end)) goto fail;
     if (lws_finalize_http_header(wsi, &p, end)) goto fail;
 
