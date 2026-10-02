@@ -80,20 +80,26 @@ waterfallformat 9
 audioformat 1
 
 # === Registry: публикация в списке серверов ===
+# endpoint (https://srr-76.ru/api.php) и интервал heartbeat НЕ настраиваются:
+# адрес агрегатора вшит в код (это константа протокола сети RX-WebSDR),
+# а интервал сервер сам подстраивает под ответ агрегатора (next_heartbeat_in).
+# Здесь — только описание вашей станции для карты/таблицы глобального монитора.
+#
+# registry_server_id — ОПЦИОНАЛЕН. Если его нет, сервер сам сгенерирует
+# уникальный id из registry_website (hostname адреса сайта), а если и website
+# нет — из hostname машины. Задавать вручную нужно только если вы хотите
+# сохранить прежний id (например, при переезде) или указать свой.
 registry_enabled      yes
-registry_endpoint     https://srr-76.ru/api.php
-registry_server_id    yaroslavl-rx888
+#registry_server_id   yaroslavl-rx888
 registry_name         Yaroslavl RX-WebSDR
 registry_owner_call   R3MAV
 registry_qth          Yaroslavl, Russia
 registry_lat          57.62
 registry_lon          39.85
 registry_website      https://websdr.srr-76.ru
-registry_desc         HF receiver 0-30 MHz
+registry_desc         HF receiver 0-30 MHz + VHF 2m
 registry_antenna      Inverted Vee
 registry_sdr_model    RX888 MkII modified
-registry_max_users    100
-registry_interval     60
 
 # Set the initial frequency to x kHz with mode y (usb/lsb/am/cw/fm).
 initial 7100 lsb

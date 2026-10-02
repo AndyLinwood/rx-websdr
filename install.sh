@@ -50,8 +50,10 @@ fi
 mkdir -p "$FIFO_DIR"
 chown "$USER_RADIO":"$USER_RADIO" "$FIFO_DIR" 2>/dev/null || true
 
-# Имена FIFO по умолчанию (12 бэндов, единый формат fifo<band>):
-for b in 10mH 10mL 11m 12m 15m 17m 20m 30m 40m 80m 160m UVB; do
+# Имена FIFO по умолчанию (пример для сервера-донора; количество и набор
+# бэндов у каждого свои — добавьте/уберите строки под ваш cfg/websdr.cfg
+# и start-receiver.sh). Альтернатива — скрипт-пример ./sfifo.sh.
+for b in 10mH VHF 12m 15m 17m 20m 30m 40m 80m 160m; do
     [ -p "$FIFO_DIR/fifo$b" ] || mkfifo "$FIFO_DIR/fifo$b"
 done
 chown "$USER_RADIO":"$USER_RADIO" "$FIFO_DIR"/fifo* 2>/dev/null || true
