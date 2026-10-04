@@ -80,6 +80,7 @@ struct band {
     bool swapiq;
     int hpf;
     int noiseblanker;
+    double ctcss_freq;       /* CTCSS sub-tone frequency, Hz (cfg "ctcsstone"; 0 = off/no tone) */
     int nstations;
     struct { double freq; char mode[8]; char name[128]; } stations[256];
     int maxzoom;
@@ -233,7 +234,15 @@ struct audio_state {
     float af_deemph_state;     /* one-pole de-emphasis filter (NBFM) */
     float af_foffset;          /* averaged FM DC offset (carrier drift) */
     float af_hpf_x1, af_hpf_y1; /* one-pole 300 Hz high-pass (rumble) */
-    float af_notch_x1, af_notch_x2, af_notch_y1, af_notch_y2; /* 127.3 Hz CTCSS notch */
+    /* CTCSS notch: 3 cascaded RBJ biquad notches — fundamental + 2nd + 3rd
+     * harmonic. Repeaters squelch tones are not clean sines; they carry
+     * strong 2nd/3rd harmonics that a single notch leaves audible as a buzz. */
+    float af_notch_b0[3], af_notch_b1[3], af_notch_b2[3]; /* coefficients */
+    float af_notch_a0[3], af_notch_a1[3], af_notch_a2[3];
+    float af_notch_x1[3], af_notch_x2[3], af_notch_y1[3], af_notch_y2[3]; /* state */
+    double af_notch_f0;        /* last CTCSS notch frequency (Hz) the biquads were built for */
+    int af_notch_on;           /* whether the notch is currently applied (client ctcss + band tone) */
+    int af_notch_stages;       /* how many cascaded notches are in use (3) */
     fftwf_complex *af_din;   /* 2*half complex (IFFT input) */
     fftwf_complex *af_dout;  /* 2*half complex (IFFT output, AM/FM) */
     float *af_dout_r;        /* 2*half floats (IFFT output, SSB c2r) */
@@ -282,6 +291,7 @@ struct client {
     char vis_band[64];        /* last visitor-logged band (dedup) */
     struct audio_state audio;
     bool audio_stream;
+    bool ctcss_enabled;      /* client CTCSS notch on/off (from ~~param ctcss=1/0) */
     /* Serializes access to `audio` (and the audio FIR state) between the
      * per-band DSP thread (audio_process_iq / audio_flush_pcm, which run under
      * the band lock) and the lws service thread (audio_init/reconfigure on

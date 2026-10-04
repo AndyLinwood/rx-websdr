@@ -192,7 +192,7 @@ static void handle_waterparam(struct client *cli, const char *params) {
 
 static void handle_soundparam(struct client *cli, const char *params) {
     char *freq_s = NULL, *band_s = NULL, *lo_s = NULL, *hi_s = NULL,
-         *mode_s = NULL, *mute_s = NULL, *name_s = NULL;
+         *mode_s = NULL, *mute_s = NULL, *name_s = NULL, *ctcss_s = NULL;
     char *tmp = strdup(params);
     char *token = strtok(tmp, "&");
     while (token) {
@@ -210,6 +210,8 @@ static void handle_soundparam(struct client *cli, const char *params) {
             free(mute_s); mute_s = strdup(token + 5);
         } else if (strncmp(token, "name=", 5) == 0) {
             free(name_s); name_s = strdup(token + 5);
+        } else if (strncmp(token, "ctcss=", 6) == 0) {
+            free(ctcss_s); ctcss_s = strdup(token + 6);
         }
         token = strtok(NULL, "&");
     }
@@ -247,6 +249,13 @@ static void handle_soundparam(struct client *cli, const char *params) {
     if (mute_s) {
         cli->muted = (atoi(mute_s) != 0);
         fprintf(stderr, "[audio] client mute=%d\n", cli->muted ? 1 : 0);
+    }
+
+    /* CTCSS notch on/off (may come alone too). The server-side FM demod uses
+     * the per-band ctcss_freq from the config; the client only toggles. */
+    if (ctcss_s) {
+        cli->ctcss_enabled = (atoi(ctcss_s) != 0);
+        fprintf(stderr, "[audio] client ctcss=%d\n", cli->ctcss_enabled ? 1 : 0);
     }
 
     if (band_s && g_config) {
@@ -290,6 +299,7 @@ static void handle_soundparam(struct client *cli, const char *params) {
 
     free(freq_s); free(band_s); free(lo_s); free(hi_s); free(mode_s);
     free(mute_s);
+    free(ctcss_s);
     free(name_s);
     free(tmp);
 }

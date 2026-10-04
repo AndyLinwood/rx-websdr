@@ -28,13 +28,20 @@ var ab_mode=mode;
 var ab_band=band;
 var ab_freq=freq;
 var ab_squelch=false;
+var squelch_auto_band = null;  // индекс диапазона, на котором squelch включён АВТОМАТИЧЕСКИ (УКВ)
+                               // — при уходе на другой диапазон снимается
 
 // ---- SQL (шумоподавитель) ----
 var squelch_open = false;      // текущее состояние (открыт/закрыт)
+var squelch_muted = false;     // активно ли приглушение (клиентский mute)
 var prev_mode = null;          // режим до входа на VHF (для возврата)
 var squelch_hang_timer = null; // таймер задержки закрытия
-var SQL_HYSTERESIS_DB = 1.5;   // гистерезис в дБ
-var SQL_HANG_MS = 200;         // время удержания после пропадания сигнала, мс
+var SQL_HYSTERESIS_DB = 1.0;   // гистерезис ТОЛЬКО на закрытие, дБ (открытие — без запаса)
+var SQL_HANG_MS = 150;         // время удержания после пропадания сигнала, мс
+var SQL_NOISE_FLOOR = 1700;    // шумовой пол в единицах smetercallback (10*raw - трим).
+                               // Сервер САМ якорит шум к -109 dBm (raw~180 => 1700) на любом
+                               // бэнде, поэтому порог можно считать от константы, а не от
+                               // медленно дрейфующего клиентского smetermin.
 
 
 // ---- что видит пользователь ----
@@ -103,9 +110,13 @@ var snr=1;		// отношение сигнал/шум
 // ---- калибровка S-метра ----
 // Сервер шлёт сырой dBm (raw (dBm+127)*10), привязанный к шуму бэнда:
 // шумовой пол ~ -109 dBm, а сильные сигналы дают «9+10..9+20 дБ» вместо честных
-// S9 (-73 dBm). Вычитаем SMETER_TRIM_DB дБ из показаний (полоса+пик+минимум+
-// численные dBm) — это убирает систематическое завышение, НЕ трогая разности
-// (SNR, Magic Eye, squelch-пороги считаются от разницы уровней).
+// S9 (-73 dBm). Код вычитает SMETER_TRIM_DB*10 = 100 единиц.
+// ВАЖНО про единицы: smeter()/smetercallback() работают в 10*raw, т.е. 100
+// единиц = 1 дБм, поэтому ФАКТИЧЕСКИ вычитается только 1 дБ (не 10, как
+// планировалось в 30.09). На разности (SNR, Magic Eye, squelch от шумового
+// пола) это не влияет — они считаются как разница уровней, трим сокращается.
+// Если понадобится честные 10 дБ: заменить "SMETER_TRIM_DB * 10" на
+// "SMETER_TRIM_DB * 100" в updatesmeter()/getnoise()/smetercallback().
 var SMETER_TRIM_DB = 10;
 
 // ---- разное ----
@@ -398,12 +409,21 @@ function toggle_squelch(enabled) {
     if (enabled) mask.classList.remove("hiddencontrol");
     else mask.classList.add("hiddencontrol");
     toggle_info('sql', enabled);
-    if (!enabled && soundapplet) {
-        soundapplet.setmute(false);
-        squelch_open = false;
-        if (squelch_hang_timer) {
-            clearTimeout(squelch_hang_timer);
-            squelch_hang_timer = null;
+    if (soundapplet) {
+        if (enabled) {
+            // Мгновенно закрыть канал при включении: звук пойдёт только когда
+            // сигнал превысит порог (это решит «закрывается не сразу»).
+            squelch_open = false;
+            squelch_muted = true;
+            soundapplet.setmute(true);
+        } else {
+            soundapplet.setmute(false);
+            squelch_open = false;
+            squelch_muted = false;
+            if (squelch_hang_timer) {
+                clearTimeout(squelch_hang_timer);
+                squelch_hang_timer = null;
+            }
         }
     }
 }
@@ -422,13 +442,15 @@ function setautonotch2(a)
 {
    a=Number(a);
    soundapplet.setparam2(a);
-    // CTCSS - подавление субтона
-    function setctcss(a)
-    {
-       a=Number(a);
-       soundapplet.setparam("ctcss="+a);
-    }
+}
 
+// CTCSS — подавление субтона репитера (серверный биквад-ноч).
+// Должна быть ГЛОБАЛЬНОЙ: чекбокс #ctcsscheckbox вызывает её по onclick.
+function setctcss(a)
+{
+   a=Number(a);
+   if (!soundapplet) return;
+   soundapplet.setparam("ctcss="+a);
 }
 
 // DNR MOD — шумоподавление (noise reduction)
@@ -652,6 +674,8 @@ function settings_recall()
 	  }
    document.viewform.allowkeys.checked = true;
    document.getElementById('compactviewcheckbox').checked=s.compactview;
+   // squelch не восстанавливаем: он привязан к диапазону, на котором был
+   // включён (здесь его авто-включение сделает setband() при выборе УКВ)
    if (s.divRingOpacity) {
 	   divRing.style.opacity=s.divRingOpacity;
 	   document.getElementById('magicinput').value=s.divRingOpacity;
@@ -678,10 +702,8 @@ function settings_recall()
 	   background_load();
    }
    var c=document.getElementsByName('wf-size');
-   if (s.squelch_enabled !== undefined) {
-       document.getElementById('gainlevelcheckbox').checked = s.squelch_enabled;
-       toggle_squelch(s.squelch_enabled);
-   }
+   // squelch привязан к диапазону, на котором был включён, поэтому из
+   // localStorage НЕ восстанавливаем: авто-включение на УКВ сделает setband()
    if (s.squelch_threshold) {
        document.getElementById('manualgain').value = s.squelch_threshold;
        update_squelch_threshold(s.squelch_threshold);
@@ -1241,7 +1263,10 @@ function setband(b)
    var isVHF = (bi[band].name == '2m');
    var cb = document.getElementById('gainlevelcheckbox');
    if (isVHF) {
-      if (cb && !cb.checked) { cb.checked = true; toggle_squelch(true); }
+      if (!cb.checked) { cb.checked = true; toggle_squelch(true); }
+      // запомнить диапазон, на котором squelch включён автоматически:
+      // при уходе на другой диапазон он будет снят
+      squelch_auto_band = band;
       var mg = document.getElementById('manualgain');
       if (mg && parseInt(mg.value,10) != 9) { mg.value = 9; update_squelch_threshold(9); }
       if (mode != 'FM') {
@@ -1251,6 +1276,8 @@ function setband(b)
       if (lo != -3.2 || hi != 3.21) setmf('fm', -3.2, 3.21);   // полоса 6.50 кГц
    } else {
       if (cb && cb.checked) { cb.checked = false; toggle_squelch(false); }
+      // снять авто-привязку при уходе с УКВ-диапазона
+      squelch_auto_band = null;
       if (prev_mode && mode == 'FM') set_mode(prev_mode);      // вернуть прежний режим
       prev_mode = null;
    }
@@ -1847,9 +1874,11 @@ function soundappletstarted2()
         var threshold_db = parseInt(document.getElementById('manualgain').value);
         if (isNaN(threshold_db)) threshold_db = 20;
 
-        var thr = smetermin + threshold_db * 100;
-        if (thr <= 0) return;
-
+        // Порог от ШУМОВОГО ПОЛА, который якорит сервер (raw~180 => 1700).
+        // Клиентский smetermin тут НЕ используется: он «плавает» (мог висеть
+        // выше реального шума, и тогда сигнал заведомо выше порога не открывал
+        // канал, а при включении канал не затихал вовсе).
+        var thr = SQL_NOISE_FLOOR + threshold_db * 100;
         var hysteresis = SQL_HYSTERESIS_DB * 100;
 
         if (squelch_open) {
@@ -1857,6 +1886,7 @@ function soundappletstarted2()
                 if (!squelch_hang_timer) {
                     squelch_hang_timer = setTimeout(function() {
                         squelch_open = false;
+                        squelch_muted = true;
                         soundapplet.setmute(true);
                         squelch_hang_timer = null;
                     }, SQL_HANG_MS);
@@ -1868,9 +1898,15 @@ function soundappletstarted2()
                 }
             }
         } else {
-            if (val >= thr + hysteresis) {
+            // Закрытое состояние: держим mute ВКЛЮЧЁННЫМ (иначе после включения
+            // squelch канал продолжал играть, пока не появится/не пропадёт сигнал).
+            if (val >= thr) {
                 squelch_open = true;
+                squelch_muted = false;
                 soundapplet.setmute(false);
+            } else if (!squelch_muted) {
+                squelch_muted = true;
+                soundapplet.setmute(true);
             }
         }
     };

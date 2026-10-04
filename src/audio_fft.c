@@ -369,6 +369,18 @@ void audio_fft_client_setup(struct client *cli)
     a->af_fm_prev_re = a->af_fm_prev_im = 0.0f;
     a->af_fm_prev2_re = a->af_fm_prev2_im = 0.0f;
 
+    /* CTCSS notch: reset state; coefficients will be rebuilt on the first
+     * block if the client has the notch enabled and the band has a tone. */
+    a->af_notch_on = 0;
+    a->af_notch_f0 = 0.0;
+    a->af_notch_stages = 0;
+    for (int s = 0; s < 3; s++) {
+        a->af_notch_x1[s] = a->af_notch_x2[s] = 0.0f;
+        a->af_notch_y1[s] = a->af_notch_y2[s] = 0.0f;
+        a->af_notch_b0[s] = 1.0f; a->af_notch_b1[s] = 0.0f; a->af_notch_b2[s] = 0.0f;
+        a->af_notch_a0[s] = 1.0f; a->af_notch_a1[s] = 0.0f; a->af_notch_a2[s] = 0.0f;
+    }
+
     /* Fresh adaptive-codec state (port of VertexSDR client state). */
     a->af_on = 0;
     a->af_conv = 0;
@@ -551,28 +563,61 @@ static float *audio_fft_demod_fm(struct band *b, struct client *cli, int phase)
             a->af_hpf_y1 = y;
             d = y;
         }
-        /* 127.3 Hz CTCSS notch (biquad): kill the sub-tone without touching
-         * voice. Bandwidth ~30 Hz. */
+        /* CTCSS notch: 3 cascaded RBJ biquad notches on f0, 2*f0, 3*f0 (repeater
+         * squelch tones carry strong harmonics — a single notch leaves the
+         * 2nd harmonic audible as a buzz). Applied only when the client
+         * enabled it (ctcss=1) and the band config has a tone frequency
+         * (ctcsstone). Coefficients rebuilt on frequency/state change.
+         * Bandwidth in OCTAVES: bw_oct = bw_hz / f0 (~0.24 for 30 Hz @127). */
         {
-            float const fs = 8000.0f;
-            float const f0 = 127.3f / fs;
-            float const bw = 30.0f / fs;
-            float const w0 = 2.0f * 3.14159265f * f0;
-            float const cw0 = cosf(w0);
-            float const alpha = sinf(w0) * sinhf(0.69314718f / 2.0f * bw);
-            float const b0 = 1.0f, b1 = -2.0f * cw0, b2 = 1.0f;
-            float const a0 = 1.0f + alpha;
-            float const a1 = -2.0f * cw0;
-            float const a2 = 1.0f - alpha;
-            /* normalize by a0 */
-            float x = d;
-            float y = (b0 * x + b1 * a->af_notch_x1 + b2 * a->af_notch_x2
-                       - a1 * a->af_notch_y1 - a2 * a->af_notch_y2) / a0;
-            a->af_notch_x2 = a->af_notch_x1;
-            a->af_notch_x1 = x;
-            a->af_notch_y2 = a->af_notch_y1;
-            a->af_notch_y1 = y;
-            d = y;
+            int want_notch = (cli->ctcss_enabled
+                              && b->ctcss_freq >= 30.0f && b->ctcss_freq <= 400.0f);
+            if (want_notch != a->af_notch_on
+                || (want_notch && b->ctcss_freq != a->af_notch_f0)) {
+                /* frequency or on/off changed: rebuild all stage coefficients */
+                float const fs = 8000.0f;
+                float const bw_hz = 30.0f;              /* notch width in Hz */
+                a->af_notch_on = want_notch;
+                a->af_notch_f0 = b->ctcss_freq;
+                a->af_notch_stages = 3;
+                for (int s = 0; s < a->af_notch_stages; s++) {
+                    float const fh = (float)(s + 1) * (float)b->ctcss_freq;
+                    float const f0 = fh / fs;
+                    float const bw_oct = bw_hz / fh;    /* octaves */
+                    float const w0 = 2.0f * 3.14159265f * f0;
+                    float const cw0 = cosf(w0);
+                    float const sw0 = sinf(w0);
+                    float const alpha = sw0 * sinhf(0.69314718f / 2.0f * bw_oct
+                                                    * w0 / sw0);
+                    a->af_notch_b0[s] = 1.0f;
+                    a->af_notch_b1[s] = -2.0f * cw0;
+                    a->af_notch_b2[s] = 1.0f;
+                    a->af_notch_a0[s] = 1.0f + alpha;
+                    a->af_notch_a1[s] = -2.0f * cw0;
+                    a->af_notch_a2[s] = 1.0f - alpha;
+                    a->af_notch_x1[s] = a->af_notch_x2[s] = 0.0f;
+                    a->af_notch_y1[s] = a->af_notch_y2[s] = 0.0f;
+                }
+                fprintf(stderr, "[ctcss] client ctcss=%d tone=%.1f Hz -> notch %s "
+                        "(3 stages)\n",
+                        cli->ctcss_enabled ? 1 : 0, b->ctcss_freq,
+                        want_notch ? "ON" : "OFF");
+            }
+            if (a->af_notch_on) {
+                float y = d;
+                for (int s = 0; s < a->af_notch_stages; s++) {
+                    float x = y;
+                    y = (a->af_notch_b0[s] * x + a->af_notch_b1[s] * a->af_notch_x1[s]
+                         + a->af_notch_b2[s] * a->af_notch_x2[s]
+                         - a->af_notch_a1[s] * a->af_notch_y1[s]
+                         - a->af_notch_a2[s] * a->af_notch_y2[s]) / a->af_notch_a0[s];
+                    a->af_notch_x2[s] = a->af_notch_x1[s];
+                    a->af_notch_x1[s] = x;
+                    a->af_notch_y2[s] = a->af_notch_y1[s];
+                    a->af_notch_y1[s] = y;
+                }
+                d = y;
+            }
         }
         a->af_dout_r[j] = d;
 

@@ -74,6 +74,8 @@ int config_load(const char *filename, struct websdr_config *config) {
                 current_band->hpf = atoi(p);
             else if (strcmp(key, "noiseblanker") == 0 && p)
                 current_band->noiseblanker = atoi(p);
+            else if (strcmp(key, "ctcsstone") == 0 && p)
+                current_band->ctcss_freq = atof(p);   /* Hz; 0 = off */
             else if (strcmp(key, "extrazoom") == 0 && p) {
                 int ez = atoi(p);
                 current_band->extrazoom = ez > 0 ? (ez > 8 ? 8 : ez) : 0;
