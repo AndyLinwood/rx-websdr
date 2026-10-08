@@ -440,19 +440,39 @@ static int serve_file(struct lws *wsi, const char *pubdir, const char *uri) {
     else if (strstr(path, ".jar"))  mime = "application/java-archive";
     else if (strstr(path, ".ico"))  mime = "image/x-icon";
     else if (strstr(path, ".txt"))  mime = "text/plain";
+    else if (strstr(path, ".xml"))  mime = "application/xml";
 
     char *body = NULL;
     size_t body_len = 0;
     int is_html = (strstr(path, ".html") != NULL);
+    /* Not-found pages get a styled 404.html (HTTP 404), so crawlers and
+     * visitors see the real status instead of a 200 error page. */
+    int status = HTTP_STATUS_OK;
 
     if (is_html) {
         long bl = 0;
         char *raw = read_whole_file(path, &bl);
-        if (!raw) { lws_return_http_status(wsi, HTTP_STATUS_NOT_FOUND, "Not found"); return -1; }
-        char *expanded = expand_includes_body(pubdir, raw, (size_t)bl, &body_len, 8);
-        free(raw);
-        if (!expanded) { lws_return_http_status(wsi, HTTP_STATUS_INTERNAL_SERVER_ERROR, "SSI error"); return -1; }
-        body = expanded;
+        if (!raw) {
+            char notfound[1024];
+            snprintf(notfound, sizeof(notfound), "%s/404.html", pubdir);
+            long nflen = 0;
+            char *nf = read_whole_file(notfound, &nflen);
+            if (nf) {
+                char *expanded = expand_includes_body(pubdir, nf, (size_t)nflen, &body_len, 8);
+                free(nf);
+                if (!expanded) { lws_return_http_status(wsi, HTTP_STATUS_INTERNAL_SERVER_ERROR, "SSI error"); return -1; }
+                body = expanded;
+                status = HTTP_STATUS_NOT_FOUND;
+            } else {
+                lws_return_http_status(wsi, HTTP_STATUS_NOT_FOUND, "Not found");
+                return -1;
+            }
+        } else {
+            char *expanded = expand_includes_body(pubdir, raw, (size_t)bl, &body_len, 8);
+            free(raw);
+            if (!expanded) { lws_return_http_status(wsi, HTTP_STATUS_INTERNAL_SERVER_ERROR, "SSI error"); return -1; }
+            body = expanded;
+        }
     } else {
         long bl = 0;
         char *raw = read_whole_file(path, &bl);
@@ -467,7 +487,7 @@ static int serve_file(struct lws *wsi, const char *pubdir, const char *uri) {
     unsigned char *p = buf + LWS_PRE;
     unsigned char *end = buf + LWS_PRE + 1024;
 
-    if (lws_add_http_header_status(wsi, HTTP_STATUS_OK, &p, end))
+    if (lws_add_http_header_status(wsi, status, &p, end))
         goto fail;
     if (lws_add_http_header_by_name(wsi,
             (const unsigned char *)"content-type:",
@@ -613,12 +633,18 @@ static int serve_othersjj(struct lws *wsi) {
             }
         }
 
+        /* Display name: explicit username, else cached server-side geo
+         * (applied to cl->username in protocol.c when the client's name is
+         * blank), else "unknown" — never an empty box in the users list. */
+        const char *uname = cl->username[0] ? cl->username
+                         : (cl->geo[0] ? cl->geo : "unknown");
+
         /* escape single quotes / backslashes so the eval'd JS stays valid */
         char esc[128];
         int e = 0;
-        for (int c = 0; cl->username[c] && e < (int)sizeof(esc) - 2; c++) {
-            if (cl->username[c] == '\'' || cl->username[c] == '\\') esc[e++] = '\\';
-            esc[e++] = cl->username[c];
+        for (int c = 0; uname[c] && e < (int)sizeof(esc) - 2; c++) {
+            if (uname[c] == '\'' || uname[c] == '\\') esc[e++] = '\\';
+            esc[e++] = uname[c];
         }
         esc[e] = 0;
 
@@ -1354,6 +1380,37 @@ static int ws_handler(struct lws *wsi, enum lws_callback_reasons reason,
             if (anl > 0 && aml > 0)
                 chat_append(wsi, an, am);
             return serve_mem(wsi, ";", 1, "text/javascript"); /* empty JS 200 */
+        }
+        /* Старые имена файлов (до переименования 01.10): 301 на новые, чтобы
+         * поисковики склеили страницы и перенесли вес, а старые закладки
+         * продолжали работать. */
+        {
+            const char *new_name = NULL;
+            if (strcmp(uri, "/websdr.html") == 0)
+                new_name = "/rx-websdr.html";
+            else if (strcmp(uri, "/websdr.css") == 0)
+                new_name = "/rx-websdr.css";
+            if (new_name) {
+                unsigned char rb[LWS_PRE + 512];
+                unsigned char *p = rb + LWS_PRE;
+                unsigned char *end = rb + sizeof(rb);
+                if (lws_add_http_header_status(wsi, HTTP_STATUS_MOVED_PERMANENTLY, &p, end))
+                    return -1;
+                if (lws_add_http_header_by_name(wsi,
+                        (const unsigned char *)"location:",
+                        (const unsigned char *)new_name, (int)strlen(new_name), &p, end))
+                    return -1;
+                if (lws_add_http_header_content_length(wsi, 0, &p, end))
+                    return -1;
+                if (lws_finalize_http_header(wsi, &p, end))
+                    return -1;
+                if (lws_write(wsi, rb + LWS_PRE, (size_t)(p - (rb + LWS_PRE)),
+                              LWS_WRITE_HTTP_HEADERS) < 0)
+                    return -1;
+                if (lws_http_transaction_completed(wsi))
+                    return -1;
+                return 0;
+            }
         }
         return serve_file(wsi, "pub", uri);
     }

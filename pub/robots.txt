@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+
+# Технические/служебные пути: не индексировать
+Disallow: /~~admin
+Disallow: /~~chat
+Disallow: /~~othersjj
+Disallow: /~~ft8
+Disallow: /tmp/
+Disallow: /?admin
+Disallow: /?action=*
+Disallow: /*.bak*
