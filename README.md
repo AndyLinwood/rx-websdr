@@ -372,15 +372,12 @@ radiod, но каждый пишет в свои FIFO. Это внутренни
 
 | Файл | Назначение |
 |---|---|
-| `websdr-head.html`, `websdr-controls.html` | разметка (граница фронтенда) |
-| `classic.css`, `style.css`, `styles.less` | стили |
+| `rx-websdr.html` | разметка (граница фронтенда) |
+| `rx-websdr.css` | стили |
 | `rx-base.js` | главный клиент (переработанный websdr-base.js: разделы, комментарии, фиксы) |
-| `rx-waterfall.js` | HTML5-водопад (prep_html5waterfalls) — наш |
+| `rx-waterfall.js` | HTML5-водопад (prep_html5waterfalls) |
 | `websdr-sound.js` | HTML5-звук (лицензия PA3FWM, см. раздел Лицензии) |
 | `bandinfo.js` / `tmp/*.png` | генерируются сервером (сеть шкал) |
-
-В `websdr-head.html` подключается `rx-base.js`; он динамически грузит
-`rx-waterfall.js` (водопад) и `websdr-sound.js` (звук). Особенности:
 
 - **reset/зум:** сервер пересчитывает спектр на каждый уровень зума (бина = 1px),
   а не растягивает готовую картину — это устраняет «ёлочки» при зуме.
