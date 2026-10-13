@@ -573,3 +573,124 @@
             display: none !important;
         }
     
+        /* ============================================================
+           ОКНО FT8-декодера (дизайн в духе sv1btl/decoders.js,
+           но в тёмной теме сайта). Открывается кнопкой FT8.
+           Бэкенд: серверный /~~ft8 (ka9q-radio decode_ft8).
+           ============================================================ */
+        .ft8win {
+            box-sizing: border-box;
+            width: 100%;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: linear-gradient(180deg, var(--bg-panel) 0%, #0d1117 100%);
+            font: 11px/1.35 Arial, sans-serif;
+            color: var(--text-main);
+            text-align: left;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+
+        .ft8-head {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 4px 8px;
+            padding: 3px 8px;
+            background: linear-gradient(180deg, #1c2536 0%, #141c29 100%);
+            border-bottom: 1px solid var(--border-color);
+            border-radius: 6px 6px 0 0;
+        }
+
+        .ft8-title {
+            font-weight: bold;
+            flex: 1;
+            white-space: nowrap;
+            color: var(--neon-amber);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 10px;
+        }
+
+        .ft8-head span { color: var(--text-muted); }
+        .ft8-head b.ft8-count { color: var(--neon-blue); }
+        .ft8-head .ft8-count-label { white-space: nowrap; }
+
+        .ft8-clear {
+            background: linear-gradient(180deg, #283143 0%, #1a212d 100%);
+            color: var(--text-main);
+            border: 1px solid #374357;
+            border-radius: 3px;
+            padding: 1px 8px;
+            font-size: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+        }
+        .ft8-clear:hover { border-color: var(--danger); color: #fff; }
+
+        .ft8-list {
+            height: 140px;
+            overflow-y: auto;
+            background: var(--bg-input);
+            color: var(--text-main);
+            font: bold 11px/14px "Courier New", monospace;
+        }
+
+        .ft8-table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        .ft8-table th {
+            position: sticky;
+            top: 0;
+            background: #1a2130;
+            color: var(--text-muted);
+            font: bold 10px Arial, sans-serif;
+            text-align: left;
+            padding: 2px 6px;
+            border-bottom: 1px solid var(--border-color);
+            z-index: 1;
+        }
+
+        /* Числовые колонки (dB, DT, Hz, Distance): и заголовок, и значения —
+           по центру, чтобы цифры стояли ровно под названием колонки */
+        .ft8-table th:nth-child(2),
+        .ft8-table th:nth-child(3),
+        .ft8-table th:nth-child(4),
+        .ft8-table th:nth-child(7) {
+            text-align: center;
+        }
+
+        .ft8-table th + th { border-left: 1px solid transparent; }
+
+        .ft8-table td {
+            padding: 2px 6px;
+            white-space: nowrap;
+            border-bottom: 1px solid #242c3a;
+            color: var(--text-main);
+        }
+
+        /* значения dB/DT/Hz/Distance — по центру колонки (под заголовком) */
+        .ft8-table td.ft8-n { text-align: center; color: var(--neon-blue); }
+        .ft8-table td.ft8-n.ft8-warn { color: var(--neon-amber); }
+        .ft8-table td.ft8-m { color: var(--neon-green); white-space: normal; }
+        .ft8-table td.ft8-c { color: #7dd3fc; }
+
+        .ft8-table tr.ft8-sep td { border-top: 1px solid #3a4556; }
+        .ft8-table tr:hover td { background: rgba(0,210,255,0.06); }
+        .ft8-table tr { cursor: pointer; }
+
+        .ft8-status {
+            padding: 1px 8px 2px;
+            color: var(--text-muted);
+            font-style: italic;
+            border-top: 1px solid var(--border-color);
+            min-height: 13px;
+        }
+
+        .ft8-empty {
+            color: var(--text-muted);
+            font-style: italic;
+        }
+    

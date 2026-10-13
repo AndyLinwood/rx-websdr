@@ -1607,59 +1607,188 @@ function ajaxFunction3()
 // ---------------------------------------------------------------------------
 // РАЗДЕЛ 17а. FT8-декодер (окно-панель)
 // ---------------------------------------------------------------------------
-var ft8_lines=new Array();  // строки декода (последние полученные)
+// Дизайн окна — в духе sv1btl/WebSDR-emulation-for-UberSDR (decoders.js):
+// заголовок «FT8 decoder» со счётчиком и Clear, таблица
+// UTC | dB | DT | Hz | Message | Locator | Distance. Бэкенд прежний:
+// серверный /~~ft8 (ka9q-radio decode_ft8 -> /var/log/ft8.log).
+var ft8_lines=new Array();  // НАКОПЛЕННЫЕ строки декодов (окно-история, не сбрасывается опросом)
 var ft8_lastseq=-1;         // последний обработанный ft8chseq
 var ft8_enabled=false;      // открыта ли панель
 var local_ft8_keep=false;   // защита: set_mode из setband не должен гасить FT8
+var ft8_total=0;            // счётчик декодов, добавленных за время открытия окна
 
-// eval-функции: сервер присылает полный хвост декодов ft8chseq=N; ft8str("line");...
-// при каждом ответе (новая порция) начинаем массив заново — окно не растёт бесконечно
-function ft8chseq(n){ ft8_lastseq=n; ft8_lines=new Array(); }
+// eval-функции: сервер присылает полный хвост декодов ft8chseq(N); ft8str("line");...
+// Каждый опрос (1с) приходит хвост из ПОСЛЕДНИХ ~60 строк /var/log/ft8.log.
+// Окно НЕ сбрасывается при опросе — декоды накапливаются (как было раньше),
+// повторные строки одного хвоста не дублируются. Clear очищает всё.
+function ft8chseq(n){ ft8_lastseq=n; }
 function ft8str(s)
 {
+   /* Дедупликация: сервер шлёт весь хвост (последние ~60 строк) КАЖДЫЙ опрос.
+    * Строку добавляем только если её нет среди последних 60 строк буфера —
+    * иначе повторный хвост задвоил бы всё окно. (Одинаковые декоды редки,
+    * и 60 строк ≈ размер хвоста — хватает с запасом.) */
+   var lim=ft8_lines.length-60;
+   if (lim<0) lim=0;
+   for (var i=ft8_lines.length-1;i>=lim;i--) {
+      if (ft8_lines[i]==s) return;
+   }
    ft8_lines.push(s);
+   ft8_total++;
+   // лимит окна: старые уходят вверх, но не мгновенно (500 строк = ~8 мин FT8)
+   if (ft8_lines.length>500) ft8_lines=ft8_lines.slice(ft8_lines.length-500);
 }
 
-// отрисовать панель (только декоды текущего диапазона) как таблицу
+// --- Локатор -> координаты, дистанция (как в sv1btl decoders.js) -----------
+function ft8GridToLatLon(g)
+{
+   try {
+      var l=g.toUpperCase();
+      if (l.length<4) return null;
+      var lon=(l.charCodeAt(0)-65)*20-180;
+      var lat=(l.charCodeAt(1)-65)*10-90;
+      if (l.length>=4) { lon+=(l.charCodeAt(2)-48)*2; lat+=l.charCodeAt(3)-48; }
+      if (l.length>=6) { lon+=(l.charCodeAt(4)-65)*5/60+5/120; lat+=(l.charCodeAt(5)-65)*2.5/60+1.25/120; }
+      else if (l.length==4) { lon+=1; lat+=0.5; }
+      return [lat,lon];
+   } catch (e) { return null; }
+}
+
+var ft8_home;   // [lat,lon] домашнего QTH (undefined = ещё не вычислялся; null = не найден)
+function ft8Home()
+{
+   if (ft8_home!==undefined) return ft8_home;
+   ft8_home=null;
+   try {
+      /* Ищем ссылку с qth= (k7fry) — обычно полный локатор в тексте ссылки
+       * (LO07AQ98LT), в href — минимум (LO07AQ). Берём максимум из двух. */
+      var a=document.querySelector('a[href*="qth="]');
+      var g='';
+      if (a) {
+         var mh=/qth=([A-R]{2}\d{2}(?:[A-X]{2})?)/i.exec(a.getAttribute('href'));
+         var mt=(a.textContent||'').match(/\b([A-R]{2}\d{2}(?:[A-X]{2})?)\b/i);
+         if (mt && mt[1].length>g.length) g=mt[1];
+         if (mh && mh[1].length>g.length) g=mh[1];
+      }
+      if (g && !/^AA00/i.test(g)) ft8_home=ft8GridToLatLon(g);
+   } catch (e) { ft8_home=null; }
+   return ft8_home;
+}
+
+function ft8DistKm(a,b)
+{
+   if (!a||!b) return '';
+   var r=function(x){ return x*Math.PI/180; };
+   var dLat=r(b[0]-a[0]), dLon=r(b[1]-a[1]);
+   var h=Math.sin(dLat/2)*Math.sin(dLat/2)+
+         Math.cos(r(a[0]))*Math.cos(r(b[0]))*Math.sin(dLon/2)*Math.sin(dLon/2);
+   return Math.round(6371*2*Math.atan2(Math.sqrt(h),Math.sqrt(1-h)));
+}
+
+var ft8_GRID_RE=/\b([A-R]{2}\d{2}(?:[A-X]{2})?)\b/i;
+// из текста сообщения достаёт локатор и возвращает [html-ссылка, дистанция км]
+function ft8GridCell(text)
+{
+   try {
+      var m=ft8_GRID_RE.exec(text||'');
+      if (!m || /^RR73$/i.test(m[1])) return ['',''];
+      var g=m[1].toUpperCase();
+      var h=ft8Home();
+      var link='<a href="https://www.levinecentral.com/ham/grid_square.php?&Grid='+g+'&Zoom=10&sm=y" target="_blank" rel="noopener">'+g+'</a>';
+      var km=h?ft8DistKm(h,ft8GridToLatLon(g)):'';
+      return [link,km===''?'':km+' km'];
+   } catch (e) { return ['','']; }
+}
+
+// --- отрисовка окна ---------------------------------------------------------
+// текущее время UTC (для строки статуса в стиле sv1btl «HH:MM:SS UTC: N decoded»)
+function ft8_utc()
+{
+   try {
+      var d=new Date();
+      return ('0'+d.getUTCHours()).slice(-2)+':'+
+             ('0'+d.getUTCMinutes()).slice(-2)+':'+
+             ('0'+d.getUTCSeconds()).slice(-2);
+   } catch (e) { return '--:--:--'; }
+}
+
+// Парсинг строки декода из /var/log/ft8.log (ka9q-radio decode_ft8):
+//   "2026/09/18 09:07:15  14 +1.93 7,074,721.8 ~ HA1BF LA1RQ JP51"
+// Время | SNR(dB) | dt | частота(Hz) | сообщение. Возвращает объект или null.
+function ft8Parse(line)
+{
+   // частота — единственное число с запятыми-разделителями тысяч (напр. 7,074,721.8)
+   var f=line.match(/([0-9]{1,3}(,[0-9]{3})+\.[0-9])/);
+   if (!f) return null;
+   var freqHz=parseFloat(f[1].replace(/,/g,''));
+   // разделитель сообщения может быть '~' (обычный) или '@' (подтверждённый RR73-декод)
+   var m=line.match(/^(\S+\s+\S+)\s+([+-]?\d+)\s+([+-][0-9.]+)\s+([0-9,.]+)\s*[~@]\s*(.*)$/);
+   if (!m) return null;
+   return {
+      time:   m[1],            // "2026/09/18 09:07:15"
+      utc:    (m[1].match(/\s(\S+)$/)||['',''])[1], // "09:07:15"
+      db:     m[2],            // "14"
+      dt:     m[3],            // "+1.93"
+      fq:     m[4],            // "7,074,721.8"
+      msg:    m[5],            // "HA1BF LA1RQ JP51"
+      freqHz: freqHz
+   };
+}
+
+// отрисовать панель (только декоды текущего диапазона) как таблицу sv1btl-стиля
 function doft8()
 {
    if (!ft8panelobj) return;
+   var tbobj=document.getElementById('ft8tbody');
+   if (!tbobj) return;
    // полоса текущего виртуального бэнда
    var loF=bi[band].centerfreq-bi[band].samplerate/2;
    var hiF=bi[band].centerfreq+bi[band].samplerate/2;
    var rows='';
+   var n=0;  // сколько строк в этом окне (для статуса)
    for (var i=0;i<ft8_lines.length;i++) {
-      // строка вида "2026/09/18 09:24:45  14 +1.05 7,076,506.1 ~ HB9DLT ..."
-      // частота — единственное число с запятыми-разделителями тысяч (напр. 7,076,506.1)
-      var f=ft8_lines[i].match(/([0-9]{1,3}(,[0-9]{3})+\.[0-9])/);
-      var line=ft8_lines[i];
-      if (f) {
-         var freqHz=parseFloat(f[1].replace(/,/g,''));
-         var freqKhz=freqHz/1000;
-         if (freqKhz<loF || freqKhz>hiF) continue;
-
-         var m=line.match(/^(\S+\s+\S+)\s+(\d+)\s+([+-][0-9.]+)\s+([0-9,.]+)\s*~\s*(.*)$/);
-         var time=m ? m[1]: '';
-         var snr=m ? m[2]: '';
-         var db=m ? m[3]: '';
-         var fq=m ? m[4]: '';
-         var msg=m ? m[5]: line;
-
-         // строка на всю ширину окна, колонки по центру, снизу — видимая разделительная полоса
-         rows+="<div style='display:flex; align-items:center; width:100%; box-sizing:border-box; padding:3px 10px; border-bottom:1px solid #2a2f36; cursor:pointer;' onclick='setfreqb("+freqHz.toFixed(1)+")' title='клик — перестроиться на частоту "+freqHz.toFixed(1)+" кГц'>"+
-            "<span style='flex:0 0 118px; text-align:center;'>"+time+"</span>"+
-            "<span style='flex:0 0 42px; text-align:center;'>"+snr+"</span>"+
-            "<span style='flex:0 0 56px; text-align:center;'>"+db+"</span>"+
-            "<span style='flex:0 0 118px; text-align:center;'>"+fq+"</span>"+
-            "<span style='flex:1 1 auto; text-align:left; padding-left:8px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;'>"+msg.replace(/</g,'&lt;')+"</span>"+
-            "</div>";
-      } else {
-         rows+="<div style='white-space:nowrap; padding:3px 10px; border-bottom:1px solid #2a2f36;'>"+line.replace(/</g,'&lt;')+"</div>";
-      }
+      var rec=ft8Parse(ft8_lines[i]);
+      if (!rec) continue;
+      var freqKhz=rec.freqHz/1000;
+      if (freqKhz<loF || freqKhz>hiF) continue;
+      n++;
+      var gl=ft8GridCell(rec.msg);
+      var db=parseFloat(rec.db);
+      var dt=parseFloat(rec.dt);
+      var dtTxt=isNaN(dt)?'':(dt>0?'+':'')+dt.toFixed(1);
+      var dbTxt=isNaN(db)?'':(db>0?'+':'')+db.toFixed(0);
+      rows+="<tr onclick='setfreqb("+freqKhz.toFixed(3)+")' title='клик — перестроиться на частоту "+freqKhz.toFixed(3)+" кГц'>"+
+         "<td>"+rec.utc+"</td>"+
+         "<td class='ft8-n'>"+dbTxt+"</td>"+
+         "<td class='ft8-n"+(Math.abs(dt)>0.5?' ft8-warn':'')+"'>"+dtTxt+"</td>"+
+         "<td class='ft8-n'>"+Math.round(rec.freqHz)+"</td>"+
+         "<td class='ft8-m'>"+rec.msg.replace(/</g,'&lt;')+"</td>"+
+         "<td class='ft8-c'>"+gl[0]+"</td>"+
+         "<td class='ft8-n'>"+gl[1]+"</td></tr>";
    }
-   if (rows=='') rows='<div style="color:#808080; padding:4px 10px;">— нет декодов на этом диапазоне —</div>';
-   ft8listobj.innerHTML="<div style='width:100%; font-family:monospace;'>"+rows+"</div>";
-   ft8listobj.scrollTop=ft8listobj.scrollHeight;  // автопрокрутка вниз (свежее в конце)
+   if (rows=='')
+      rows='<tr><td colspan="7" class="ft8-empty">— нет декодов на этом диапазоне —</td></tr>';
+
+   tbobj.innerHTML=rows;
+   var countobj=document.querySelector('.ft8-count');
+   if (countobj) countobj.textContent=String(ft8_total);
+   var stobj=document.getElementById('ft8status');
+   if (stobj) stobj.innerHTML=(ft8_lines.length>0?ft8_utc()+ ' UTC: '+n+' на этом диапазоне / всего '+ft8_lines.length:'— нет декодов —');
+   var listobj=document.getElementById('ft8list');
+   if (listobj) listobj.scrollTop=listobj.scrollHeight;  // автопрокрутка вниз (свежее в конце)
+}
+
+// кнопка Clear в заголовке окна: очистить ленту и счётчик
+function ft8clear()
+{
+   ft8_lines=new Array();
+   ft8_total=0;
+   var tbobj=document.getElementById('ft8tbody');
+   if (tbobj) tbobj.innerHTML='';
+   var countobj=document.querySelector('.ft8-count');
+   if (countobj) countobj.textContent='0';
+   var stobj=document.getElementById('ft8status');
+   if (stobj) stobj.innerHTML='&nbsp;';
 }
 
 // AJAX-опрос /~~ft8 (только когда панель открыта; при выключении останавливается)
@@ -1699,10 +1828,14 @@ function toggleft8()
    if (ft8_enabled) {
       if (panel) panel.style.display='block';
       if (btn) btn.classList.add('btn-selected');
+      ft8_total=0;
+      ft8clear();
       ft8poll();
    } else {
       ft8_lines=new Array();
-      if (ft8listobj) ft8listobj.innerHTML='';
+      ft8_total=0;
+      var tbobj=document.getElementById('ft8tbody');
+      if (tbobj) tbobj.innerHTML='';
       if (panel) panel.style.display='none';
       if (btn) btn.classList.remove('btn-selected');
       clearTimeout(interval_ft8);

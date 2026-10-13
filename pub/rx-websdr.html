@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
+<script>
+/* port-redirect: если открыли с портом 8091 (ссылка из websdr.org) — перейти на https без порта */
+if (location.port === '8091') { location.replace('https://websdr.srr-76.ru/'); }
+</script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="RX-WEBSDR Ярославль (LO07AQ98) — онлайн SDR-приёмник на коротких волнах и УКВ диапазоне 2m (145 МГц). Слушайте эфир бесплатно в браузере.">
@@ -10,9 +15,9 @@
     <link rel="icon" type="image/png" href="favicon.png">
 <script src="tmp/bandinfo.js" type="text/javascript"></script>
 <script src="jquery-3.1.1.min.js"></script>
-<script src="rx-base.js?v=rec7" type="text/javascript"></script>
+<script src="rx-base.js?v=rec10" type="text/javascript"></script>
 
-    <link rel="stylesheet" href="rx-websdr.css?v=rec5">
+    <link rel="stylesheet" href="rx-websdr.css?v=rec7">
 </head>
 <body onload="bodyonload();">
 
@@ -485,10 +490,25 @@
     </div>
     </form>
 
-    <!-- Панель FT8 декодов (изначально скрыта, открывается по кнопке FT8) -->
+    <!-- Панель FT8 декодов (изначально скрыта, открывается по кнопке FT8)
+         Дизайн в духе sv1btl/WebSDR-emulation-for-UberSDR (decoders.js):
+         заголовок со счётчиком и Clear, таблица UTC|dB|DT|Hz|Message|Locator|Distance.
+         Бэкенд прежний: /~~ft8 (ka9q-radio decode_ft8 -> /var/log/ft8.log). -->
     <div class="panel" id="ft8panel" style="display: none; margin-bottom: 8px;">
-        <div class="panel-title">FT8 Монитор диапазона</div>
-        <div id="ft8list" style="height: 120px; overflow-y: auto; background: #05070a; border: 1px solid var(--border-color); border-radius: 3px;"></div>
+        <div class="ft8win">
+            <div class="ft8-head">
+                <span class="ft8-title">FT8 decoder</span>
+                <span class="ft8-count-label">Decodes <b class="ft8-count">0</b></span>
+                <button type="button" class="ft8-clear" onclick="ft8clear();" title="Очистить окно декодов">Clear</button>
+            </div>
+            <div class="ft8-list" id="ft8list">
+                <table class="ft8-table" id="ft8table">
+                    <thead><tr><th>UTC</th><th>dB</th><th>DT</th><th>Hz</th><th>Message</th><th>Locator</th><th>Distance</th></tr></thead>
+                    <tbody id="ft8tbody"></tbody>
+                </table>
+            </div>
+            <div class="ft8-status" id="ft8status">&nbsp;</div>
+        </div>
     </div>
 
     <!-- Блок Статистики и списка подключений (Слушатели) -->

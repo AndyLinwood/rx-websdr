@@ -673,10 +673,12 @@ static int serve_othersjj(struct lws *wsi) {
  *     2026/09/18 09:07:15  14 +1.93 7,074,721.8 ~ HA1BF LA1RQ JP51
  * This handler hands the LAST MAX_FT8_LINES lines to the client as a JS
  * snippet (eval'd by the client, same pattern as /~~othersjj):
- *     ft8chseq=<seq>;
+ *     ft8chseq(<seq>);
  *     ft8str("<escaped line>");   ... newest last
  * The client keeps its own window (ring) of decoded lines and re-renders
- * the "FT8" panel whenever the chseq moves on. */
+ * the "FT8" panel whenever the chseq moves on. NOTE: must be a function
+ * CALL (ft8chseq(n);), not an assignment — an assignment would overwrite
+ * the client function with a number and the ring reset would never run. */
 
 #define MAX_FT8_LINES 60
 
@@ -693,7 +695,7 @@ static int serve_ft8(struct lws *wsi) {
     FILE *fp = fopen(path, "r");
     if (!fp) {
         n += snprintf(body + n, sizeof(body) - n,
-                      "ft8chseq=%u;\nft8str(\"[ft8.log not readable]\");\n", ++g_ft8_chseq);
+                      "ft8chseq(%u);\nft8str(\"[ft8.log not readable]\");\n", ++g_ft8_chseq);
         return serve_mem(wsi, body, (size_t)n, "text/javascript");
     }
 
@@ -715,7 +717,9 @@ static int serve_ft8(struct lws *wsi) {
     }
     fclose(fp);
 
-    n += snprintf(body + n, sizeof(body) - n, "ft8chseq=%u;\n", ++g_ft8_chseq);
+    /* вызов (не присваивание!): в eval «ft8chseq=1;» затирал бы функцию
+     * числом и массив ft8_lines на клиенте никогда не сбрасывался */
+    n += snprintf(body + n, sizeof(body) - n, "ft8chseq(%u);\n", ++g_ft8_chseq);
     for (int i = 0; i < nlines && n < (int)sizeof(body) - 128; i++) {
         /* escape for JS single-quoted string */
         char esc[512];
