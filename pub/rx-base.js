@@ -2106,7 +2106,19 @@ function registerTouchEvents(id, touchStart, touchMove) {
 function setusernamecookie() {
    try {
      if (!document.usernameform || !document.usernameform.username) return false;
-     createCookie('username',document.usernameform.username.value,365*5);
+     var v=String(document.usernameform.username.value||"").replace(/^\s+|\s+$/g,"");
+     if (!v) {
+        /* Поле пустое или только пробелы — НЕ сохраняем мусорную куку
+         * (иначе имя навсегда станет пробелом) и не уходим без обозначения:
+         * возвращаем гео-подстановку, чтобы в списке не было пустой строки. */
+        document.usernameform.username.value="";
+        ip2geo('visitname');
+        return false;
+     }
+     document.usernameform.username.value=v;
+     var el=document.getElementById('visitname');
+     if (el) el.value=v;
+     createCookie('username',v,365*5);
      var p=document.getElementById("please2");
      if (p) p.innerHTML="";
      send_soundsettings_to_server();
@@ -2441,15 +2453,22 @@ window.onkeydown = keydown;
 function document_username()
 {
   var x= readCookie('username');
+  var el=document.getElementById('visitname');
 
-  // Если кука пуста или в ней мусор — оставляем поле пустым,
-  // гео-имя (RU,Moscow / unknown) подставится через ip2geo ниже.
+  // Кука — источник истины. Пробелы/мусор/слишком длинное игнорируем.
+  if (x) x=String(x).replace(/^\s+|\s+$/g,"");
   if (!x || x.length > 30) x="";
 
-  // Поле уже есть в статике (websdr-controls.html) — только заполняем.
   if (x) {
+    // Синхронизируем ОБЕ формы: скрытую (её значение уходит на сервер через
+    // ~~param name=) и видимую (её видит пользователь). Раньше заполнялась
+    // только скрытая — видимое поле оставалось с value=" " из HTML, и на
+    // сервер уходил пробел вместо позывного (слушатель виделся без имени).
     document.usernameform.username.value=x;
+    if (el) el.value=x;
   } else {
+    // Имени нет — пустая скрытая форма + гео-подстановка в видимое поле.
+    document.usernameform.username.value="";
     ip2geo('visitname');
   }
 }
@@ -2766,12 +2785,19 @@ function ip2geo(id)
 }
 function setgeo_result(id, v) {
     var el = document.getElementById(id);
+    /* Если пользователь уже ввёл своё имя (или оно есть из куки) — НЕ затираем
+     * его асинхронным ответом гео: иначе введённый позывной пропадает. */
+    var cur = (document.usernameform && document.usernameform.username)
+            ? String(document.usernameform.username.value||"").replace(/^\s+|\s+$/g,"") : "";
+    if (cur) { if (el && !el.value) el.value = cur; return; }
+
+    v = String(v||"").replace(/^\s+|\s+$/g,"") || "unknown";
     if (el) el.value = v;
-    /* Подставить гео в поле и сразу отправить на сервер (~~param c name=):
+    /* Подставить гео в скрытую форму и сразу отправить на сервер (~~param name=):
      * иначе первый param уходит с пустым именем, и слушатель виден пустым
      * в списке (~~othersjj). */
     setTimeout( function() {
-        document.usernameform.username.value = document.getElementById(id).value;
+        document.usernameform.username.value = v;
         send_soundsettings_to_server();
     }, 500);
 }
