@@ -1591,6 +1591,12 @@ function ajaxFunction3()
     if(xmlHttp.readyState==4)
       {
         if (xmlHttp.status==200 && xmlHttp.responseText!="") {
+          /* Сервер присылает ПОЛНЫЙ список слушателей (стабильные слоты).
+           * Перед eval очищаем массивы: иначе слоты ушедших пользователей
+           * остаются в uu_names навсегда и счётчик «пользуются» только растёт. */
+          uu_names=new Array();
+          uu_bands=new Array();
+          uu_freqs=new Array();
           eval(xmlHttp.responseText);
           douu();
         }
