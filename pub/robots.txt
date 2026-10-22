@@ -9,4 +9,6 @@ Disallow: /~~ft8
 Disallow: /tmp/
 Disallow: /?admin
 Disallow: /?action=*
+Disallow: /?
+Disallow: /*?tune=
 Disallow: /*.bak*

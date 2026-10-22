@@ -855,7 +855,8 @@ static int is_banned(const char *name, const char *ip) {
         if (!g_banlist[i][0]) continue;
         if (strchr(g_banlist[i], '/')) {
             if (ip && cidr_match(g_banlist[i], ip)) return 1;
-        } else if (strchr(g_banlist[i], '.')) {
+        } else if (strchr(g_banlist[i], '.') || strchr(g_banlist[i], ':')) {
+            /* IPv4 и IPv6 — точное совпадение с IP подключения */
             if (ip && strcmp(g_banlist[i], ip) == 0) return 1;
         } else {
             /* callsign — case-insensitive exact */
@@ -1250,6 +1251,93 @@ static int serve_admin_login(struct lws *wsi) {
     return serve_mem(wsi, html, strlen(html), "text/html");
 }
 
+/* Сопоставить имя (позывной) с IP-адресами, известными серверу.
+ * Источники:
+ *   1) живые подключения g_uu_slots[] (username -> client_ip_str);
+ *   2) журнал посетителей visitorsfile — строки "дата|IP|имя|бэнд"
+ *      (сравнение имени без учёта регистра, все вхождения).
+ * В out записывается до BAN_IP_MAX уникальных непустых адресов. */
+#define BAN_IP_MAX 8
+static void banlist_add_unique(char out[BAN_IP_MAX][64], int *found,
+                               const char *ip) {
+    if (!ip || !ip[0] || *found >= BAN_IP_MAX) return;
+    if (strcmp(ip, "127.0.0.1") == 0 || strcmp(ip, "::1") == 0) return;
+    for (int j = 0; j < *found; j++)
+        if (strcmp(out[j], ip) == 0) return;
+    strncpy(out[*found], ip, 63);
+    out[*found][63] = 0;
+    (*found)++;
+}
+
+static void lookup_name_ips(const char *name, char out[BAN_IP_MAX][64]) {
+    int found = 0;
+    char nlow[96];
+    int k = 0;
+    for (int i = 0; name[i] && k < (int)sizeof(nlow) - 1; i++) {
+        char c = name[i];
+        if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+        nlow[k++] = c;
+    }
+    nlow[k] = 0;
+    if (!nlow[0]) return;
+    /* Гео-имена (анонимы, формат "XX,City" — напр. "RU,Krasnodar") НЕ
+     * сопоставляем: под одним таким именем в журнале сидят десятки разных
+     * IP, банить их всех вместе было бы неверно. */
+    if (nlow[0] >= 'a' && nlow[0] <= 'z' && nlow[1] >= 'a' && nlow[1] <= 'z' &&
+        nlow[2] == ',')
+        return;
+
+    /* 1) живые подключения */
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        struct client *cl = g_uu_slots[i];
+        if (!cl) continue;
+        const char *uname = cl->username[0] ? cl->username : "";
+        if (!uname[0]) continue;
+        char ulow[96];
+        int m = 0;
+        for (int j = 0; uname[j] && m < (int)sizeof(ulow) - 1; j++) {
+            char c = uname[j];
+            if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+            ulow[m++] = c;
+        }
+        ulow[m] = 0;
+        if (strcmp(ulow, nlow) == 0)
+            banlist_add_unique(out, &found, cl->client_ip_str);
+    }
+
+    /* 2) журнал посетителей: "дата|IP|имя|бэнд" */
+    if (g_config && g_config->visitorsfile[0]) {
+        FILE *fp = fopen(g_config->visitorsfile, "r");
+        if (fp) {
+            char line[512];
+            while (fgets(line, sizeof(line), fp)) {
+                char *f1 = strchr(line, '|');
+                if (!f1) continue;
+                char *f2 = strchr(f1 + 1, '|');
+                if (!f2) continue;
+                char *f3 = strchr(f2 + 1, '|');
+                if (!f3) continue;
+                char ip[64];
+                size_t iplen = (size_t)(f2 - (f1 + 1));
+                if (iplen >= sizeof(ip)) iplen = sizeof(ip) - 1;
+                memcpy(ip, f1 + 1, iplen);
+                ip[iplen] = 0;
+                char nm[96];
+                size_t nmlen = (size_t)(f3 - (f2 + 1));
+                if (nmlen >= sizeof(nm)) nmlen = sizeof(nm) - 1;
+                memcpy(nm, f2 + 1, nmlen);
+                nm[nmlen] = 0;
+                for (int j = 0; nm[j]; j++)
+                    if (nm[j] >= 'A' && nm[j] <= 'Z')
+                        nm[j] = (char)(nm[j] - 'A' + 'a');
+                if (strcmp(nm, nlow) == 0)
+                    banlist_add_unique(out, &found, ip);
+            }
+            fclose(fp);
+        }
+    }
+}
+
 /* Entry: auth, act, render the admin page. Query args are parsed with
  * lws_get_urlarg_by_name_safe (action=p/login/del/ban/unban/clear...). */
 static int serve_admin(struct lws *wsi) {
@@ -1297,10 +1385,21 @@ static int serve_admin(struct lws *wsi) {
     if (strcmp(action, "del") == 0 && delseq)
         chat_delete_by_seq(delseq);
     else if (strcmp(action, "ban") == 0 && entry[0]) {
+        int is_ip = strchr(entry, '.') || strchr(entry, '/') || strchr(entry, ':');
         banlist_add(entry);
+        /* Бан ПО ИМЕНИ усиливаем баном IP: сопоставляем имя с адресами
+         * (живые подключения + журнал посетителей) и добавляем их в банлет.
+         * Перечитываем список после добавления, чтобы is_banned увидел всё. */
+        if (!is_ip) {
+            char ips[BAN_IP_MAX][64];
+            lookup_name_ips(entry, ips);
+            for (int i = 0; i < BAN_IP_MAX; i++)
+                if (ips[i][0])
+                    banlist_add(ips[i]);
+        }
         banlist_load();
         /* banning a callsign (not an IP/CIDR): purge their messages too */
-        if (!strchr(entry, '.') && !strchr(entry, '/') && !strchr(entry, ':'))
+        if (!is_ip)
             chat_delete_by_name(entry);
     }
     else if (strcmp(action, "unban") == 0 && entry[0]) {
@@ -1361,7 +1460,14 @@ static int ws_handler(struct lws *wsi, enum lws_callback_reasons reason,
     /* HTTP serving */
     case LWS_CALLBACK_HTTP: {
         char uri[512];
+        char raw_uri[512];
         lws_hdr_copy(wsi, uri, sizeof(uri), WSI_TOKEN_GET_URI);
+        /* raw_uri: КОПИЯ того, что РЕАЛЬНО запросил клиент, до внутренней
+         * подстановки "/" -> "/index.html". ВАЖНО: это массив, а не указатель
+         * на uri, иначе strcpy(uri,...) ниже перезапишет и raw_uri, и 301
+         * для /index.html зациклятся на главной (она внутри становится
+         * index.html). */
+        strcpy(raw_uri, uri);
         if (strlen(uri) == 0 || strcmp(uri, "/") == 0)
             strcpy(uri, "/index.html");
         if (strstr(uri, "/tmp/bandinfo.js"))
@@ -1390,9 +1496,13 @@ static int ws_handler(struct lws *wsi, enum lws_callback_reasons reason,
          * продолжали работать. */
         {
             const char *new_name = NULL;
-            if (strcmp(uri, "/websdr.html") == 0)
-                new_name = "/rx-websdr.html";
-            else if (strcmp(uri, "/websdr.css") == 0)
+            if (strcmp(raw_uri, "/index.html") == 0)
+                new_name = "/";
+            else if (strcmp(raw_uri, "/rx-websdr.html") == 0)
+                new_name = "/";
+            else if (strcmp(raw_uri, "/websdr.html") == 0)
+                new_name = "/";
+            else if (strcmp(raw_uri, "/websdr.css") == 0)
                 new_name = "/rx-websdr.css";
             if (new_name) {
                 unsigned char rb[LWS_PRE + 512];
