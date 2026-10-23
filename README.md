@@ -1,5 +1,7 @@
 # rx-websdr — Многодиапазонный WebSDR-сервер (RX888 / ka9q-radio)
 
+**Русский** | [English](README.en.md)
+
 WebSDR-сервер для работы с приёмником
 RX888MKII и программным стеком [ka9q-radio](https://github.com/ka9q/ka9q-radio)
 (Phil Karn, KA9Q). Отдаёт в браузер водопад и звук по WebSocket, декодируя
