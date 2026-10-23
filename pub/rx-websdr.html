@@ -39,45 +39,93 @@ if (location.port === '8091') { location.replace('https://websdr.srr-76.ru/'); }
     <header>
         <h2>RX-WEBSDR Ярославль  <a href="https://qth.arikado.ru/#LO07AQ98"> LO07AQ98</a> · RX888MKII</h2>
         <div class="info-drop">
-            <button type="button" class="info-drop-btn" onclick="var p=document.getElementById('infodrop'); p.style.display=(p.style.display==='block')?'none':'block';">О приёмнике ▾</button>
+            <button type="button" class="info-drop-btn" id="info-drop-btn" onclick="var p=document.getElementById('infodrop'); p.style.display=(p.style.display==='block')?'none':'block';">О приёмнике ▾</button>
             <div class="info-drop-panel" id="infodrop">
-                <h3>Наш RX-WEBSDR приёмник</h3>
-                <div>
-                    Находится в г. <b>Ярославль, Россия</b>, QTH локатор:
-                    <a href="http://k7fry.com/grid/?qth=LO07AQ" target="_blank">LO07AQ98LT</a><br>
-                    Работает под управлением ПО <b>RX-WEBSDR</b> с открытым кодом
-                    <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank">AndyLinwood/rx-websdr</a>.<br>
-                    В качестве приёмника используется модифицированный <b>RX888MKII</b>
-                    с исправленным драйвером и прошивкой FX3.<br>
-                    Вы можете <a href="mailto:r3mav@srr-76.ru">написать нам</a>, будем рады ответить.
+                <div style="display:flex; justify-content:flex-end; gap:4px; margin:0 0 6px;">
+                    <button type="button" id="info-lang-ru" onclick="rxSetInfoLang('ru')" style="background:var(--bg-panel);border:1px solid #374357;color:var(--text-main);border-radius:3px;padding:1px 7px;font-size:10px;cursor:pointer;">RU</button>
+                    <button type="button" id="info-lang-en" onclick="rxSetInfoLang('en')" style="background:var(--bg-panel);border:1px solid #374357;color:var(--text-main);border-radius:3px;padding:1px 7px;font-size:10px;cursor:pointer;">EN</button>
                 </div>
-                <hr style="border-color:var(--border-color);">
-                <h3>Глобальная сеть RX-WebSDR</h3>
-                <div>
-                    Присоединяйтесь к глобальной сети нового поколения RX-WebSDR!
-                    Мы объединяем SDR-приёмники по всему миру в единую независимую экосистему
-                    с открытым исходным кодом. Подключите ваше оборудование к проекту,
-                    и ваш сервер мгновенно появится на мировой интерактивной карте
-                    с live-статистикой и рейтингом слушателей в реальном времени.
-                </div>
-                <details>
-                    <summary>Подробнее о проекте и подключении...</summary>
-                    <div style="padding-top:6px;">
-                        <h3>Преимущества платформы</h3>
-                        <ul>
-                            <li>Безграничная многодиапазонность: произвольное число диапазонов одновременно на одном сервере без потери качества звука и детализации водопада.</li>
-                            <li>Настоящий Multicast: архитектура на основе RTP-потоков позволяет параллельно разворачивать независимые тестовые или публичные серверы на одной антенне.</li>
-                            <li>Лёгкость и стабильность: чистый код на C, конфигурация через один файл, минимальные требования к железу и надёжное управление через systemd.</li>
-                        </ul>
-                        <h3>Как стать частью сети?</h3>
-                        <ol>
-                            <li>Скачайте серверную часть из официального репозитория на GitHub: <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank">AndyLinwood/rx-websdr</a>.</li>
-                            <li>Включите автоматическую публикацию, установив директиву <code>registry_enabled yes</code> в <code>websdr.cfg</code>.</li>
-                            <li>Ваш позывной, QTH и параметры антенны сразу отобразятся на глобальном мониторе сети!</li>
-                        </ol>
+
+                <div class="info-lang ru" data-lang="ru">
+                    <h3>Наш RX-WEBSDR приёмник</h3>
+                    <div>
+                        Находится в г. <b>Ярославль, Россия</b>, QTH локатор:
+                        <a href="http://k7fry.com/grid/?qth=LO07AQ" target="_blank">LO07AQ98LT</a><br>
+                        Работает под управлением ПО <b>RX-WEBSDR</b> с открытым кодом
+                        <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank">AndyLinwood/rx-websdr</a>.<br>
+                        В качестве приёмника используется модифицированный <b>RX888MKII</b>
+                        с исправленным драйвером и прошивкой FX3.<br>
+                        Вы можете <a href="mailto:r3mav@srr-76.ru">написать нам</a>, будем рады ответить.
                     </div>
-                </details>
-                <a class="monitor-btn" href="https://srr-76.ru/listsdr.html" target="_blank" title="Список работающих в сети RX-WebSDR-серверов на карте мира">📡 Глобальный монитор RX-WebSDR</a>
+                    <hr style="border-color:var(--border-color);">
+                    <h3>Глобальная сеть RX-WebSDR</h3>
+                    <div>
+                        Присоединяйтесь к глобальной сети нового поколения RX-WebSDR!
+                        Мы объединяем SDR-приёмники по всему миру в единую независимую экосистему
+                        с открытым исходным кодом. Подключите ваше оборудование к проекту,
+                        и ваш сервер мгновенно появится на мировой интерактивной карте
+                        с live-статистикой и рейтингом слушателей в реальном времени.
+                    </div>
+                    <details>
+                        <summary>Подробнее о проекте и подключении...</summary>
+                        <div style="padding-top:6px;">
+                            <h3>Преимущества платформы</h3>
+                            <ul>
+                                <li>Безграничная многодиапазонность: произвольное число диапазонов одновременно на одном сервере без потери качества звука и детализации водопада.</li>
+                                <li>Настоящий Multicast: архитектура на основе RTP-потоков позволяет параллельно разворачивать независимые тестовые или публичные серверы на одной антенне.</li>
+                                <li>Лёгкость и стабильность: чистый код на C, конфигурация через один файл, минимальные требования к железу и надёжное управление через systemd.</li>
+                            </ul>
+                            <h3>Как стать частью сети?</h3>
+                            <ol>
+                                <li>Скачайте серверную часть из официального репозитория на GitHub: <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank">AndyLinwood/rx-websdr</a>.</li>
+                                <li>Включите автоматическую публикацию, установив директиву <code>registry_enabled yes</code> в <code>websdr.cfg</code>.</li>
+                                <li>Ваш позывной, QTH и параметры антенны сразу отобразятся на глобальном мониторе сети!</li>
+                            </ol>
+                        </div>
+                    </details>
+                    <a class="monitor-btn" href="https://srr-76.ru/listsdr.html" target="_blank" title="Список работающих в сети RX-WebSDR-серверов на карте мира">📡 Глобальный монитор RX-WebSDR</a>
+                </div>
+
+                <div class="info-lang en" data-lang="en" style="display:none;">
+                    <h3>Our RX-WEBSDR receiver</h3>
+                    <div>
+                        Located in <b>Yaroslavl, Russia</b>, QTH locator:
+                        <a href="http://k7fry.com/grid/?qth=LO07AQ" target="_blank">LO07AQ98LT</a><br>
+                        Runs on open-source <b>RX-WEBSDR</b> software
+                        <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank">AndyLinwood/rx-websdr</a>.<br>
+                        The receiver hardware is a modified <b>RX888MKII</b>
+                        with a fixed driver and FX3 firmware.<br>
+                        Feel free to <a href="mailto:r3mav@srr-76.ru">email us</a> — we are happy to answer.
+                    </div>
+                    <hr style="border-color:var(--border-color);">
+                    <h3>Global RX-WebSDR network</h3>
+                    <div>
+                        Join the next-generation global RX-WebSDR network!
+                        We unite SDR receivers around the world into a single
+                        independent open-source ecosystem. Connect your hardware
+                        to the project and your server will instantly appear on the
+                        world interactive map with live statistics and a real-time
+                        listener ranking.
+                    </div>
+                    <details>
+                        <summary>More about the project and how to join...</summary>
+                        <div style="padding-top:6px;">
+                            <h3>Platform advantages</h3>
+                            <ul>
+                                <li>Unlimited multi-band: any number of bands simultaneously on a single server, without losing audio quality or waterfall detail.</li>
+                                <li>True Multicast: an RTP-stream based architecture lets you run independent test or public servers in parallel on the same antenna.</li>
+                                <li>Lightweight and stable: clean C code, single-file configuration, minimal hardware requirements and reliable systemd management.</li>
+                            </ul>
+                            <h3>How to join the network?</h3>
+                            <ol>
+                                <li>Download the server software from the official GitHub repository: <a href="https://github.com/AndyLinwood/rx-websdr" target="_blank">AndyLinwood/rx-websdr</a>.</li>
+                                <li>Enable automatic publishing by setting the <code>registry_enabled yes</code> directive in <code>websdr.cfg</code>.</li>
+                                <li>Your callsign, QTH and antenna parameters will immediately appear on the global network monitor!</li>
+                            </ol>
+                        </div>
+                    </details>
+                    <a class="monitor-btn" href="https://srr-76.ru/listsdr.html" target="_blank" title="List of active RX-WebSDR servers on the world map">📡 Global RX-WebSDR monitor</a>
+                </div>
             </div>
         </div>
         <div class="btn-group">
@@ -559,6 +607,39 @@ document.addEventListener('click', function (ev) {
     if (wrap && !wrap.contains(ev.target) && d.style.display === 'block')
         d.style.display = 'none';
 });
+
+/* Двуязычная панель «О приёмнике»: RU/EN (выбор запоминается в localStorage + cookie .srr-76.ru) */
+function rxGetCookie(name) {
+    try {
+        var m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+        return m ? decodeURIComponent(m[1]) : null;
+    } catch (e) { return null; }
+}
+function rxSetInfoLang(l) {
+    if (l !== 'ru' && l !== 'en') l = 'ru';
+    try { localStorage.setItem('rx_infolang', l); } catch (e) {}
+    try { document.cookie = 'rx_lang=' + l + '; path=/; domain=.srr-76.ru; max-age=31536000'; } catch (e) {}
+    document.querySelectorAll('.info-lang').forEach(function (el) {
+        el.style.display = (el.getAttribute('data-lang') === l) ? '' : 'none';
+    });
+    var br = document.getElementById('info-lang-ru');
+    var be = document.getElementById('info-lang-en');
+    if (br) br.style.borderColor = (l === 'ru') ? 'var(--neon-blue)' : '#374357';
+    if (be) be.style.borderColor = (l === 'en') ? 'var(--neon-blue)' : '#374357';
+    var tb = document.getElementById('info-drop-btn');
+    if (tb) tb.textContent = (l === 'en') ? 'About receiver ▾' : 'О приёмнике ▾';
+    /* Ссылка на глобальный монитор: передаём выбранный язык параметром */
+    document.querySelectorAll('.info-drop-panel .monitor-btn').forEach(function (ml) {
+        ml.href = 'https://srr-76.ru/listsdr.html?lang=' + l;
+    });
+}
+(function () {
+    var s = 'ru';
+    try {
+        s = rxGetCookie('rx_lang') || localStorage.getItem('rx_infolang') || 'ru';
+    } catch (e) {}
+    rxSetInfoLang(s);
+})();
 </script>
 
 <!-- Копирайт в самом низу страницы -->
