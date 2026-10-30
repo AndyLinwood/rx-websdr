@@ -568,9 +568,15 @@ fail:
 
 /* forward declarations (chat handlers defined below serve_othersjj) */
 static int chat_emit(struct lws *wsi, unsigned client_chseq,
-                     char *body, int n, int cap);
+                     char *body, int n, int cap, unsigned *delivered_seq);
 static void chat_append(struct lws *wsi, const char *name, const char *msg);
 static unsigned g_chat_seq = 0;    /* highest chat sequence number issued */
+
+/* Сколько строк чата отдавать за один опрос: без лимита выдача журнала
+ * упирается в 64 КБ ответа, trailer chatseq=N; не помещается, курсор
+ * клиента не движется и те же строки дописываются при КАЖДОМ опросе
+ * (раз в секунду) — вечные дубли. */
+#define CHAT_MAX_LINES_PER_POLL 40
 
 /* ------------------------------------------------------------------ */
 /* /~~othersjj — "who is listening" list                              */
@@ -657,10 +663,18 @@ static int serve_othersjj(struct lws *wsi) {
         n += snprintf(body + n, sizeof(body) - n, "numusersobj.innerHTML=\"%d\";\n", nusers);
 
     /* Append new chat lines (if enabled) — see chat_emit() below. */
-    if (g_config && g_config->chat)
-        n = chat_emit(wsi, client_chatseq, body, n, (int)sizeof(body));
+    /* trailer chatseq=N; шлём ВСЕГДА: N = последний seq, реально выданный
+     * клиенту (а не общий g_chat_seq). Если trailer пропускается при
+     * переполнении 64 КБ — курсор клиента не движется и строки
+     * дублируются каждый опрос (раз в секунду). */
+    unsigned chat_trailer = g_chat_seq;
+    if (g_config && g_config->chat) {
+        unsigned delivered = client_chatseq;
+        n = chat_emit(wsi, client_chatseq, body, n, (int)sizeof(body) - 64, &delivered);
+        chat_trailer = delivered;
+    }
     if (n < (int)sizeof(body) - 32)
-        n += snprintf(body + n, sizeof(body) - n, "chatseq=%u;\n", g_chat_seq);
+        n += snprintf(body + n, sizeof(body) - n, "chatseq=%u;\n", chat_trailer);
 
     return serve_mem(wsi, body, (size_t)n, "text/javascript");
 }
@@ -976,15 +990,18 @@ static void chat_append(struct lws *wsi, const char *name, const char *msg) {
  * the cursor the client echoed back (client_chseq). Returns the new total
  * body length. */
 static int chat_emit(struct lws *wsi, unsigned client_chseq,
-                     char *body, int n, int cap) {
+                     char *body, int n, int cap, unsigned *delivered_seq) {
     if (!g_config || !g_config->chat) return n;
     chat_init_rows();
-    if (client_chseq >= g_chat_seq) return n;   /* nothing new for this client */
+    if (!delivered_seq) return n;
+    *delivered_seq = client_chseq;
+    if (client_chseq >= g_chat_seq) { *delivered_seq = g_chat_seq; return n; }
 
     FILE *fp = fopen(g_config->chatfile, "r");
     if (!fp) return n;
 
     char line[600];
+    int lines_sent = 0;
     while (fgets(line, sizeof(line), fp)) {
         /* line: <seq>\t<epoch>\t<name>\t<message>\n */
         char *f1 = strchr(line, '\t');
@@ -1047,6 +1064,8 @@ static int chat_emit(struct lws *wsi, unsigned client_chseq,
 
         n += snprintf(body + n, (size_t)(cap - n),
                       "chatnewline('%s');\n", esc);
+        *delivered_seq = seq;
+        if (++lines_sent >= CHAT_MAX_LINES_PER_POLL) break;
     }
     fclose(fp);
     return n;
