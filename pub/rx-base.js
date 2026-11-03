@@ -2563,6 +2563,31 @@ function document_waterfalls()
   }
 }
 
+/* Автозапуск звука (iOS/iPadOS Safari, macOS Safari/Chrome): AudioContext
+ * создаётся при загрузке страницы и без жеста пользователя заблокирован
+ * (state='suspended'/'interrupted') — поэтому на iPad и новых MacBook звука
+ * нет само по себе. Резюмируем по ПЕРВОМУ жесту (tap/click/pointer), чтобы
+ * звук включался сам, а не требовал искать полноэкранную кнопку. */
+(function () {
+    var done = false;
+    function resumeOnce() {
+        if (done) return;
+        done = true;
+        ['pointerdown', 'touchstart', 'click'].forEach(function (ev) {
+            document.removeEventListener(ev, resumeOnce, true);
+        });
+        try {
+            if (document.ct && document.ct.state && document.ct.state !== 'running') {
+                if (window.soundapplet && window.soundapplet.audioresume) soundapplet.audioresume();
+                else if (document.ct.resume) document.ct.resume();
+            }
+        } catch (e) {}
+    }
+    ['pointerdown', 'touchstart', 'click'].forEach(function (ev) {
+        document.addEventListener(ev, resumeOnce, true);
+    });
+})();
+
 function document_soundapplet() {
   // HTML5-звук всегда (см. комментарий про Java в document_waterfalls).
   if (typeof prep_html5sound =="function") prep_html5sound();
