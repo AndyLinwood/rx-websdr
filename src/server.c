@@ -16,6 +16,7 @@
 #include <time.h>
 #include <sys/time.h>
 #include <sys/resource.h>
+#include <sys/stat.h>
 #include <libwebsockets.h>
 
 #include "websdr.h"
@@ -570,6 +571,8 @@ fail:
 static int chat_emit(struct lws *wsi, unsigned client_chseq,
                      char *body, int n, int cap, unsigned *delivered_seq);
 static void chat_append(struct lws *wsi, const char *name, const char *msg);
+static void auth_ip_note(const char *name, const char *ip);
+static void auth_ip_persist(const char *name, const char *ip);
 static unsigned g_chat_seq = 0;    /* highest chat sequence number issued */
 
 /* Сколько строк чата отдавать за один опрос: без лимита выдача журнала
@@ -975,6 +978,9 @@ static void chat_append(struct lws *wsi, const char *name, const char *msg) {
     }
     mbuf[j] = 0;
 
+    auth_ip_note(nbuf, ip);      /* имя автора -> его реальный IP (для бана) */
+    auth_ip_persist(nbuf, ip);   /* + в персистентный журнал (переживает обрезку visitors.log) */
+
     unsigned seq = ++g_chat_seq;
     snprintf(line, sizeof(line), "%u\t%s\t%s\t%s\n", seq, tbuf, nbuf, mbuf);
 
@@ -1288,6 +1294,59 @@ static void banlist_add_unique(char out[BAN_IP_MAX][64], int *found,
     (*found)++;
 }
 
+/* Связь «имя автора чата → его реальный IP» (заполняется в chat_append).
+ * name в /~~chat — произвольный URL-аргумент, не обязательно равный username
+ * клиента (спам-скрипты пишут любой name). Чтобы бан ПО ИМЕНИ добавлял и IP
+ * отправителя, запоминаем последний IP для каждого имени автора. */
+#define AUTH_IP_MAX 64
+static char g_auth_name[AUTH_IP_MAX][48];
+static char g_auth_ip  [AUTH_IP_MAX][64];
+static int  g_auth_n = 0;
+
+static void auth_ip_note(const char *name, const char *ip) {
+    if (!name || !name[0] || !ip || !ip[0]) return;
+    char nlow[48];
+    int k = 0;
+    for (int i = 0; name[i] && k < (int)sizeof(nlow) - 1; i++) {
+        char c = name[i];
+        if (c >= 'A' && c <= 'Z') c = (char)(c - 'A' + 'a');
+        nlow[k++] = c;
+    }
+    nlow[k] = 0;
+    if (!nlow[0]) return;
+    for (int i = 0; i < g_auth_n; i++)
+        if (strcmp(g_auth_name[i], nlow) == 0) {
+            snprintf(g_auth_ip[i], sizeof(g_auth_ip[i]), "%s", ip);
+            return;
+        }
+    if (g_auth_n < AUTH_IP_MAX) {
+        snprintf(g_auth_name[g_auth_n], sizeof(g_auth_name[g_auth_n]), "%s", nlow);
+        snprintf(g_auth_ip[g_auth_n],   sizeof(g_auth_ip[g_auth_n]),   "%s", ip);
+        g_auth_n++;
+    } else {
+        memmove(&g_auth_name[0], &g_auth_name[1], (AUTH_IP_MAX - 1) * sizeof(g_auth_name[0]));
+        memmove(&g_auth_ip[0],   &g_auth_ip[1],   (AUTH_IP_MAX - 1) * sizeof(g_auth_ip[0]));
+        snprintf(g_auth_name[AUTH_IP_MAX - 1], sizeof(g_auth_name[0]), "%s", nlow);
+        snprintf(g_auth_ip[AUTH_IP_MAX - 1],   sizeof(g_auth_ip[0]),   "%s", ip);
+    }
+}
+
+/* Персистентный журнал авторов чата: "epoch\tname\tIP\n" (authoripsfile).
+ * Размер ограничен — при превышении файл усекается и пишется заново. */
+#define AUTHIP_FILE_MAX (2*1024*1024)
+
+static void auth_ip_persist(const char *name, const char *ip) {
+    if (!name || !name[0] || !ip || !ip[0]) return;
+    if (!g_config || g_config->authoripsfile[0] == 0) return;
+    struct stat st;
+    if (stat(g_config->authoripsfile, &st) == 0 && st.st_size > AUTHIP_FILE_MAX)
+        fclose(fopen(g_config->authoripsfile, "w"));
+    FILE *fp = fopen(g_config->authoripsfile, "a");
+    if (!fp) return;
+    fprintf(fp, "%ld\t%s\t%s\n", (long)time(NULL), name, ip);
+    fclose(fp);
+}
+
 static void lookup_name_ips(const char *name, char out[BAN_IP_MAX][64]) {
     int found = 0;
     char nlow[96];
@@ -1350,6 +1409,42 @@ static void lookup_name_ips(const char *name, char out[BAN_IP_MAX][64]) {
                     if (nm[j] >= 'A' && nm[j] <= 'Z')
                         nm[j] = (char)(nm[j] - 'A' + 'a');
                 if (strcmp(nm, nlow) == 0)
+                    banlist_add_unique(out, &found, ip);
+            }
+            fclose(fp);
+        }
+    }
+
+    /* 3) недавние авторы чата (в памяти, из chat_append). */
+    for (int i = 0; i < g_auth_n; i++)
+        if (strcmp(g_auth_name[i], nlow) == 0)
+            banlist_add_unique(out, &found, g_auth_ip[i]);
+
+    /* 4) персистентный журнал авторов чата — переживает обрезку visitors.log
+     * (короткое окно) и рестарты. Формат: "epoch\tname\tIP\n". */
+    if (g_config && g_config->authoripsfile[0]) {
+        FILE *fp = fopen(g_config->authoripsfile, "r");
+        if (fp) {
+            char line[160];
+            while (fgets(line, sizeof(line), fp)) {
+                char *t1 = strchr(line, '\t');
+                if (!t1) continue;
+                char *t2 = strchr(t1 + 1, '\t');
+                if (!t2) continue;
+                *t2 = 0;
+                char *nm = t1 + 1;
+                char *ip = t2 + 1;
+                char *e = ip + strlen(ip);
+                while (e > ip && (e[-1] == '\n' || e[-1] == '\r')) *--e = 0;
+                char nlow2[96];
+                int k2 = 0;
+                for (int i = 0; nm[i] && k2 < (int)sizeof(nlow2) - 1; i++) {
+                    char cc = nm[i];
+                    if (cc >= 'A' && cc <= 'Z') cc = (char)(cc - 'A' + 'a');
+                    nlow2[k2++] = cc;
+                }
+                nlow2[k2] = 0;
+                if (strcmp(nlow2, nlow) == 0)
                     banlist_add_unique(out, &found, ip);
             }
             fclose(fp);

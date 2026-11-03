@@ -116,6 +116,8 @@ int config_load(const char *filename, struct websdr_config *config) {
                 strncpy(config->visitorsfile, trim(p), sizeof(config->visitorsfile)-1);
             else if (strcmp(key, "visitorsmax") == 0 && p)
                 config->visitorsmax = atol(p) ? atol(p) : 2*1024*1024;
+            else if (strcmp(key, "authoripsfile") == 0 && p)
+                strncpy(config->authoripsfile, trim(p), sizeof(config->authoripsfile)-1);
             else if (strcmp(key, "buttonlink") == 0 && p) {
                 /* Диапазонная кнопка-ссылка: "buttonlink <метка>|<URL>".
                  * Разделитель '|' — URL может содержать пробелы/спецсимволы. */
@@ -175,6 +177,7 @@ fprintf(stderr, "[CONFIG] %s freqoffset=%.2f center=%.1f eff=%.3f\n",
     if (config->chatfile[0] == 0) strcpy(config->chatfile, "chat.log");
     config->visitors = 1;
     if (config->visitorsfile[0] == 0) strcpy(config->visitorsfile, "visitors.log");
+    if (config->authoripsfile[0] == 0) strcpy(config->authoripsfile, "authorips.log");
     if (config->banfile[0] == 0) strcpy(config->banfile, "banlist.txt");
     if (config->visitorsmax <= 0) config->visitorsmax = 2*1024*1024;
     if (config->fftplaneffort == 0) config->fftplaneffort = 0; /* 0 = FFTW_ESTIMATE */
@@ -239,6 +242,7 @@ int config_reload_hot(struct websdr_config *live) {
     strncpy(live->chatfile, tmp->chatfile, sizeof(live->chatfile)-1);
     live->visitors  = tmp->visitors;
     strncpy(live->visitorsfile, tmp->visitorsfile, sizeof(live->visitorsfile)-1);
+    strncpy(live->authoripsfile, tmp->authoripsfile, sizeof(live->authoripsfile)-1);
     live->visitorsmax = tmp->visitorsmax;
 
     /* Admin chat moderation: password / ban-file path — safe to swap on the
