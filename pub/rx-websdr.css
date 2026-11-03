@@ -21,6 +21,9 @@
             display: flex;
             flex-direction: column;
             align-items: center;
+	    -webkit-font-smoothing: antialiased !important;
+	    -moz-osx-font-smoothing: grayscale !important;
+	    text-rendering: optimizeLegibility !important;
         }
 
         .container {

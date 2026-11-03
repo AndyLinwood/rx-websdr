@@ -269,7 +269,8 @@
 127500am Moscow Control MW
 128000am Moscow Approach South
 144000fm >2m
-144430cw Beacon UA3MRS/b
+144428.3usb UA3MRS/b
+144444,44usb RA5CB/b
 145300fm RM3MM-L
 145350fm RO3M-L
 145425fm EchoLink
