@@ -149,7 +149,6 @@ struct websdr_config {
     char  banfile[256];     /* ban list path (default "<cwd>/banlist.txt") */
     int   visitors;         /* 1 = visitor logging enabled (default 1) */
     char  visitorsfile[256];/* visitor log path (default "<cwd>/visitors.log") */
-    char  authoripsfile[256];/* chat-author -> IP journal (default "authorips.log") */
     long  visitorsmax;      /* rotate once log exceeds this many bytes (default 2 MB) */
     int   nbuttonlinks;     /* count of buttonlink entries */
     struct buttonlink buttonlinks[MAX_BUTTONLINKS];
